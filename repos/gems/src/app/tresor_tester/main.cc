@@ -44,6 +44,7 @@ namespace Tresor_tester {
 	using namespace Tresor;
 
 	using Salt = uint64_t;
+	using Command_id = uint64_t;
 
 	class Log_node;
 	class Benchmark_node;
@@ -267,15 +268,22 @@ struct Tresor_tester::Request_node
 };
 
 
-class Tresor_tester::Command : public Module_channel
+class Tresor_tester::Command : private Avl_node<Command>
 {
+	friend class Main;
+	friend class Avl_node<Command>;
+	friend class Avl_tree<Command>;
+
 	public:
 
 		enum Type { INVALID, REQUEST, TRUST_ANCHOR, BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK, CHECK_SNAPSHOTS, LOG };
 
 		enum State {
-			PENDING, INIT_SUPERBLOCKS = 13, INIT_SUPERBLOCKS_SUCCEEDED, TRESOR_REQUEST, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED,
-			CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED = 12 };
+			NEW_INIT, NEW_IN_PROGRESS, NEW_COMPLETE,
+			PENDING, INIT_SUPERBLOCKS, INIT_SUPERBLOCKS_SUCCEEDED, TRESOR_REQUEST, INIT_TRUST_ANCHOR, INIT_TRUST_ANCHOR_SUCCEEDED,
+			CHECK_SB, CHECK_SB_SUCCEEDED, IN_PROGRESS, CREATE_SNAP_COMPLETED, DISCARD_SNAP_COMPLETED, COMPLETED };
+
+		using Module = Main;
 
 	private:
 
@@ -283,8 +291,8 @@ class Tresor_tester::Command : public Module_channel
 
 		Tresor_tester::Main &_main;
 		Type _type { INVALID };
-		Module_channel_id _id { 0 };
-		State _state { PENDING };
+		Command_id _id { 0 };
+		State _state { NEW_INIT };
 		bool _success { false };
 		Generation _gen { INVALID_GENERATION };
 		bool _data_mismatch { false };
@@ -293,8 +301,8 @@ class Tresor_tester::Command : public Module_channel
 		Constructible<Benchmark_node> _benchmark_node { };
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
+		Trust_anchor::Initialize *_init_trust_anchor_ptr { };
 		void *_request_ptr { nullptr };
-		Constructible<Tresor::Request> _request { };
 
 		template <typename DST_REQ> bool _type_matches();
 
@@ -307,8 +315,6 @@ class Tresor_tester::Command : public Module_channel
 		};
 
 		NONCOPYABLE(Command);
-
-		void _generated_req_completed(State_uint state_uint) override;
 
 		static char const *_type_to_string(Type type)
 		{
@@ -341,11 +347,13 @@ class Tresor_tester::Command : public Module_channel
 			ASSERT_NEVER_REACHED;
 		}
 
+		bool higher(Command *other_ptr) { return other_ptr->_id > _id; }
+
 	public:
 
-		Command(Xml_node const &node, Tresor_tester::Main &main, Module_channel_id id)
+		Command(Xml_node const &node, Tresor_tester::Main &main, Command_id id)
 		:
-			Module_channel(COMMAND_POOL, id), _main(main), _type(_type_from_string(node.type())), _id(id)
+			_main(main), _type(_type_from_string(node.type())), _id(id)
 		{
 			switch (_type) {
 			case INITIALIZE: _initialize.construct(node); break;
@@ -355,6 +363,17 @@ class Tresor_tester::Command : public Module_channel
 			case LOG: _log_node.construct(node); break;
 			default: break;
 			}
+		}
+
+		template <typename FUNC>
+		void with_command(Command_id id, FUNC && func)
+		{
+			if (id != _id) {
+				Command *cmd_ptr { Avl_node<Command>::child(id > _id) };
+				ASSERT(cmd_ptr);
+				cmd_ptr->with_command(id, func);
+			} else
+				func(*this);
 		}
 
 		bool in_progress()
@@ -403,7 +422,7 @@ class Tresor_tester::Command : public Module_channel
 
 		Type type() const { return _type ; }
 		State state() const { return _state ; }
-		Module_channel_id id() const { return _id ; }
+		Command_id id() const { return _id ; }
 		bool success() const { return _success ; }
 		bool data_mismatch() const { return _data_mismatch ; }
 		Request_node const &request_node() const { return *_request_node ; }
@@ -417,8 +436,6 @@ class Tresor_tester::Command : public Module_channel
 		void data_mismatch (bool data_mismatch) { _data_mismatch = data_mismatch; }
 
 		void execute(bool &progress);
-
-		using Module = Main;
 
 		void generated_req_failed(bool &progress) { mark_failed(progress, "generated request failed"); }
 
@@ -484,7 +501,7 @@ struct Tresor_tester::Snapshot_reference_tree : public Avl_tree<Snapshot_referen
 
 class Tresor_tester::Main
 :
-	private Vfs::Env::User, private Module_composition, public Module, public Client_data_interface,
+	private Vfs::Env::User, public Client_data_interface,
 	public Crypto_key_files_interface
 {
 	private:
@@ -498,6 +515,7 @@ class Tresor_tester::Main
 
 		Genode::Env &_env;
 		Attached_rom_dataspace _config_rom { _env, "config" };
+		Avl_tree<Command> _commands { };
 		Tresor::Path const _crypto_path { _config_rom.xml().sub_node("crypto").attribute_value("path", Tresor::Path()) };
 		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
 		Tresor::Path const _trust_anchor_path { _config_rom.xml().sub_node("trust-anchor").attribute_value("path", Tresor::Path()) };
@@ -513,7 +531,6 @@ class Tresor_tester::Main
 		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Signal_handler<Main> _signal_handler { _env.ep(), *this, &Main::_handle_signal };
 		Benchmark _benchmark { _env };
-		Module_channel_id _next_command_id { 0 };
 		unsigned long _num_uncompleted_cmds { 0 };
 		unsigned long _num_errors { 0 };
 		Tresor::Block _blk_data { };
@@ -583,11 +600,18 @@ class Tresor_tester::Main
 		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
 
 		template <typename FUNC>
+		void for_each_command(FUNC && func)
+		{
+			_commands.for_each([&] (Command const &cmd) {
+				func(*const_cast<Command *>(&cmd)); });
+		}
+
+		template <typename FUNC>
 		void _with_first_processable_cmd(FUNC && func)
 		{
 			bool first_uncompleted_cmd { true };
 			bool done { false };
-			for_each_channel<Command>([&] (Command &cmd)
+			for_each_command([&] (Command &cmd)
 			{
 				if (done)
 					return;
@@ -609,36 +633,131 @@ class Tresor_tester::Main
 		void _try_end_program()
 		{
 			if (_num_uncompleted_cmds == 0) {
-				if (_num_errors > 0) {
-					for_each_channel<Command>([&] (Command &cmd) {
-						if (cmd.state() != Command::COMPLETED)
-							return;
-
-						if (cmd.success() && (!cmd.may_have_data_mismatch() || !cmd.data_mismatch()))
-							return;
-
-						log("cmd failed: ", cmd);
-					});
-					_env.parent().exit(-1);
-				} else
-					_env.parent().exit(0);
 			}
 		}
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
+		void _start_command(Command &cmd)
+		{
+			switch (cmd._type) {
+			case Command::TRUST_ANCHOR:
+			{
+				Trust_anchor_node &node { *cmd._trust_anchor_node };
+				ASSERT(node.op == Trust_anchor_node::INITIALIZE);
+				cmd._init_trust_anchor_ptr = new (_heap) Trust_anchor::Initialize({node.passphrase});
+				cmd._state = Command::NEW_IN_PROGRESS;
+				break;
+			}
+			case Command::LOG:
+
+				cmd._state = Command::NEW_IN_PROGRESS;
+				break;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+		}
+
+		bool _execute_command(Command &cmd, bool &cmd_complete)
+		{
+			cmd_complete = false;
+			bool progress = false;
+			switch (cmd._type) {
+			case TRUST_ANCHOR:
+			{
+				Trust_anchor::Initialize &req = *cmd._init_trust_anchor_ptr;
+				progress |= _trust_anchor.execute(req);
+				if (req.complete()) {
+					cmd._state = Command::NEW_COMPLETE;
+					cmd_complete = true;
+					destroy(_heap, &req);
+					progress = true;
+				}
+				break;
+			}
+			case Command::LOG:
+
+				log("\n", cmd._log_node->string, "\n");
+				cmd._state = Command::NEW_COMPLETE;
+				cmd_complete = true;
+				progress = true;
+				break;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+			return progress;
+		}
+
+		bool _execute_commands(bool &all_cmds_complete)
+		{
+			all_cmds_complete = true;
+			bool cmds_in_progress = false;
+			bool progress = false;
+			bool ignore_remaining_cmds = false;
+			Command *last_cmd_ptr { };
+			for_each_command([&] (Command &cmd)
+			{
+				/*
+				 * Commands that are processed by different top-level modules
+				 * (tresor request scheduler, tresor initializer,
+				 * tresor check, trust anchor) must always be serialized.
+				 */
+				if (last_cmd_ptr && last_cmd_ptr->type() != cmd.type())
+					ignore_remaining_cmds = true;
+
+				if (ignore_remaining_cmds)
+					return;
+
+				switch (cmd._state) {
+				case Command::NEW_INIT:
+
+					all_cmds_complete = false;
+					if (cmd.synchronize() && cmds_in_progress) {
+						ignore_remaining_cmds = true;
+						break;
+					}
+					_start_command(cmd);
+					progress = true;
+					break;
+
+				case Command::NEW_IN_PROGRESS:
+
+					bool cmd_complete;
+					progress |= _execute_command(cmd, cmd_complete);
+					if (!cmd_complete) {
+						all_cmds_complete = false;
+						cmds_in_progress = true;
+					}
+					break;
+
+				default: break;
+				}
+				last_cmd_ptr = &cmd;
+			});
+			return progress;
+		}
+
 		void _handle_signal()
 		{
-			execute_modules();
-			_try_end_program();
+			bool all_cmds_complete;
+			while (_execute_commands(all_cmds_complete));
+			if (all_cmds_complete) {
+				if (_num_errors) {
+					error(_num_errors, " command", _num_errors > 1 ? "s" : "", " failed!");
+					_env.parent().exit(-1);
+				} else {
+					log("All commands succeeded!");
+					_env.parent().exit(0);
+				}
+			}
 			_wakeup_back_end_services();
 		}
 
 		void wakeup_vfs_user() override { _signal_handler.local_submit(); }
 
-		void execute(bool &progress) override
+		void execute(bool &progress)
 		{
-			for_each_channel<Command>([&] (Command &cmd) {
+			for_each_command([&] (Command &cmd) {
 				progress |= cmd.new_execute(_sb_check, _vbd_check, _ft_check, _block_io, _trust_anchor, _sb_initializer, _vbd_initializer, _ft_initializer); });
 
 			_with_first_processable_cmd([&] (Command &cmd) {
@@ -656,9 +775,9 @@ class Tresor_tester::Main
 
 		Main(Genode::Env &env) : _env(env)
 		{
-			add_module(COMMAND_POOL, *this);
+			Command_id command_id { 0 };
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
-				add_channel(*new (_heap) Command(node, *this, _next_command_id++));
+				_commands.insert(new (_heap) Command(node, *this, command_id++));
 				_num_uncompleted_cmds++;
 			});
 			_handle_signal();
@@ -675,17 +794,24 @@ class Tresor_tester::Main
 			_request_scheduler->add_request(req);
 		}
 
-		void mark_command_in_progress(Module_channel_id cmd_id)
+		template <typename FUNC>
+		void with_command(Command_id id, FUNC && func)
 		{
-			with_channel<Command>(cmd_id, [&] (Command &cmd) {
+			ASSERT(_commands.first());
+			_commands.first()->with_command(id, func);
+		}
+
+		void mark_command_in_progress(Command_id cmd_id)
+		{
+			with_command(cmd_id, [&] (Command &cmd) {
 				ASSERT(cmd.state() == Command::PENDING);
 				cmd.state(Command::IN_PROGRESS);
 			});
 		}
 
-		void mark_command_completed(Module_channel_id cmd_id, bool success)
+		void mark_command_completed(Command_id cmd_id, bool success)
 		{
-			with_channel<Command>(cmd_id, [&] (Command &cmd) {
+			with_command(cmd_id, [&] (Command &cmd) {
 				ASSERT(cmd.in_progress());
 				cmd.state(Command::COMPLETED);
 				_num_uncompleted_cmds--;
@@ -734,7 +860,7 @@ class Tresor_tester::Main
 
 		void obtain_data(Obtain_data_attr const &attr) override
 		{
-			with_channel<Command>(attr.in_req_tag, [&] (Command &cmd) {
+			with_command(attr.in_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail)
@@ -745,7 +871,7 @@ class Tresor_tester::Main
 
 		void supply_data(Supply_data_attr const &attr) override
 		{
-			with_channel<Command>(attr.in_req_tag, [&] (Command &cmd) {
+			with_command(attr.in_req_tag, [&] (Command &cmd) {
 				ASSERT(cmd.type() == Command::REQUEST);
 				Request_node const &req_node { cmd.request_node() };
 				if (req_node.salt_avail) {
@@ -820,6 +946,7 @@ class Tresor_tester::Main
 };
 
 
+/*
 void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 {
 	if (state_uint == CREATE_SNAP_COMPLETED)
@@ -830,6 +957,7 @@ void Tresor_tester::Command::_generated_req_completed(State_uint state_uint)
 
 	_main.mark_command_completed(id(), _success);
 }
+*/
 
 
 bool Tresor_tester::Command::new_execute(

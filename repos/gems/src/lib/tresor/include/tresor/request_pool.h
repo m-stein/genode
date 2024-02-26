@@ -88,6 +88,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		bool execute(Execute_attr const &attr)
 		{
+log("request::",__func__,__LINE__, " ", op_to_string(_op), " vba ", _vba, " cnt ", _count);
 			bool progress = false;
 			switch (_op) {
 			case Request::INITIALIZE:
@@ -104,10 +105,17 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 				switch (_helper.state) {
 				case INIT:
+log("request::",__func__,__LINE__);
 					_read_vbas.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _vba, _count, _offset, _tag);
 					break;
-				case SB_CONTROL_REQ: progress |= _read_vbas.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
-				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				case SB_CONTROL_REQ:
+
+log("request::",__func__,__LINE__);
+progress |= _read_vbas.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
+				case SB_CONTROL_REQ_SUCCEEDED:
+
+log("request::",__func__,__LINE__);
+_helper.mark_succeeded(progress); break;
 				default: break;
 				}
 				break;

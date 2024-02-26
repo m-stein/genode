@@ -44,20 +44,26 @@ bool Block_io::Read::execute(Vfs::Vfs_handle &file)
 	switch (_helper.state) {
 	case INIT:
 
+log("blk_io::read::",__func__,__LINE__);
 		_file.construct(_helper.state, file);
 		_helper.state = READ;
 		progress = true;
 		break;
 
-	case READ: _file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_block, BLOCK_SIZE }, progress); break;
+	case READ:
+log("blk_io::read::",__func__,__LINE__);
+_file->read(READ_OK, FILE_ERR, _attr.in_pba * BLOCK_SIZE, { (char *)&_attr.out_block, BLOCK_SIZE }, progress); break;
 	case READ_OK:
 
+log("blk_io::read::",__func__,__LINE__);
 		_helper.mark_succeeded(progress);
 		if (VERBOSE_BLOCK_IO && (!VERBOSE_BLOCK_IO_PBA_FILTER || VERBOSE_BLOCK_IO_PBA == _attr.in_pba))
 			log("block_io: ", *this, " hash ", hash(_attr.out_block));
 		break;
 
-	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
+	case FILE_ERR:
+log("blk_io::read::",__func__,__LINE__);
+_helper.mark_failed(progress, "file operation failed"); break;
 	default: break;
 	}
 	return progress;

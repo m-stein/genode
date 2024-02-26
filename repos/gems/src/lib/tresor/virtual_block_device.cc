@@ -50,15 +50,19 @@ bool Virtual_block_device::Read_vba::execute(Client_data_interface &client_data,
 	switch (_helper.state) {
 	case INIT:
 
+log("vbd::read::",__func__,__LINE__);
 		_lvl = _attr.in_snap.max_level;
 		_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _attr.in_snap.pba, _blk);
 		if (VERBOSE_READ_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), _attr.in_snap);
 		break;
 
-	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK:
+log("vbd::read::",__func__,__LINE__);
+progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
+log("vbd::read::",__func__,__LINE__);
 		if (!_check_and_decode_read_blk(progress))
 			break;
 
@@ -87,9 +91,12 @@ bool Virtual_block_device::Read_vba::execute(Client_data_interface &client_data,
 				_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
 		break;
 	}
-	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
+	case DECRYPT_BLOCK:
+log("vbd::read::",__func__,__LINE__);
+progress |= _decrypt_block.execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
+log("vbd::read::",__func__,__LINE__);
 		if (VERBOSE_READ_VBA)
 			log("    ", Branch_lvl_prefix("plaintext:  "), _blk, " ", hash(_blk));
 

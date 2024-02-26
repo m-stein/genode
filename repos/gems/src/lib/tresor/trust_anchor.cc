@@ -136,8 +136,10 @@ bool Trust_anchor::Initialize::execute(Trust_anchor::Attr const &ta_attr)
 
 		if (strcmp(_result_buf, "ok", sizeof(_result_buf)))
 			_helper.mark_failed(progress, {"trust anchor did not return \"ok\""});
-		else
+		else {
+			log("finished");
 			_helper.mark_succeeded(progress);
+}
 		break;
 
 	case FILE_ERR: _helper.mark_failed(progress, "file operation failed"); break;
