@@ -327,63 +327,40 @@ Date:   Fri Feb 9 19:24:43 2024 +0100
 De-privileged tracing
 =====================
 
-; @nfeske
+Genode got equipped with a light-weight event tracing facility in
+[https://genode.org/documentation/release-notes/13.08#Light-weight_event_tracing - version 13.08].
+The underlying core service - appropriately named TRACE - used to be an
+outlier among core's services in that it provided a privileged interface with
+system-global reach. A trace client is assumed to play a special role and must
+be ultimately trusted. This is arguable fine for the typical use cases where
+event tracing is used in the lab. However, anticipating on-target debugging
+on Sculpt OS, the desire for on-target tracing by untrusted trace monitors
+casually running on Sculpt OS is anything but far-fetched. To allow for the
+secure use of untrusted trace monitors, the global reach of core's trace
+service is no longer satisfactory.
 
-commit bfe88307de73e33c730601216bb91f743af50671
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Dec 1 17:52:57 2023 +0100
+The current release changes core's trace service to expose trace subjects
+only if their PD label matches the label of the trace monitor. Hence, by
+default, a trace monitor can only observe itself and its child components.
+Only if the trace monitor's parent rewrites the trace-session's label, the
+view of trace monitor can become broader. For example, when rewriting the
+trace label to an empty string "", the trace monitor becomes able to observe
+the sibling components hosted in the same init instance as the trace monitor.
+Note that the trace-subject label as reported as subject info to a trace
+monitor is now given relative to the label of the trace session.
 
-    core: filter trace subjects by TRACE session label
-    
-    This patch changes core's TRACE service to expose trace subjects only if
-    their PD label matches the label of the TRACE monitor. Hence, by default,
-    a trace monitor can only observe itself and its child components. Only
-    if the trace monitor's parent rewrites the trace-session's label, the
-    view of trace monitor can become broader. For example, when rewriting
-    the trace label to an empty string "", the trace monitor becomes able to
-    observe the sibling components hosted in the same init instance as the
-    trace monitor.
-    
-    To grant a trace session the special privilege of obtaining a global
-    system view (including the kernel's trace subjects), the top-level init
-    has to rewrite the session's label to an empty string. At core, this
-    specific label "init -> " is handled as a special case that discharges
-    the filtering/namespacing of trace subjects.
-    
-    Note that the trace-subject label as reported as subject info is now
-    given relative to the label of the trace session. As a nice side effect
-    of this change, the pkg/test-trace_logger works now when executed by the
-    depot_autopilot as well as via the test.run script.
-    
-    Issue #847
+To grant a trace session the special privilege of obtaining a global
+system view (including the kernel's trace subjects), the top-level init
+has to rewrite the session's label to an empty string. At core, this
+specific label "init -> " is handled as a special case that discharges
+the namespacing of trace subjects.
 
-commit f66ce025d33e7255b36f216834b4a45e40a19217
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Dec 4 11:53:26 2023 +0100
-
-    Adapt run scripts to trace-subject filtering
-    
-    Issue #847
-
-commit 12b89852e0cee4fa5b5c4ae2ec2307c136481c8d
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Fri Dec 1 17:54:15 2023 +0100
-
-    sculpt: add "runtime" and "global" TRACE options
-    
-    Issue #847
-
-commit f57da7e6452605e9a7ca8b9146f4c5f12d0792d2
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Dec 4 14:22:49 2023 +0100
-
-    trace: remove parent_levels session argument
-    
-    The argument was originally designated to restrict the reach of the
-    trace monitor but the idea remained unimplemented. It is now superseded
-    by the use of the trace-session label as trace-subject filter.
-    
-    Issue #847
+In Sculpt OS, the user can now select one of three options when connecting a
+trace monitor to core's trace service. The "component" option restricts the
+tracing to the trace monitor itself, the "deployment" option exposes the
+entire runtime subsystem to the trace monitor, whereas the "system" option
+exposes the entire Sculpt system to the trace monitor. The latter two options
+require adequate trust in the trace monitor.
 
 
 Deferred unlinking of files in VFS RAM file systems
