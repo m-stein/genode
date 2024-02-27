@@ -306,6 +306,7 @@ class Tresor_tester::Command : private Avl_node<Command>
 		Trust_anchor::Initialize *_init_trust_anchor_ptr { };
 		Sb_initializer::Initialize *_init_superblocks_ptr { };
 		Sb_check::Check *_check_superblocks_ptr { };
+		Request *_tresor_request_ptr { };
 		void *_request_ptr { nullptr };
 
 		template <typename DST_REQ> bool _type_matches();
@@ -657,6 +658,13 @@ class Tresor_tester::Main
 				log("start command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
 		}
 
+		void _mark_command_complete(Command &cmd)
+		{
+			cmd._state = Command::NEW_COMPLETE;
+			if (VERBOSE)
+				log("finish command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
+		}
+
 		void _start_command(Command &cmd)
 		{
 			switch (cmd._type) {
@@ -699,6 +707,19 @@ class Tresor_tester::Main
 				_mark_command_in_progress(cmd);
 				break;
 
+			case Command::REQUEST:
+			{
+				Request_node const &node { *cmd._request_node };
+				cmd._gen = node.op == Request::DISCARD_SNAPSHOT ? snap_id_to_gen(node.snap_id) : 0;
+				cmd._tresor_request_ptr = new (_heap) Request(
+					node.op, node.has_vba() ? node.vba : 0, 0, node.has_count() ? node.count : 0, 0,
+					cmd._id, cmd._gen, cmd._success);
+
+				_request_scheduler->add_request(*cmd._tresor_request_ptr);
+				_mark_command_in_progress(cmd);
+				break;
+			}
+			case Command::CONSTRUCT:
 			case Command::LOG: _mark_command_in_progress(cmd); break;
 			default: ASSERT_NEVER_REACHED;
 			}
@@ -710,12 +731,9 @@ class Tresor_tester::Main
 			if (!req.complete())
 				return false;
 
-			cmd._state = Command::NEW_COMPLETE;
 			destroy(_heap, &req);
 			progress = true;
-			if (VERBOSE)
-				log("finish command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
-
+			_mark_command_complete(cmd);
 			return true;
 		}
 
@@ -738,14 +756,30 @@ class Tresor_tester::Main
 				cmd_complete = _try_complete_command(cmd, req, progress);
 				break;
 			}
+			case Command::CONSTRUCT:
+
+				_meta_tree.construct();
+				_free_tree.construct();
+				_vbd.construct();
+				_sb_control.construct();
+				_request_scheduler.construct();
+				_mark_command_complete(cmd);
+				cmd_complete = true;
+				progress = true;
+				break;
+
+			case Command::REQUEST:
+			{
+				progress |= _request_scheduler->execute({*_sb_control, *this, *_vbd, *_free_tree, *_meta_tree, _block_io, _trust_anchor, _crypto });
+				cmd_complete = _try_complete_command(cmd, *cmd._tresor_request_ptr, progress);
+				break;
+			}
 			case Command::LOG:
 
 				log("\n", cmd._log_node->string, "\n");
-				cmd._state = Command::NEW_COMPLETE;
+				_mark_command_complete(cmd);
 				cmd_complete = true;
 				progress = true;
-				if (VERBOSE)
-					log("finish command ", cmd._id, ": log");
 				break;
 
 			case Command::CHECK:

@@ -103,7 +103,7 @@ class Tresor::File
 				size_t num_read_bytes { 0 };
 				Byte_range_ptr curr_dst { dst.start + _num_processed_bytes, dst.num_bytes - _num_processed_bytes };
 				switch (_handle.fs().complete_read(&_handle, curr_dst, num_read_bytes)) {
-				case Read_result::READ_QUEUED: break;
+				case Read_result::READ_QUEUED:
 				case Read_result::READ_ERR_WOULD_BLOCK: break;
 				case Read_result::READ_OK:
 
