@@ -555,18 +555,23 @@ Date:   Mon Feb 5 16:35:40 2024 +0100
 Multi-client use of Vivante GPU (i.MX8)
 =======================================
 
-; @cnuke
+In this release we brought our port of the etnaviv driver, which was still
+limited to one client only, up to speed and it now joins the other GPU
+drivers in providing multi-client support.
 
-commit a635c664f0e40feada31c2cf4eea668cc0fa5843
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Jan 12 17:06:45 2024 +0100
+Back in release
+[https://genode.org/documentation/release-notes/21.11#Vivante_GPUs__i.MX8_ - 21.11],
+we added support for the Vivante GC7000L GPU featured in the i.MX8MQ
+SoC to Genode via a port of the etnaviv Linux and Mesa3D driver. As a
+blueprint, it served us well when enabling another GPU for a different
+ARMv8 SoC, namely the Mali GPU in the PinePhone. The etnaviv port itself,
+however, never left its initial state and could cater to one client only. For
+this reason it was co-located and deployed in tandem with the client requiring
+its service. This factor somewhat restricted its usefulness in Sculpt when
+used in a desktop-like capacity on, e.g., the MNT Reform.
 
-    imx8mq_gpu_drv: enable multi-client support
-    
-    This commit adds support for executing multiple clients concurrently,
-    where every client is handled by its own kernel task.
-    
-    Fixes #8.
+With have lifted this limitation and the driver is now able to accommodate
+multiple concurrent clients.
 
 
 Libraries and applications
@@ -667,47 +672,14 @@ Date:   Wed Jan 10 22:48:58 2024 +0100
 Lighttpd web server version 1.4.73
 ==================================
 
-; @cnuke
+We updated our port of the [https://www.lighttpd.net - lighttpd] HTTP server
+and at the same time also extended its feature-set by enabling the WebDAV
+module.
 
-commit ac790cd6fb04c56de6a39543c070fb3af50a0e8c
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Thu Nov 30 19:26:14 2023 +0000
-
-    ports: update lighttpd to 1.4.73
-    
-    genodelabs/genode#5093
-
-commit 8a94dd2cb13153ba94895c186c742078fa447308
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Thu Nov 30 21:20:15 2023 +0000
-
-    lighttpd.run: add mod_webdav
-    
-    - using <inline> for random is not gonna fly when getentropy is called
-      multiple times (and eventually fails due to EOF)
-    
-    genodelabs/genode#5093
-
-commit 840bb5f90df3995ed4e12e3e37a680a8db9464c3
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Thu Nov 30 21:25:54 2023 +0000
-
-    lighttpd: enable mod_webdav module
-    
-    genodelabs/genode#5093
-
-commit fb58e46672c65b49bfeeda0e7c9814414ae364ef
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Wed Dec 20 17:11:17 2023 +0100
-
-    lighttpd: omit O_NONBLOCK
-    
-    Uploading large files via HTTP PUT failed when the file system was
-    accessed via a file system session because lighttpd opened the
-    destination file with O_NONBLOCK and the write operation stalled
-    at some point.
-    
-    genodelabs/genode#5093
+Rather than being used as a general purpose HTTP server that comes with all
+bells and whistles, it powers our [https://genodians.org - Genodians]
+appliance in static fashion and with WebDAV in place is now also the
+foundation for the goa testbed.
 
 
 Jitterentropy version 3.4.1
