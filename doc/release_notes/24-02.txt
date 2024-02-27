@@ -86,64 +86,39 @@ Date:   Thu Nov 30 17:04:40 2023 +0100
 Sculpt OS as remote test target for the Goa SDK
 ###############################################
 
-; @jschlatow
+The run-stage generalization from
+[https://genode.org/documentation/release-notes/23.08#Run-stage_generalization - release 23.08],
+paved the way for the new run-target "sculpt" that allows using Sculpt OS as
+a remote test target for 'goa run'. Since Goa already placed all the required
+files for running a scenario into a _var/run_ directory, adding this target
+merely involved coming up with a solution for synchronizing the run directory
+with Sculpt OS and getting a hold of the log output. The implementation in Goa
+is accompanied by a _goa_testbed_ package that starts a remotely-controlled
+subsystem on Sculpt OS. It particularly hosts a _lighttpd_ and _tcp_terminal_
+comopnent. The former is used for run-directory synchronization based on HTTP
+PUT. The latter provides the log output of the test scenario via telnet. For
+more details, you may take a look at the corresponding
+[http://genodians.org/jschlatow/2024-01-29-goa-sculpt - blog post on genodians.org].
 
-commit e71fadcb076abced51f47efb505e898cf36f054b
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Tue Dec 19 18:22:09 2023 +0100
+In order to integrate support for this into Sculpt OS, we supplemented the Nic
+router config with a _http_ and a _telnet_ domain. Each of these domains is
+intended to accommodate a single client. Ports 80 and 23 of the _uplink_ domain
+are then forwarded to the clients in the _http_ and _telnet_ domain respectively.
+This is complemented by the _goa_testbed_ preset added to the PC and PinePhone
+version of Sculpt OSthat turns the system into a ready-to-use remote test
+target. You can see this feature in action in our
+[http://genodians.org/nfeske/2024-02-15-fosdem-aftermath - FOSDEM talks].
 
-    add http sync tool
-    
-    genodelabs/goa#77
-
-commit 889d8a52ba06c00e16405c604bcd2a29bba882c6
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Wed Dec 20 10:47:32 2023 +0100
-
-    support --version-* and --target-opt-* arguments
-    
-    This allows specifying individual entries of the `version` and
-    `target-opt` arrays on the command line via
-    `--version-<user>/<type>/<name>` and `--target-opt-<option>`
-    respectively.
-    
-    genodelabs/goa#77
-
-commit a8f339053162711fbcf7968d6dbf2452258c9427
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Wed Dec 20 21:35:26 2023 +0100
-
-    add run target "sculpt"
-    
-    Fixes genodelabs/goa#77
-
-commit 7c76ec897c9d9c430be2d66d798e1fae2ff478eb
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jan 4 14:08:46 2024 +0100
-
-    sculpt: add "http" and "telnet" nic_router domains
-    
-    These domains allow for the hosting of plain http and telnet servers
-    reachable from the outside. The change is designated for the goa
-    testbed.
-    
-    Issue #5092
-
-commit 96ea73c3fe6abc29f56f9b1b931b9cb5cef0dfe6
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jan 4 14:13:34 2024 +0100
-
-    sculpt: preset for goa_testbed
-    
-    Issue #5092
-
-commit 272a7ebcd442fd4f98cd483d7deaebd7fbc1041f
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Jan 4 16:45:12 2024 +0100
-
-    sculpt/pinephone: preset for goa_testbed
-    
-    Issue genodelabs/genode#5092
+When implementing the Sculpt target in Goa, we also had to come up with a way
+to supply Goa with the IP address of the remote test target. Goa's modularity
+w.r.t. custom run stages motivated us to implement a generic mechanism for
+target-specific options. For this purpose, we added the config variable
+'target_opt' that is defined as a Tcl array. The Sculpt target evaluates the
+array elements 'sculpt-server', 'sculpt-port-http' and 'sculpt-port-telnet'.
+We further augmented Goa's command-line parsing such that individual elements
+of the 'target_opt' as well as the 'version' config variables, which are both
+arrays, can be supplied as command-line arguments. The corresponding arguments
+follow the pattern '--target-opt-<option>' and '--version-<user>/<type>/<name>'.
 
 
 Base framework and OS-level infrastructure
