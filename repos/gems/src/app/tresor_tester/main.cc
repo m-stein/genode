@@ -658,11 +658,15 @@ class Tresor_tester::Main
 				log("start command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
 		}
 
-		void _mark_command_complete(Command &cmd)
+		void _mark_command_complete(Command &cmd, bool success)
 		{
 			cmd._state = Command::NEW_COMPLETE;
 			if (VERBOSE)
 				log("finish command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
+			if (!success) {
+				_num_errors++;
+				log("command ", cmd._id, " failed: ", cmd._type_to_string(cmd._type));
+			}
 		}
 
 		void _start_command(Command &cmd)
@@ -720,6 +724,8 @@ class Tresor_tester::Main
 				break;
 			}
 			case Command::CONSTRUCT:
+			case Command::DESTRUCT:
+			case Command::CHECK_SNAPSHOTS:
 			case Command::LOG: _mark_command_in_progress(cmd); break;
 			default: ASSERT_NEVER_REACHED;
 			}
@@ -731,9 +737,9 @@ class Tresor_tester::Main
 			if (!req.complete())
 				return false;
 
+			_mark_command_complete(cmd, req.success());
 			destroy(_heap, &req);
 			progress = true;
-			_mark_command_complete(cmd);
 			return true;
 		}
 
@@ -763,11 +769,51 @@ class Tresor_tester::Main
 				_vbd.construct();
 				_sb_control.construct();
 				_request_scheduler.construct();
-				_mark_command_complete(cmd);
+				_mark_command_complete(cmd, true);
 				cmd_complete = true;
 				progress = true;
 				break;
 
+			case Command::DESTRUCT:
+
+				_meta_tree.destruct();
+				_free_tree.destruct();
+				_vbd.destruct();
+				_sb_control.destruct();
+				_request_scheduler.destruct();
+				_mark_command_complete(cmd, true);
+				cmd_complete = true;
+				progress = true;
+				break;
+
+			case Command::CHECK_SNAPSHOTS:
+			{
+				bool success { true };
+				Snapshots_info snap_info { _sb_control->snapshots_info() };
+				bool snap_gen_ok[MAX_NR_OF_SNAPSHOTS] { false };
+				_snap_refs.for_each([&] (Snapshot_reference const &snap_ref) {
+					bool snap_ref_ok { false };
+					for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+						if (snap_info.generations[idx] == snap_ref.gen) {
+							snap_ref_ok = true;
+							snap_gen_ok[idx] = true;
+						}
+					}
+					if (!snap_ref_ok) {
+						warning("snap (", snap_ref, ") not known to tresor");
+						success = false;
+					}
+				});
+				for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+					if (snap_info.generations[idx] != INVALID_GENERATION && !snap_gen_ok[idx]) {
+						warning("snap (idx ", idx, " gen ", snap_info.generations[idx], ") not known to tester");
+						success = false;
+					}
+				}
+				_mark_command_complete(cmd, success);
+				progress = true;
+				break;
+			}
 			case Command::REQUEST:
 			{
 				progress |= _request_scheduler->execute({*_sb_control, *this, *_vbd, *_free_tree, *_meta_tree, _block_io, _trust_anchor, _crypto });
@@ -777,7 +823,7 @@ class Tresor_tester::Main
 			case Command::LOG:
 
 				log("\n", cmd._log_node->string, "\n");
-				_mark_command_complete(cmd);
+				_mark_command_complete(cmd, true);
 				cmd_complete = true;
 				progress = true;
 				break;

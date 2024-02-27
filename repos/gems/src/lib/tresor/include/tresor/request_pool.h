@@ -130,6 +130,26 @@ class Tresor::Request : private List<Tresor::Request>::Element
 				}
 				break;
 
+			case Request::DEINITIALIZE:
+
+				switch(_helper.state) {
+				case INIT: _deinit_sb_control.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress); break;
+				case SB_CONTROL_REQ: progress |= _deinit_sb_control.execute(attr.sb_control, attr.block_io, attr.crypto, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				default: break;
+				}
+				break;
+
+			case Request::CREATE_SNAPSHOT:
+
+				switch(_helper.state) {
+				case INIT: _create_snap.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _gen); break;
+				case SB_CONTROL_REQ: progress |= _create_snap.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				default: break;
+				}
+				break;
+
 			default: ASSERT_NEVER_REACHED;
 			}
 			return progress;
