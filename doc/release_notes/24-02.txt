@@ -147,181 +147,41 @@ Base framework and OS-level infrastructure
 TCP/IP stack based on DDE-Linux version 6.1.20
 ==============================================
 
-; @ssumpf
+The final piece of code standing in the way of the removal of our dated DDE
+Linux approach has been Linux's TCP/IP stack. The stack was based on Linux
+version 4.4.3 and did not even take advantage of lx_kit supported features like
+cooperative scheduling.
 
-commit 68ac1347b97fc90cda2873844017df679be005a1
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Dec 13 19:54:50 2023 +0100
+For this reason, it was about time to update the TCP/IP port while also adapting
+it to our
+[https://genode.org/documentation/release-notes/21.08#Linux-device-driver_environment_re-imagined - modern]
+DDE approach. Being in such an ancient state this effort ended up being more of
+a re-write than an actual update. The IP stack is also one of the few DDE Linux
+components that is a shared library, as opposed to most drivers which are
+dynamic binaries. This let to improvements of our lx_kit, for example, we had to
+replace static C++ constructors by automatically generated functions for kernel
+module-initialization calls, because C++ constructors are supposed to be called
+by the binary and not during library initialization (Section
+[Initcall handling without relying on global constructors]). Additionally, we are
+experimenting with a socket C-API with the ultimate goal to replace the VFS
+plugins for Linux (vfs_lxip) and lwIP (vfs_lwip) with a unified version, but
+this is an ongoing effort. Nevertheless, with the current release the update of
+our Linux TCP/IP port is complete and from a user perspective, the new version
+as well as the updated VFS plugin are drop-in replacements for version 4.4.3 and
+the transition should be seamless.
 
-    lxip: configure thash/uhash entries to 2048
-    
-    The number of hash entries for TCP/UDP corresponds to the number of
-    sockets managed by the stack. In case there are more sockets than
-    entries available, buckets will be created to compensate for the lack of
-    space. The default values for TCP (524288) and UDP (65536) are meant for
-    the in kernel that manages all sockets of the user land and leads
-    to very large hash table allocations (>20MB) during initialization.
-    
-    Since on Genode a component has its own instance of the IP stack or uses
-    the VFS server, we do not need these kind of large default settings.
-    
-    issue #2181
+While porting the IP stack we also investigated a long standing issue regarding
+the memory consumption of the IP stack, which always seemed a little too high
+and were able to identify the hash tables used for locating sockets as the main
+reason. These tables are configured for server loads per default (meaning > 1
+million sockets), which Genode with one or few (VFS server) clients per IP stack
+does not default to. This enabled us to reduce the amount of hash table
+allocations during IP stack initialization what leads to reduced memory demands
+(>10MB) of the IP stack.
 
-commit 360d38c36dc6c0cd5ba2bab87c683235f1d25722
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Aug 31 14:57:23 2023 +0200
-
-    dde_linux: move lxip -> legacy_lxip
-    
-    move lxip stack to 'legacy_lxip' so it can be revived easily.
-    
-    issue #5104
-
-commit c2080ecc039717206cafd38c09516c289b6145da
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Dec 4 19:07:41 2023 +0100
-
-    linux.port: lxip_ip_config.patch
-    
-    The patch makes it possible to re-configure the IP settings via DHCP or
-    static.
-    
-    issue #5104
-
-commit 42d964044313dbdd83cebac850e5dc1c13af8c26
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Sep 1 19:14:59 2023 +0200
-
-    lxip: update to Linux 6.1.20
-    
-    This commit updates lxip from version 4.4.3 to 6.1.20. It uses the
-    current lx_kit approach and is a shared library again. The stack has
-    been tested for x86_32/x86_64/arm_v6/arm_v7/arm_8.
-    
-    The C-interface of the IP stack can be found under
-    lxip/include/genode_c_api/socket.h.
-    
-    issue #5104
-
-commit 27b1017fe924a5308ddab3ae9ffc73ff0829028f
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Sep 20 20:08:06 2023 +0200
-
-    test/lxip_raw: test using Genode socket C-API directly
-    
-    The lxip_raw.run script will spawn a client/server scenario that tests
-    Genode C-API calls. The scenario can be used standalone, meaning no
-    actual network card is required.
-    
-    issue #5104
-
-commit 701856b06a2a20e33d6120f86d8cdcb443b3ad30
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jan 24 19:57:42 2024 +0100
-
-    dde_linux: copy vfs_lxip -> vfs_legacy_lxip
-    
-    Make a copy of vfs_lxip so it can be revived easily. The plugin can now
-    be used like
-    
-    ! <legacy_lxip dhcp="yes"/>
-    
-    issue #5104
-
-commit 93b3e7d12f15695b350876dde852b1b12809b909
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 5 16:43:19 2024 +0100
-
-    libc: socket_fs_plugin add monitor call
-    
-    Add monitor call for '_fd_read_ready' because this maps to 'poll' in
-    'vfs_lxip' which should be executed by the EP.
-    
-    issue #5104
-
-commit 561a9e7a7249bce0ad18880306d68904572e9682
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jan 24 19:56:39 2024 +0100
-
-    vfs_lxip: adapt to 'genode_socket' C-API
-    
-    Adjust the plugin to use the socket C-API found under
-    dde_linux/src/lib/lxip/include/genode_c_api/socket.h'.
-    
-    This is the first minor step in generalizing the plugin.
-    
-    isse #5104
-
-commit fb4ac714b2af594b87253804dd1f85a24b9a6eff
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Dec 12 16:09:22 2023 +0100
-
-    recipes: adjust runtime quotas to lxip
-    
-    lxip (old and new) requires less RAM now.
-    
-    issue #5104
-
-commit 61115c3776e2ad63021965ced2348d6e704a7b23
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Dec 14 19:05:01 2023 +0100
-
-    depot_autopilot: adjust RAM quotas for lxip
-    
-    Adjust the autopilot tests that use lxip to the lower RAM requiremnts of
-    lxip (old and new).
-    
-    issue #5104
-
-commit 875599312380863cf2a47c3dd60425911e267f39
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Feb 8 20:52:36 2024 +0100
-
-    dde_linux: remove vfs_legacy_lxip
-    
-    issue #5104
-
-commit 8aa3967201e54c27ace7e5fbe140b07646078802
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Feb 8 20:59:32 2024 +0100
-
-    dde_linux: remove legacy_lxip
-    
-    Because legacy_lxlip is the last entry in dde_linux.port, remove the
-    port as well.
-    
-    issue #5104
-
-commit 97f8179f90b7c644b2de4ccda1e9814f88480169
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Thu Feb 8 21:03:40 2024 +0100
-
-    dde_linux: remove legacy lx_kit and lx_emul
-    
-    All good things must come to an end.
-    
-    issue #5104
-
-commit c12224ffd3cbc117865030af9bf8f0e891363b6d
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Feb 9 19:10:25 2024 +0100
-
-    api/pc_linux: adjust to legacy lx_kit removal
-    
-    With the removal of legacy lx_kit 'src/include/spec/x86' does not longer
-    exist in dde_linux.
-    
-    issue #5104
-
-commit ecd7b0568b827d1a0ee48afe72258fb462a987c7
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Feb 9 19:24:43 2024 +0100
-
-    lx_emul: adjust import to lx_kit remove
-    
-    'src/include/spec/x86' does no longer exist
-    
-    issue #5104
+With the IP stack in place and no legacy components remaining, we removed the DDD
+Linux port file (_dde_linux.port_) and the legacy lx_kit/lx_emul marking the
+update to the current DDE approach as complete.
 
 
 De-privileged tracing
@@ -428,145 +288,64 @@ case is now covered by the dedicated 'Io::Watch_handler'.
 Device drivers
 ##############
 
+
 Linux-device-driver environment (DDE)
 =====================================
 
-; @ssumpf
 
 ARMv6 compatibility
 -------------------
 
-; mention Raspberry Pi (nano)
+In the previous release we updated our
+[https://genode.org/documentation/release-notes/23.11#USB_device_drivers_updated_to_Linux_6.1.20 - USB device drivers]
+to Linux 6.1.20 using 'virt_linux'. Drivers or protocol stacks based on
+'virt_linux' do not have direct access to hardware. They either communicate through
+another instance - like the USB host controller for USB device drivers - with the
+hardware or do not require hardware at all (e.g., TCP/IP, WireGuard).
 
-commit bb06e8451aafb7ec62f3587cb7486a2e9e5a89cd
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 19 12:43:01 2024 +0100
+'virt_linux' is still CPU architecture specific because it contains low-level-
+assembly code. A limitation of Genode release 23.11 is that there is no support
+for ARMv6 in 'virt_linux'. But devices based on ARMv6 can still be found in the
+wild (e.g., Raspberry Pi Zero). With the current release we have added support
+for ARMv6 to 'virt_linux', the USB device drivers, and the TCP/IP stack. For
+this to work we had to separate code shared by ARMv6 and ARMv7 platforms. In
+many places there would be a folder like _spec/arm_ which would contain build
+rules or code for both architectures. ARMv6 and ARMv7 have many things in common
+- until they don't. With release 24.02 we have split these folders into _arm_v6_
+and _arm_v7_ respectively and while we were at it renamed _arm_64_ into _arm_v8_
+for consistency. With this approach it became possible to introduce ARMv6 and
+ARMv7 specific kernel configurations to 'virt_linux', and thus, enable support
+for drivers/protocol stacks for both architectures.
 
-    dde_linux: split lib/mk into arm_v6/7/8
-    
-    Split 'arm' and 'arm_64' into 'arm_v(6|7|8)'
-    
-    issue #5095
-
-commit a67bc596864c5e4ef38c82f63d24c30ec2799571
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 19 12:47:12 2024 +0100
-
-    virt_linux: add arm_v6
-    
-    also split into arm_v(6|7|8)
-    
-    issue #5095
-
-commit 01369546d2c1f2859106c277c5b7c8f028464ec4
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 19 13:09:01 2024 +0100
-
-    dde_linux: adjust wireguard and test to arm_v8
-    
-    spec 'arm_64' has been moved to 'arm_v8'
-    
-    issue #5095
-
-commit b73765cf9b822d00887692bdecf3f7727457098c
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 19 12:45:48 2024 +0100
-
-    usb_net: add support for arm_v6
-    
-    Also split into spec 'arm_v(6|7|8)'
-    
-    issue #5095
-
-commit 8851b64825476bff3231ffc0e794b6ce3410be06
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 19 12:52:58 2024 +0100
-
-    usb_net: add SMSC95xx driver for arm_v6
-    
-    issue #5095
-
-commit dea712ab72c114bd1d0f7910ce6de42d53a4316c
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Jan 22 09:49:54 2024 +0100
-
-    usb_hid: add support for arm_v6
-    
-    Also split into spec 'arm_v(6|7|8)'
-    
-    issue #5095
-
-commit f19cd8416e0a511037644b60d94f7ad6f12001ce
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Tue Jan 23 08:26:28 2024 +0100
-
-    lx_kit: split includes and setjmp into arm_v(6|7|8)
-    
-    Move 'arch_execute.h' headers and 'setjmp/longjmp' implementation from
-    arm/arm_64 to arm_v(6|7|8).
-    
-    issue #5104
 
 Initcall handling without relying on global constructors
 --------------------------------------------------------
 
-commit 1b4f7ae0d30295a7efebeff50648826746d80ab6
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Jan 10 20:43:07 2024 +0100
+When porting Linux drivers a lot of code is placed into modules. Modules always
+have a magic module-function call (e.g., 'module_init') which registers a
+function for the initialization of the module and is executed during kernel startup
+prior device probing. DDE Linux mapped 'module_init' indirectly to a macro
+that generated a function as a static constructor (ctor) which in turn registered the
+required module function (Note: This is simplified because there is also an
+order that must be preserved). This lead to the fact that all ported components
+had to call 'exec_static_constructors' in order to trigger the registration of
+module-init calls before executing any other Linux kernel code, but after
+'Lx_kit' initialization because the init-call functions had to be registered
+somewhere. This behavior let to hen & egg problems in our TCP/IP stack
+(Section [TCP/IP stack based on DDE-Linux version 6.1.20]) and our WiFi driver
+port because they are shared libraries where, for example,  static constructors
+must be called at a later stage.
 
-    lx_emul: generate initcalls during build
-    
-    Functions registered with 'module_init' (i.e., '__define_initcalls'),
-    'OF_DECLARE', and 'DECLARE_PCI_FIXUP_CLASS_FINAL' used to be static
-    constructors and had be explicitly registered using
-    'exec_static_constructors' before executing any Linux code.
-    
-    With this commit we remove the constructor attributes from these
-    functions and create a global function pointer in the form of
-    
-    __initptr_<name>_<id>_<counter>_<line number of macro>
-    
-    'import-lx_emul_common.inc' will collect these '__initptr' symbols after
-    the compile step and generate a 'lx_emul_register_initcalls' function
-    that executes the functions pointed to. This step is now automatically
-    performed in 'lx_emul_start_kernel'. This way a call to
-    'exec_static_constructors' can be omitted in case there are no other
-    constructors in place.
-    
-    issue #5096
+In order to avoid these kind of problems, we changed the module-init approach by
+replacing the macro-generated functions with global-function pointers with a well known
+prefix. These pointers are collected by the DDE-Linux-build system using ELF reading
+tools (i.e., 'nm') after the compile step and are placed into a function
+('lx_emul_register_initcalls') which is called during 'Lx_kit' startup. This
+way no changes to existing drivers are necessary and the static constructor
+problem disappeared for the shared library cases.
 
-commit 491ab232bfbc2e81463a0b911f1ce5ce808655b0
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Jan 19 15:13:39 2024 +0100
-
-    wifi: remove 'Component::construct'
-    
-    Init calls are not static constructors anymore, so 'Lx_kit::Env' is not
-    required to be initialzed before static constructors are called.
-    
-    issue #5096
-
-commit 684de7a57bfd5a37a3bd1460c7f6fc131f077745
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Mon Jan 22 08:04:42 2024 +0100
-
-    lib/wifi: remove static constructors
-    
-    Remove static constructors from 'socket_call.cc'
-    
-    issue #5096
-
-commit c2a2ed67bbd24c455f76b6312c6f649e713b9a1e
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Sep 6 16:13:22 2023 +0200
-
-    lx_kit/lx_emul: support explicit init call
-    
-    Add the possibility to execute a module-init call by name using
-    'lx_emul_init_call', this is used, for example, by lxip to configure and
-    re-configure the IP address through 'ip_auto_config'.
-    
-    issue #5104
+Note: Any ported driver still using 'exec_static_constructors' can remove the
+call after checking if there are no static constructors from other C++ objects present.
 
 
 Suspend/resume awareness of GPU, AHCI, and NVMe drivers
