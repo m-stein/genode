@@ -17,50 +17,131 @@
 Revised audio infrastructure
 ############################
 
-; @nfeske
+After first introduced in version
+[https://genode.org/documentation/release-notes/10.05#Device-class_interfaces_for_NIC_and_Audio-out - 10.05],
+Genode's
+[https://genode.org/documentation/genode-foundations/23.05/components/Common_session_interfaces.html#Audio_output - audio support]
+slowly evolved over the years, covering audio mixing in
+version
+[https://genode.org/documentation/release-notes/10.11#Audio_mixer - 10.11],
+leveraging OpenBSD's audio driver since version
+[https://genode.org/documentation/release-notes/15.05#Audio_drivers_ported_from_OpenBSD - 15.05]
+and offering the OSS interface as VFS plugin since version
+[https://genode.org/documentation/release-notes/20.11#Streamlined_ioctl_handling_in_the_C_runtime___VFS - 20.11].
+With our recent focus on use cases like
+[https://genodians.org/jws/2023-11-16-sip-client-for-genode - VoIP on the PinePhone] or
+[https://genode.org/documentation/release-notes/21.05#Webcam_support - video conferencing],
+however, we identified limitations that cannot be overcome without an
+architectural revision.
 
-; (timing robustness, pluggable drivers, adaptive sample rates)
+First, in the name of simplicity, we used to tie the inter-component audio
+interfaces to a fixed sample rate of 44100 Hz. This has recently become a
+problem because some audio drivers tend to support only 48000 Hz.
+
+Second, in latency-sensitive scenarios, we observed that the existing
+interfaces were prone to effects caused by the drifting of time between the
+producer and consumer of audio data. One effect are buffer under-runs, which
+produce audible noise. The other is the slow accumulation of buffered sample
+data, which increases latency over time (affecting the effectiveness of AEC)
+and yields an audible buffer overrun after a while.
+
+Third, the mixer is a single client of the audio driver, which makes the mixer
+dependent on the liveliness of the driver. Therefore, the driver cannot be
+restarted without also restarting the mixer and - transitively - each client
+of the mixer. The rigid relation between the audio driver and the mixer also
+stands in the way of routing audio between different audio devices operated
+by separate drivers.
+
+After having successfully introduced the concept of _pluggable drivers_ for graphics in version
+[https://genode.org/documentation/release-notes/20.08#The_GUI_stack__restacked - 20.08]
+and applying the same idea to networking in version
+[https://genode.org/documentation/release-notes/21.02#Pluggable_network_device_drivers - 21.02],
+the time was ripe for turning the audio infrastructure upside down.
 
 [image audio_vs_recordplay]
   original layered architecture (left) compared to the new pluggable
   architecture (right)
 
+The new architecture as shown on the right turns the mixer into a
+self-sufficient resource multiplexer, which offers a service for playing audio
+and a service for recording audio. Audio drivers as well as audio applications
+are mere clients of the mixer.
 
-commit 7a6d935eedf4fb743952c1e230bbc4edf0831bda
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Feb 14 17:41:05 2024 +0100
+To bridge the gap between audio clients operating at different sample rates,
+the mixer automatically detects and converts sample rates as needed.
+Both play and record clients are expected to operate periodically. The number
+of samples produced per period is up to each client and does not need to be
+constant over time. The mixer infers the used sample rates and periods by
+observing the behavior of the clients. The mixer measures the jitter of
+clients to automatically adjust buffering parameters to attain continuous
+playback while trying to optimize for low latency. Those runtime-measurements
+can be augmented by explicit configuration values.
 
-    os: record-and-play session interfaces and mixer
-    
-    - New session interfaces:
-      - os/include/play_session   (for audio playing   / mic-input driver)
-      - os/include/record_session (for audio recording / audio-output driver)
-    - Mixer at os/src/record_play_mixer providing both play and record services
-    - Simple waveform player at os/src/app/waveform_player
-    - Simple audio-signal capturing component at os/src/app/record_rom
-    - Simple oscilloscpe at gems/src/app/rom_osci (using record_rom)
-    - Simple test-audio_play for playing raw stereo f32 data
-    
-    The _gems/run/waveform_player.run_ script illustrates the use of the new
-    components and interfaces.
-    
-    Issue #5097
+Multi-channel playing and recording is realized by one session per channel
+whereas one channel is used to drive the time allocation (active time
+synchronization with the mixer via synchronous RPC) while all further channels
+merely enqueue/obtain data into/from their respective sessions without any
+synchronous interplay with the mixer.
 
-commit 62d64941673fb3ba7977da749cdab0c3d270d2e2
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Wed Feb 14 14:10:10 2024 +0100
+The mixer routes and mixes audio signals produced by play clients to record
+clients according to its configuration. Typical play clients are an audio
+player or a microphone driver whereas typical record clients are an audio
+recorder or an audio-output driver. A simple mixer configuration looks as
+follows:
 
-    dde_bsd: support record and play session interface
-    
-    This patch enhances the audio driver with the option to operate as a
-    client of the record and play services instead of providing the audio-in
-    and audio-out services. The record/play mode can be enabled by setting
-    the 'record_play="yes"' config attribute.
-    
-    The audio_in.run and audio_out.run scripts support the selection of the
-    mode via the 'use_record_play_sessions' hook function.
-    
-    Issue #5097
+! <config jitter_ms="5">
+!
+!   <mix name="left">  <play label_suffix="left"/>  </mix>
+!   <mix name="right"> <play label_suffix="right"/> </mix>
+!
+!   <policy label_suffix="left"  record="left"/>
+!   <policy label_suffix="right" record="right"/>
+!
+! </config>
+
+This configuration defines two signals "left" and "right" that are mixed from
+the audio input of the matching <play> clients. In the example, each play
+session labeled as "left" is mixed into the "left" signal. Each <mix> node
+can host an arbitrary number of <play> nodes. The same <play> policy can appear
+at multiple <mix> nodes. A <policy> node assigns a signal to a record client.
+In the example, a record client labeled "left" is connected to the <mix>
+signal "left".
+
+The mixer allows for the cascading of <mix> nodes. For example, the following
+signal "lefty" is a mix if the two signals "left" and "right", weighted by
+respective volume attributes.
+
+! <mix name="lefty">
+!   <signal name="left"  volume="0.7"/>
+!   <signal name="right" volume="0.3"/>
+! </mix>
+
+[image mixed_waveforms]
+  Example of the mixer output for a sine wave as the "left" signal (top),
+  a signal mixed 70:30, a signal mixed 30:70, and a square wave as the
+  "right" signal (bottom).
+
+The operation of the mixer is described in more detail by the accompanied
+README at _os/src/record_play_mixer/_. The inter-component interfaces are
+located at _os/include/play_session/_ and _os/include/record_session/_.
+
+The _gems/run/waveform_player.run_ script illustrates the integration and
+configuration of the mixer by using a waveform generator as play client and an
+oscilloscope as record client.
+
+Current state and next steps
+----------------------------
+
+The new infrastructure is ready to be exercised by the synthetic example
+mentioned above as well as by the _audio_out.run_ and _audio_in.run_ scripts
+located at _repos/dde_bsd/run/_. The OpenBSD-based
+audio driver can be operated in either of two modes. By default, it is
+compatible to the old audio in/out interfaces. The new record/play mode can be
+enabled by setting the 'record_play="yes"' config attribute.
+Over the next release cycle, we will successively convert the other pieces
+of the audio stack, in particular the drivers and the OSS VFS plugin, to
+the new record and play interfaces. Following this transition, the original
+audio in/out interfaces will be removed.
 
 
 Fine-grained and dynamic USB access
