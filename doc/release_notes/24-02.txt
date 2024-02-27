@@ -587,84 +587,52 @@ Build system and tools
 Goa SDK
 =======
 
-; @jschlatow
+In addition to the support for using
+[Sculpt OS as remote test target for the Goa SDK], the latter underwent quite
+a few usability adjustments.
 
-commit 8c1827c7ce8c057e15ffa1bc96f4b4550171f3a1
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Tue Dec 12 13:43:20 2023 +0100
+As announced in
+[https://genode.org/documentation/release-notes/23.08#Support_of_index_projects - release 23.08],
+Goa has been enabled to export and publish a personal depot index. The depot
+index lists a depot user's packages in a nested structure of '<index>' nodes.
+The initial support for index projects, however, was restricted to two levels
+of '<index>' nodes. We eliminated this restriction in order to clear the path
+for large depot indexes with hierarchical structure.
 
-    add --depot-retain switch
-    
-    This serves as an alternative to the --depot-overwrite switch and
-    instructs Goa to keep existing depot content but continue command
-    execution. This is useful in two scenarios:
-    
-    a) When republishing an index project, whose dependent projects have
-       already been exported.
-    b) When exporting a project that has already been published.
-    
-    Fixes genodelabs/goa#71
+When using Goa to export and publish a depot index,
+one always has to provide the '--depot-overwrite' switch in order to overwrite
+the current depot index. Goa also propagated this switch to any sub-project that
+got exported along with the depot index. In practice, however, an index project
+will typically be exported and published when development on all sub-projects
+has finished, hence there is no need for re-exporting already exported
+sub-projects. We therefore added the '--depot-retain' switch in order to
+express the intent to not overwrite any depot content. Instead of propagating
+the '--depot-overwrite' switch, Goa now uses the '--depot-retain' switch when
+it automatically exports sub-projects.
 
-commit 120a152b258b4e11e53ef4b4710129811d9f4ef5
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Fri Dec 15 15:49:42 2023 +0100
+Along with the support for index projects, Goa had been equipped with the
+ability to lookup version information from other project directories. By
+default, Goa uses the current working directory as a starting point for the
+lookup of projects and their versions. The practical use of this was still
+limited, though, since it required using the '-C' argument to execute Goa from a
+different directory than the project directory. We thus introduced the
+'search_dir' config variable that allows defining the directory from which Goa
+starts searching for depended on projects.
 
-    cmake: support FindXXX.cmake files in api archives
-    
-    genodelabs/goa#52
+When porting CMake-based projects with Goa, we often needed to patch the
+_CMakeLists.txt_ or to add quirks to Goa in order to disarm CMake's
+'find_library' command. Instead of resorting to those ad-hoc solutions, we
+decided to add support for _FindXXX.cmake_ files in api archives. Any api
+archive mentioned in the _used_apis_ file is now added to the
+'CMAKE_MODULE_PATH' so that CMake is able to correctly identify the presence
+of depended on libraries via the _FindXXX.cmake_ files. An example is found
+in the Goa repository at _examples/cmake_sdl2_.
 
-commit 477f83d6c686d2908182cfe55cf47d1118f58e6c
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Fri Jan 5 12:01:25 2024 +0100
+In addition to the aforementioned changes, we added a couple of minor tweaks:
 
-    Add `search_dir` config
-    
-    Fixes genodelabs/goa#75
-
-commit 4b525edc47234e50a82cce54f7b2d0be700a2e39
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Tue Jan 9 23:12:07 2024 +0100
-
-    bump-version: create version file if not exists
-
-commit 4fad395fe9cfafce19262b23058415afded06076
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Thu Jan 11 14:13:22 2024 +0100
-
-    add sdl2 example for cmake
-    
-    genodelabs/goa#52
-
-commit b8bd5a1801ceb6cd622e145d9eae096544a5878d
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Thu Jan 18 16:51:11 2024 +0100
-
-    doc: add documentation of runtime file
-    
-    genodelabs/goa#79
-
-commit 1557305473ffa00c27dc6fd261d173cb6bf7c142
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Thu Jan 18 16:55:02 2024 +0100
-
-    doc: cross-reference api help
-
-commit 2ff795460c32d5af8b9d1d3b5e6105a355f963c2
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Thu Jan 18 17:55:46 2024 +0100
-
-    doc: add documentation of index file
-    
-    genodelabs/goa#80
-
-commit 9b9991f112cd9e53a9a13a2f2a43ea703c851b51
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Wed Jan 31 19:01:12 2024 +0100
-
-    index: parse recursively
-    
-    Since a depot index may have nested <index> nodes, we need to parse it
-    recursively.
+* We added the sub-commands 'goa help index' and 'goa help runtime' to document
+  the structure of _index_ and _runtime_ files.
+* The sub-command 'goa bump-version' now creates a _version_ file if none exists.
 
 
 Convenient parsing of backtraces
