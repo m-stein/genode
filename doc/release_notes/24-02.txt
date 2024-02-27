@@ -508,37 +508,12 @@ VirtualBox
 Windows BSOD logging
 --------------------
 
-; @atopia
-
-commit cec7847502f8223d70d338122ec1349a9edda314
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Mon Jan 22 10:33:55 2024 +0100
-
-     vbox6: add support for Windows BSOD logging
-    
-     Hitting a BOSD in a Windows guest in Virtualbox 6 leads to calling
-     `DBGFR3ReportBugCheck`, which leads to the following error since it is
-     unimplemented in our port:
-    
-    ```
-     Error: DBGFR3ReportBugCheck: DBGFR3ReportBugCheck called, not implemented, eip=0x1a5c4e4
-    ```
-    
-    Including the actual method from Virtualbox 6 enables logging
-    diagnostics for the Windows Blue Screen of Death (BSOD).
-    To see Blue Screen logging output, enable "dbgf" and "gim" logging
-    via the `VBOX_LOG` following environment variable in the vbox6 runtime
-    config.
-    When manually triggering a BSOD in the Windows guest, this should
-    produce the following logging diagnostics:
-    
-    ```
-    GIM: HyperV: Guest indicates a fatal condition! P0=0xe2 P1=0x0 P2=0x0 P3=0x0 P4=0x0
-    GIMHv: BugCheck e2 {0, 0, 0, 0}
-    MANUALLY_INITIATED_CRASH
-    ```
-    
-    Fixes #5099
+At a request of a customer we enabled the reporting of Windows Blue Screen of
+Death (BSOD) reasons in our VirtualBox port. To enable the output, the new
+release adds a default of '+dbgf+gim' to the 'VBOX_LOG' environment variable.
+With VirtualBox Guest Additions installed in the Windows guest, after a "Guest
+indicates a fatal condition!", the reason for the blue screen will be printed
+to the log.
 
 
 Seoul VMM
