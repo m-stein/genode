@@ -38,20 +38,16 @@ class Tresor::Block_io : Noncopyable
 		template <typename REQ>
 		bool execute(REQ &req)
 		{
-log("blk_io::",__func__,__LINE__);
 			if (!_user)
 				_user = (addr_t)&req;
 
-log("blk_io::",__func__,__LINE__);
 			if (_user != (addr_t)&req)
 				return false;
 
-log("blk_io::",__func__,__LINE__);
 			bool progress = req.execute(_file);
 			if (req.complete())
 				_user = 0;
 
-log("blk_io::",__func__,__LINE__);
 			return progress;
 		}
 

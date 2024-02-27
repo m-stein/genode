@@ -304,6 +304,7 @@ class Tresor_tester::Command : private Avl_node<Command>
 		Constructible<Log_node> _log_node { };
 		Constructible<Tresor_init::Configuration> _initialize { };
 		Trust_anchor::Initialize *_init_trust_anchor_ptr { };
+		Sb_initializer::Initialize *_init_superblocks_ptr { };
 		Sb_check::Check *_check_superblocks_ptr { };
 		void *_request_ptr { nullptr };
 
@@ -633,12 +634,6 @@ class Tresor_tester::Main
 			});
 		}
 
-		void _try_end_program()
-		{
-			if (_num_uncompleted_cmds == 0) {
-			}
-		}
-
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
 		bool _synchronized_command(Command const &cmd)
@@ -649,6 +644,19 @@ class Tresor_tester::Main
 			return false;
 		}
 
+		void _reset_snap_refs()
+		{
+			while (_snap_refs.first())
+				_remove_snap_ref(*_snap_refs.first());
+		}
+
+		void _mark_command_in_progress(Command &cmd)
+		{
+			cmd._state = Command::NEW_IN_PROGRESS;
+			if (VERBOSE)
+				log("start command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
+		}
+
 		void _start_command(Command &cmd)
 		{
 			switch (cmd._type) {
@@ -657,28 +665,58 @@ class Tresor_tester::Main
 				Trust_anchor_node &node { *cmd._trust_anchor_node };
 				ASSERT(node.op == Trust_anchor_node::INITIALIZE);
 				cmd._init_trust_anchor_ptr = new (_heap) Trust_anchor::Initialize({node.passphrase});
-				cmd._state = Command::NEW_IN_PROGRESS;
-				if (VERBOSE)
-					log("start command ", cmd._id, ": init trust anchor");
+				_mark_command_in_progress(cmd);
+				break;
+			}
+			case Command::INITIALIZE:
+			{
+				_reset_snap_refs();
+				Tresor_init::Configuration const &cfg { *cmd._initialize };
+				cmd._init_superblocks_ptr = new (_heap) Sb_initializer::Initialize({
+					Tree_configuration {
+						(Tree_level_index)(cfg.vbd_nr_of_lvls() - 1),
+						(Tree_degree)cfg.vbd_nr_of_children(),
+						cfg.vbd_nr_of_leafs()
+					},
+					Tree_configuration {
+						(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+						(Tree_degree)cfg.ft_nr_of_children(),
+						cfg.ft_nr_of_leafs()
+					},
+					Tree_configuration {
+						(Tree_level_index)cfg.ft_nr_of_lvls() - 1,
+						(Tree_degree)cfg.ft_nr_of_children(),
+						cfg.ft_nr_of_leafs()
+					},
+					_pba_alloc
+				});
+				_mark_command_in_progress(cmd);
 				break;
 			}
 			case Command::CHECK:
 
 				cmd._check_superblocks_ptr = new (_heap) Sb_check::Check();
-				cmd._state = Command::NEW_IN_PROGRESS;
-				if (VERBOSE)
-					log("start command ", cmd._id, ": check");
+				_mark_command_in_progress(cmd);
 				break;
 
-			case Command::LOG:
-
-				cmd._state = Command::NEW_IN_PROGRESS;
-				if (VERBOSE)
-					log("start command ", cmd._id, ": log");
-				break;
-
+			case Command::LOG: _mark_command_in_progress(cmd); break;
 			default: ASSERT_NEVER_REACHED;
 			}
+		}
+
+		template <typename REQUEST>
+		bool _try_complete_command(Command &cmd, REQUEST &req, bool &progress)
+		{
+			if (!req.complete())
+				return false;
+
+			cmd._state = Command::NEW_COMPLETE;
+			destroy(_heap, &req);
+			progress = true;
+			if (VERBOSE)
+				log("finish command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
+
+			return true;
 		}
 
 		bool _execute_command(Command &cmd, bool &cmd_complete)
@@ -690,14 +728,14 @@ class Tresor_tester::Main
 			{
 				Trust_anchor::Initialize &req = *cmd._init_trust_anchor_ptr;
 				progress |= _trust_anchor.execute(req);
-				if (req.complete()) {
-					cmd._state = Command::NEW_COMPLETE;
-					cmd_complete = true;
-					destroy(_heap, &req);
-					progress = true;
-					if (VERBOSE)
-						log("finish command ", cmd._id, ": init trust anchor");
-				}
+				cmd_complete = _try_complete_command(cmd, req, progress);
+				break;
+			}
+			case Command::INITIALIZE:
+			{
+				Sb_initializer::Initialize &req = *cmd._init_superblocks_ptr;
+				progress |= _sb_initializer.execute(req, _block_io, _trust_anchor, _vbd_initializer, _ft_initializer);
+				cmd_complete = _try_complete_command(cmd, req, progress);
 				break;
 			}
 			case Command::LOG:
@@ -714,14 +752,7 @@ class Tresor_tester::Main
 			{
 				Sb_check::Check &req = *cmd._check_superblocks_ptr;
 				progress |= _sb_check.execute(req, _vbd_check, _ft_check, _block_io);
-				if (req.complete()) {
-					cmd._state = Command::NEW_COMPLETE;
-					cmd_complete = true;
-					destroy(_heap, &req);
-					progress = true;
-					if (VERBOSE)
-						log("finish command ", cmd._id, ": check");
-				}
+				cmd_complete = _try_complete_command(cmd, req, progress);
 				break;
 			}
 			default: ASSERT_NEVER_REACHED;
