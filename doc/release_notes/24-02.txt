@@ -351,123 +351,48 @@ call after checking if there are no static constructors from other C++ objects p
 Suspend/resume awareness of GPU, AHCI, and NVMe drivers
 =======================================================
 
-; @alex-ab
+As further step towards general ACPI suspend/resume support, the
+self-written driver for Intel GPU, NVME and AHCI got re-worked to cooperate
+with the feature.
 
-commit d02f4866eac1359152772b349fe303211d7e1f95
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Dec 6 14:21:23 2023 +0100
+Before the final suspend, the drivers can now be notified to stop processing
+further client data and to shutdown the used devices by closing the Genode
+specific Platform::Device. By this the platform driver will implicitly
+power-off the used PCI device. The in-use DMA buffers containing all the client
+data are kept in memory and are not de-allocated. This means that the client
+sessions for GPU and Block_session can stay intact (for ACPI S3 - suspend to
+memory) and don't require a re-start of the users of GPU, NVME and AHCI on
+resume.
 
-    gpu/intel: make platform resources reconstructible
-    
-    This commit is a preparation commit for suspend/resume. The commit
-    refactors the code in order to consolidate all Platform resources into one
-    instance. All users within the GPU driver should access the resources with
-    with_* functions, which checks whether the device resource is usable. The
-    callers are not allowed to store any references to the provided resources.
-    
-    With this change, it will be possible in follow up commits, to release
-    the platform device and to re-acquire it and its resources, e.g. mmio, irq,
-    gmadr.
-    
-    Issue #5081
+On resume, after the kernel is up again, the drivers need to get notified to
+re-acquire the PCI device from the platform driver. The platform driver will
+power-on implicitly the re-acquired devices and the GPU/NVME/AHCI drivers will
+setup the device resources, e.g. MMIO and IRQ and then re-initialize the
+devices. The drivers will finally re-start processing of the sessions, so
+that the clients will just continue to operate as though nothing had
+happened.
 
-commit c2cd4102d8d64ecaddbdf5ee87175c14c92b39b8
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Dec 18 13:03:59 2023 +0100
+The test scenario of for suspend/resume can be test driven by using
+_run/acpi_suspend_, which contains a periodic suspend resume cycle for
+developing purposes.
 
-    gpu/intel: prepare GPU structures for resume
-    
-    The commit is a preparation commit for suspend/resume. It prepares the GPU
-    structures relying on gmadr.cap() (MMIO) to be re-constructible by applying
-    the with* pattern to context, ring_buffer and ggtt mmio map. It removes
-    the managed dataspace handling of gmadr subsets to make the with_* pattern
-    possible.
-    
-    Issue #5081
+Additionally, we added to the Intel GPU driver an configuration option to
+specify the amount of the graphic aperture provided to the ported Intel
+display driver. Beforehand it was a fixed amount (64M), which may not suffice
+for all use-cases. The aperture is a shared resource, which must be used for
+various GPU related internal data structures and is used from CPU side for
+access to the framebuffers by the display driver. When the display driver
+sets up several framebuffers with high resolutions, the fixed amount may be to
+small. The snippet below shows the configuration option and the default value:
 
-commit 34d31c98de107796c6566c3593d5c1c8bce26a4b
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Dec 8 16:25:33 2023 +0100
-
-    gpu/intel: release device before suspend
-    
-    - monitor system ROM changes
-    - stop processing of new Jobs before suspend
-    - destruct platform device before suspend, but keep platform DMA buffers
-    - re-construct platform device and reinit resources (mmio, irq) on resume
-    - re-start GPU job scheduling on resume
-    
-    Fixes #5081
-
-commit f925466d89aa55d99b260be28695fa6b7ae062d2
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Feb 20 11:36:59 2024 +0100
-
-    gpu/intel: use with(fn, fn_error) pattern
-    
-    Issue #5081
-
-commit 00635bef34883d525a7127d23a3fdb338d2b9745
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Jan 23 11:11:07 2024 +0100
-
-    acpi_suspend: add nvme & ahci tests
-    
-    - update documentation
-    - add nvme und ahci + test case
-    - fix minor configuration issues of GPU test case
-    
-    Issue #5101 #5081
-
-commit ac51f89846dd0810ac2fbc85fccfaa654e5ec43a
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Dec 21 14:01:09 2023 +0100
-
-    ahci: refactor code for suspend/resume
-    
-    This commit is a preparation commit for suspend/resume. The commit
-    refactors the code in order to consolidate all Platform resources into one
-    instance. All users within the driver should access the resources with
-    with_* functions, which checks whether the device resource is usable. The
-    callers are not allowed to store any references to the provided resources.
-    
-    Issue #5101
-
-commit 17c603337c79b38b354e5860fe022cce489a1b05
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jan 17 14:08:30 2024 +0100
-
-    ahci: release device before suspend
-    
-    - monitor system ROM changes
-    - stop processing of new Jobs before suspend
-    - destruct platform device before suspend, but keep platform DMA buffers
-    - re-construct platform device and reinit resources (mmio, irq) on resume
-    - re-start block job scheduling on resume
-    
-    Issue #5101
-
-commit 788ef4e55077ec244a0bee3e61204b4abe081540
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Jan 19 14:23:31 2024 +0100
-
-    nvme: release device before suspend
-    
-    - monitor system ROM changes
-    - stop processing of new Jobs before suspend
-    - destruct platform device before suspend, but keep platform DMA buffers
-    - re-construct platform device and reinit resources (mmio, irq) on resume
-    - re-start block job scheduling on resume
-    
-    Fixes #5101
-
-commit 2a054d020c119cab6f7c6f62568c2154a04bb4f4
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Feb 20 14:22:28 2024 +0100
-
-    gpu/intel: make aperture configurable
-    
-    Fixes #5124
+! <start name="intel_gpu_drv" ...>
+!	<resource name="RAM" .../>
+!	<provides>
+!		<service name="Gpu"/>
+!		<service name="Platform"/>
+!	</provides>
+!	<config max_framebuffer_memory="64M">
+! ...
 
 Improved human-interface device handling
 ========================================
@@ -580,32 +505,6 @@ Libraries and applications
 VirtualBox
 ==========
 
-Improved network throughput
----------------------------
-
-; @alex-ab
-
-commit ce66e12699c8235fac2e3c2e3bff48d64d0821ac
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Dec 1 15:20:13 2023 +0100
-
-    vbox: improve network tx throughput
-    
-    When multiple threads (EMT-0..X + nic_ep) enter the very same
-    critical section, the use of RTCritSectTryEnter may reflect the contention
-    case to the Network Model (E1000). Since no one notifies the model, when the
-    critical section is free again, solely the next packet/event triggered by the
-    guest will resume the former operation. This may lead to long delays until
-    packets are sent actually.
-    
-    Instead of using the RTCritSectTryEnter use RTCritSecEnter to avoid the
-    situation. All of our network code is non blocking, so the network backend
-    will only be contented a short time.
-    
-    Follow up commit to
-    
-    Issue #5045
-
 Windows BSOD logging
 --------------------
 
@@ -645,29 +544,20 @@ Date:   Mon Jan 22 10:33:55 2024 +0100
 Seoul VMM
 =========
 
-; @alex-ab
-
-commit 308c1725194ed58025b8b85c4183aea269923fd1
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jan 10 22:47:25 2024 +0100
-
-    seoul: support hot_x/y of cursor shape
-
-commit 6ed2afb288f2636d7a6c8c6831c104a3b54ec28d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Jan 4 22:41:41 2024 +0100
-
-    seoul: enable altgr and <>| for ps2
-
-commit b35d8c50c5822dcfa12201bb63b0e84d34c26ca7
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jan 10 22:48:58 2024 +0100
-
-    seoul: improve disk handling
-    
-    Add support to delay requests of the SATA model and to resume it later, as
-    soon as sufficient room is available in the Block packet stream.
-
+Several improvements got added since the last Genode release, which
+showed up during daily usage within a Genode developer VM.
+On the one hand, the exported guest cursor shape was a bit off the actual
+position it has to be. Beside the guest shape, also small hot_x, hot_y shifts
+are exported of a few pixels, which are now considered to position the mouse
+cursor shape more accurate.
+Additionally, the processing of alt-gr and <>| keys on German keyboard layouts
+got enabled, which was not supported beforehand.
+Finally, the ahci model and the bindings to the Genode block
+session got reworked. Up to now, the ahci model could not cope with delaying
+a block request if the block session was saturated. Instead of making temporary
+copies, as done before, the ahci model now supports internally to keep guest
+requests in guest memory when necessary and to resume block operations as soon
+as when the block session is able to process more requests.
 
 Lighttpd web server version 1.4.73
 ==================================
