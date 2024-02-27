@@ -21,6 +21,11 @@ Revised audio infrastructure
 
 ; (timing robustness, pluggable drivers, adaptive sample rates)
 
+[image audio_vs_recordplay]
+  original layered architecture (left) compared to the new pluggable
+  architecture (right)
+
+
 commit 7a6d935eedf4fb743952c1e230bbc4edf0831bda
 Author: Norman Feske <norman.feske@genode-labs.com>
 Date:   Wed Feb 14 17:41:05 2024 +0100
