@@ -202,7 +202,7 @@ subsystem on Sculpt OS. It particularly hosts a _lighttpd_ and _tcp_terminal_
 component. The former is used for run-directory synchronization based on HTTP
 PUT. The latter provides the log output of the test scenario via telnet. For
 more details, you may take a look at the corresponding
-[http://genodians.org/jschlatow/2024-01-29-goa-sculpt - blog post on genodians.org].
+[https://genodians.org/jschlatow/2024-01-29-goa-sculpt - blog post on genodians.org].
 
 In order to integrate support for this mechanism into Sculpt OS, we supplemented the NIC
 router configuration with a _http_ and a _telnet_ domain. Each of these domains is
@@ -211,7 +211,7 @@ are then forwarded to the clients in the _http_ and _telnet_ domain respectively
 This is complemented by the _goa_testbed_ preset added to the PC and PinePhone
 version of Sculpt OS that turns the system into a ready-to-use remote test
 target. You can see this feature in action in our
-[http://genodians.org/nfeske/2024-02-15-fosdem-aftermath - FOSDEM talks].
+[https://genodians.org/nfeske/2024-02-15-fosdem-aftermath - FOSDEM talks].
 
 When implementing the Sculpt target in Goa, we also had to come up with a way
 to supply Goa with the IP address of the remote test target. Goa's modularity
@@ -602,7 +602,7 @@ Section [Sculpt OS as remote test target for the Goa SDK].
 Jitterentropy version 3.4.1
 ===========================
 
-Back in 2014, we ported the [http://www.chronox.de/jent/index.html - jitterentropy library]
+Back in 2014, we ported the [https://www.chronox.de/jent/index.html - jitterentropy library]
 as a basic component-local entropy source for seeding pseudo random-number
 generators like [https://prng.di.unimi.it/ - Xoroshiro] or [https://www.pcg-random.org/ - PCG].
 As the last port update dates back years, we brought the most recent version
@@ -668,7 +668,7 @@ In addition to the aforementioned changes, we added a couple of minor tweaks:
 Convenient parsing of backtraces
 ================================
 
-The new _backtrace_ tool (located under _tool/backtrace_) parses the copied and pasted shared library info of a
+The new _tool/backtrace_ parses the copied and pasted shared library info of a
 component (generated with <config ld_verbose="yes"/>) and the log output of the
 'Genode::backtrace()' function and prints the corresponding source locations in
 a convenient way.
