@@ -166,6 +166,8 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		void print(Output &) const;
 
+		Operation op() const { return _op; }
+
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }
 		Superblock::State sb_state() const { return _sb_state; }

@@ -816,8 +816,16 @@ class Tresor_tester::Main
 			}
 			case Command::REQUEST:
 			{
+				Request &req = *cmd._tresor_request_ptr;
 				progress |= _request_scheduler->execute({*_sb_control, *this, *_vbd, *_free_tree, *_meta_tree, _block_io, _trust_anchor, _crypto });
-				cmd_complete = _try_complete_command(cmd, *cmd._tresor_request_ptr, progress);
+				if (req.complete() && req.success()) {
+					switch (req.op()) {
+					case Request::CREATE_SNAPSHOT: add_snap_ref(cmd._request_node->snap_id, cmd._gen); break;
+					case Request::DISCARD_SNAPSHOT: remove_snap_refs_with_same_gen(cmd._request_node->snap_id); break;
+					default: break;
+					}
+				}
+				cmd_complete = _try_complete_command(cmd, req, progress);
 				break;
 			}
 			case Command::LOG:
