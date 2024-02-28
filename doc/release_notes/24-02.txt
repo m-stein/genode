@@ -279,7 +279,7 @@ Genode got equipped with a light-weight event tracing facility in
 The underlying core service - appropriately named TRACE - used to be an
 outlier among core's services in that it provided a privileged interface with
 system-global reach. A trace client is assumed to play a privileged role and must
-be ultimately trusted. This is arguable fine for the typical use cases where
+be ultimately trusted. This is arguably fine for the typical use cases where
 event tracing is used in the lab. However, anticipating on-target debugging
 on Sculpt OS, the desire for on-target tracing by untrusted trace monitors
 casually running on Sculpt OS is anything but far-fetched. To allow for the
@@ -290,7 +290,7 @@ The current release changes core's trace service to expose trace subjects
 only if their PD label matches up with the label of the trace monitor. Hence, by
 default, a trace monitor can only observe itself and its child components.
 Only if the trace monitor's parent rewrites the trace-session's label, the
-view of trace monitor can become broader. For example, when rewriting the
+view of the trace monitor can become broader. For example, when rewriting the
 trace label to an empty string "", the trace monitor becomes able to observe
 the sibling components hosted in the same init instance as the trace monitor.
 Note that the trace-subject label as reported as subject info to a trace
