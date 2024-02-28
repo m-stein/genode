@@ -694,13 +694,7 @@ In addition to the aforementioned changes, we added a couple of minor tweaks:
 Convenient parsing of backtraces
 ================================
 
-; @cproc
-
-commit 7bfc8f2fde4d6972e6bf304a9395a89b4328e1bb
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Thu Jan 25 15:11:32 2024 +0100
-
-    tool: add `backtrace`
-    
-    Fixes #5103
-
+The new _backtrace_ tool parses the copied and pasted shared library info of a
+component (generated with <config ld_verbose="yes"/>) and the log output of the
+_Genode::backtrace()_ function and prints the corresponding source locations in
+a convenient way.
