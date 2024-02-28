@@ -12,6 +12,7 @@
 ; @nfeske
 
 ; mention PinePhone support for receiving and sending SMS messages?
+; mention Fine-grained and dynamic USB access
 
 
 Revised audio infrastructure
@@ -144,26 +145,6 @@ successively convert the other pieces of the audio stack, in particular the
 other drivers and the OSS VFS plugin, to the new record and play interfaces.
 Following this transition, the original audio in/out interfaces will be
 removed.
-
-
-Fine-grained and dynamic USB access
-###################################
-
-; @skalk
-
-commit 342e48115e0a061834e117f915a8b9e65178120a
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Thu Nov 30 17:04:40 2023 +0100
-
-    lx_emul: replace USB devio API usage
-    
-    The devio API in the Linux kernel promised to be a stable layer for our
-    USB host controller drivers, but the additional bookkeeping and dynamic
-    allocations increase CPU overhead in a way that we do not accept further.
-    Therefore, we go a step back and process DMA transactions directly in and
-    out of the packet stream from the clients.
-    
-    Fix genodelabs/genode#5071
 
 
 Sculpt OS as remote test target for the Goa SDK
