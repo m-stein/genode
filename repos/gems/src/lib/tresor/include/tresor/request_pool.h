@@ -150,6 +150,16 @@ class Tresor::Request : private List<Tresor::Request>::Element
 				}
 				break;
 
+			case Request::DISCARD_SNAPSHOT:
+
+				switch(_helper.state) {
+				case INIT: _discard_snap.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _gen); break;
+				case SB_CONTROL_REQ: progress |= _discard_snap.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				default: break;
+				}
+				break;
+
 			default: ASSERT_NEVER_REACHED;
 			}
 			return progress;
