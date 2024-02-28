@@ -313,7 +313,7 @@ require adequate trust in the trace monitor.
 Deferred unlinking of files in VFS RAM file systems
 ===================================================
 
-UNIX systems use to defer the physical deletion of a file until the last file
+UNIX systems defer the physical deletion of a file until the last file
 descriptor referring to the file is closed. Since Genode's VFS does not (try
 to) implement this scheme, we encountered a few difficulties while porting
 3rd-party software to Genode. In some situations, a parent process of a
@@ -352,7 +352,7 @@ message along with a 'Range_violation' exception.
 This change modifies the API. Existing driver code must be adapted in two
 respects. First, each 'Mmio' definition must be annotated with the expected
 size in bytes as template argument. Second, the 'Mmio' constructor requires
-a 'Byte_range_ptr' argument instead of a plain 'attr_t' value.
+a 'Byte_range_ptr' argument instead of a plain 'addr_t' value.
 
 
 Application-level VFS file watching
@@ -360,8 +360,8 @@ Application-level VFS file watching
 
 The convenience API at _os/vfs.h_ provides utilities for using the VFS as
 a stand-alone library without depending on the libc. Among its utilities,
-there exists the so-called watch handler that can be used to monitor files
-for modifications. As watch handlers were primarily used by VFS plugins and
+there exists the so-called watch handler that can be used to monitor file
+modifications. As watch handlers were primarily used by VFS plugins and
 the C runtime, they used to operate in the context of low-level I/O signal
 handlers. Code executed in this context should generally not involve any
 global side effects that depend on I/O signals themselves (like synchronous
@@ -436,14 +436,14 @@ call after checking if there are no static constructors from other C++ objects p
 Suspend/resume awareness of GPU, AHCI, and NVMe drivers
 =======================================================
 
-As further step towards general ACPI suspend/resume support, our
+As a further step towards general ACPI suspend/resume support, our
 custom-developed drivers for Intel GPU, NVME, and AHCI got re-worked to cooperate
 with the feature.
 
 Before the final suspend, the drivers can now be notified to stop processing
-further client data and to shut down the used devices by closing the
+further client data and to shut down the devices used by closing the
 'Platform::Device'. This prompts the platform driver to
-power-off the used PCI device. However, used DMA buffers containing all the client
+power-off the corresponding PCI device. However, DMA buffers containing all the client
 data are kept in memory and are not de-allocated. This means that the client
 sessions for GPU and 'Block_session' can stay intact (for ACPI S3 - suspend to
 memory) and don't require a restart of the users of GPU, NVME, and AHCI on
@@ -452,9 +452,9 @@ resume.
 On resume, after the kernel is up again, the drivers need to get notified to
 re-acquire the PCI device from the platform driver. The platform driver will
 power-on the re-acquired devices and the GPU/NVME/AHCI drivers will
-set up the device resources, e.g. MMIO and IRQ and then re-initialize the
-devices. The drivers will finally re-start processing of the sessions, so
-that the clients will just continue to operate as though nothing had
+set up the device resources, e.g. MMIO and IRQ, and then re-initialize the
+devices. The drivers will finally restart processing session requests.
+This way the clients will just continue to operate as though nothing had
 happened.
 
 The test scenario for suspend/resume can be test-driven by using
@@ -569,16 +569,16 @@ Several improvements got added since the previous Genode release, which
 showed up during daily usage within a Genode developer VM.
 On the one hand, the exported guest cursor shape was a bit off the actual
 position it has to be. Beside the guest shape, also small hot_x, hot_y shifts
-are exported of a few pixels, which are now considered in order to position the mouse
+are exported, which are now considered in order to position the mouse
 cursor shape more accurately.
 Additionally, the processing of alt-gr and <>| keys on German keyboard layouts
-got enabled, which was not supported beforehand.
+got enabled.
 Finally, the AHCI model and the bindings to the Genode block
 session got reworked. Up to now, the AHCI model could not cope with delaying
-a block request if the block session was saturated. Instead of making temporary
-copies, as done before, the AHCI model now supports internally to keep guest
-requests in guest memory when necessary and to resume block operations as soon
-as when the block session is able to process more requests.
+a block request in case the block session was saturated. Instead of making temporary
+copies, as done before, the AHCI model now supports keeping guest
+requests in guest memory when necessary and resumes block operations as soon
+as the block session is able to process more requests.
 
 
 Lighttpd web server version 1.4.73
@@ -664,7 +664,7 @@ In addition to the aforementioned changes, we added a couple of minor tweaks:
 Convenient parsing of backtraces
 ================================
 
-The new _backtrace_ tool parses the copied and pasted shared library info of a
+The new _backtrace_ tool (located under _tool/backtrace_) parses the copied and pasted shared library info of a
 component (generated with <config ld_verbose="yes"/>) and the log output of the
 'Genode::backtrace()' function and prints the corresponding source locations in
 a convenient way.
