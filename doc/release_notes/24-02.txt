@@ -461,7 +461,11 @@ The test scenario for suspend/resume can be test-driven by using
 _run/acpi_suspend_, which contains a periodic suspend-resume cycle for
 developing purposes.
 
-Additionally, we extended the Intel GPU driver with a configuration option to
+
+Dynamic aperture handling for high resolution framebuffers
+==========================================================
+
+We extended the Intel GPU driver with a configuration option to
 specify the amount of the graphics aperture provided to the ported Intel
 display driver. Beforehand it was a fixed amount (64M), which may not suffice
 for all use-cases. The aperture is a shared resource, which must be used for
@@ -500,7 +504,7 @@ On the driver side, we rewrote our custom *evdev* driver that interfaces
 with all current and future ported Linux input drivers. Now, evdev covers
 all peculiarities of the different device types, for example, touch devices
 that report up to 16 event slots (resp. fingers), and reports them via
-Genode Event sessions. Also, we implemented minimal "gesture" support by a
+Genode Event sessions. Also, we implemented minimal "gesture" support for
 simple tap-to-click for touchpads that could be improved in the future,
 e.g., by two-finger-scrolling. Based on the rewrite, we could easily enable
 support for the Magic Trackpad in usb_hid_drv.
@@ -539,7 +543,7 @@ we added support for the Vivante GC7000L GPU featured in the i.MX8MQ
 SoC to Genode via a port of the etnaviv Linux and Mesa3D driver. As a
 blueprint, it served us well when enabling another GPU for a different
 ARMv8 SoC, namely the Mali GPU in the PinePhone. The etnaviv port itself,
-however, never left its initial state and could cater to one client only. For
+however, never left its initial state and was able to cater to one client only. For
 this reason it was co-located and deployed in tandem with the client requiring
 its service. This factor somewhat restricted its usefulness in Sculpt when
 used in a desktop-like capacity on, e.g., the MNT Reform.
@@ -554,7 +558,7 @@ Libraries and applications
 VirtualBox
 ==========
 
-As a debug aid, we enabled the reporting of Windows Blue Screen of
+As a debugging aid, we enabled the reporting of Windows Blue Screen of
 Death (BSOD) reasons in our VirtualBox port. To enable the output, the new
 release adds a default of '+dbgf+gim' to the 'VBOX_LOG' environment variable.
 With VirtualBox Guest Additions installed in the Windows guest, after a "Guest
@@ -566,9 +570,9 @@ Seoul VMM
 =========
 
 Several improvements got added since the previous Genode release, which
-showed up during daily usage within a Genode developer VM.
-On the one hand, the exported guest cursor shape was a bit off the actual
-position it has to be. Beside the guest shape, also small hot_x, hot_y shifts
+showed up during daily use of a Genode developer VM.
+On the one hand, the exported guest cursor shape was a bit offset from its
+actual position. Besides the guest shape, small hot_x, hot_y shifts
 are exported, which are now considered in order to position the mouse
 cursor shape more accurately.
 Additionally, the processing of alt-gr and <>| keys on German keyboard layouts
@@ -646,7 +650,7 @@ different directory than the project directory. We thus introduced the
 starts searching for depended on projects.
 
 When porting CMake-based projects with Goa, we often needed to patch the
-_CMakeLists.txt_ or to add quirks to Goa in order to disarm CMake's
+_CMakeLists.txt_ or add quirks to Goa in order to disarm CMake's
 'find_library' command. Instead of resorting to those ad-hoc solutions, we
 decided to add support for _FindXXX.cmake_ files in api archives. Any api
 archive mentioned in the _used_apis_ file is now added to the
