@@ -63,15 +63,25 @@ class Tresor::Crypto : Noncopyable
 		template <typename REQ>
 		bool execute(REQ &req)
 		{
+log("crypto::",__func__,__LINE__);
 			if (!_user)
+{
+log("crypto::",__func__,__LINE__);
 				_user = (addr_t)&req;
+}
 
 			if (_user != (addr_t)&req)
+{
+log("crypto::",__func__,__LINE__);
 				return false;
+}
 
 			bool progress = req.execute(_attr);
 			if (req.complete())
+{
+log("crypto::",__func__,__LINE__);
 				_user = 0;
+}
 
 			return progress;
 		}
@@ -103,7 +113,13 @@ class Tresor::Crypto::Encrypt : Noncopyable
 
 	public:
 
-		Encrypt(Attr const &attr) : _helper(*this), _attr(attr) { }
+		Encrypt(Attr const &attr) : _helper(*this), _attr(attr) {
+
+log("crypto::encrypt::",__func__,__LINE__);
+}
+~Encrypt(){
+log("crypto::encrypt::",__func__,__LINE__);
+}
 
 		void print(Output &out) const { Genode::print(out, "encrypt pba ", _attr.in_pba); }
 

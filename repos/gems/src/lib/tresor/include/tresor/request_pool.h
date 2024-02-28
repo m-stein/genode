@@ -89,6 +89,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		bool execute(Execute_attr const &attr)
 		{
+			bool x = _helper.state ==INIT;
 			bool progress = false;
 			switch (_op) {
 			case Request::INITIALIZE:
@@ -182,6 +183,12 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 			default: ASSERT_NEVER_REACHED;
 			}
+
+			if (x || _op == REKEY)
+				log("   start ", *this);
+
+			if (complete())
+				log("   finish ", *this);
 			return progress;
 		}
 
@@ -296,6 +303,14 @@ class Tresor::Request_scheduler : Noncopyable
 					remove_head();
 					_list.insert(head, next);
 				}
+
+				void print(Output &out) const {
+					Request const *req = _list.first();
+					while(req) {
+						Genode::print(out, " ", req);
+						req = req->List<Request>::Element::_next;
+					}
+				}
 		};
 
 		Schedule _schedule { };
@@ -312,9 +327,10 @@ class Tresor::Request_scheduler : Noncopyable
 			bool progress = false;
 			_schedule.with_head([&] (Request &head) {
 				progress |= head.execute(attr);
-				if (head.complete())
+				if (head.complete()) {
 					_schedule.remove_head();
-				else
+					log("      started requests: ", _schedule);
+				} else
 					switch (head.op()) {
 					case Request::REKEY:
 					case Request::EXTEND_VBD:

@@ -71,9 +71,11 @@ bool Crypto::Remove_key::execute(Crypto::Attr const &crypto_attr)
 
 bool Crypto::Encrypt::execute(Crypto::Attr const &crypto_attr)
 {
+log("crypto::encrypt::",__func__,__LINE__, " ", (int)_helper.state);
 	bool progress { false };
 	switch (_helper.state) {
 	case INIT:
+log("crypto::encrypt::",__func__,__LINE__);
 
 		_file.construct(_helper.state, crypto_attr.key_files.encrypt_file(_attr.in_key_id));
 		_offset = _attr.in_pba * BLOCK_SIZE;
@@ -81,10 +83,18 @@ bool Crypto::Encrypt::execute(Crypto::Attr const &crypto_attr)
 		progress = true;
 		break;
 
-	case WRITE: _file->write(WRITE_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
-	case WRITE_OK: _file->read(READ_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
-	case READ_OK: _helper.mark_succeeded(progress); break;
-	case FILE_ERR: _helper.mark_failed(progress, "file-operation error"); break;
+	case WRITE:
+log("crypto::encrypt::",__func__,__LINE__);
+_file->write(WRITE_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
+	case WRITE_OK:
+log("crypto::encrypt::",__func__,__LINE__);
+_file->read(READ_OK, FILE_ERR, _offset, { (char *)&_attr.in_out_blk, BLOCK_SIZE }, progress); break;
+	case READ_OK:
+log("crypto::encrypt::",__func__,__LINE__);
+_helper.mark_succeeded(progress); break;
+	case FILE_ERR:
+log("crypto::encrypt::",__func__,__LINE__);
+_helper.mark_failed(progress, "file-operation error"); break;
 	default: break;
 	}
 	return progress;

@@ -50,15 +50,19 @@ bool Virtual_block_device::Read_vba::execute(Client_data_interface &client_data,
 	switch (_helper.state) {
 	case INIT:
 
+log("vbd::read::", __func__,__LINE__);
 		_lvl = _attr.in_snap.max_level;
 		_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _attr.in_snap.pba, _blk);
 		if (VERBOSE_READ_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), _attr.in_snap);
 		break;
 
-	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK:
+log("vbd::read::",__func__,__LINE__);
+progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
+log("vbd::read::",__func__,__LINE__);
 		if (!_check_and_decode_read_blk(progress))
 			break;
 
@@ -87,9 +91,12 @@ bool Virtual_block_device::Read_vba::execute(Client_data_interface &client_data,
 				_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _new_pbas.pbas[_lvl], _blk);
 		break;
 	}
-	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
+	case DECRYPT_BLOCK:
+log("vbd::read::",__func__,__LINE__);
+progress |= _decrypt_block.execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
+log("vbd::read::",__func__,__LINE__);
 		if (VERBOSE_READ_VBA)
 			log("    ", Branch_lvl_prefix("plaintext:  "), _blk, " ", hash(_blk));
 
@@ -190,6 +197,7 @@ bool Virtual_block_device::Rekey_vba::execute(Block_io &block_io, Crypto &crypto
 	switch (_helper.state) {
 	case INIT:
 	{
+log("vbd::rekey::",__func__,__LINE__);
 		_snap_idx = _attr.in_out_snapshots.newest_snap_idx();
 		Snapshot &snap = _attr.in_out_snapshots.items[_snap_idx];
 		_first_snapshot = true;
@@ -201,9 +209,12 @@ bool Virtual_block_device::Rekey_vba::execute(Block_io &block_io, Crypto &crypto
 			    Branch_lvl_prefix("root: "), snap);
 		break;
 	}
-	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK:
+log("vbd::rekey::",__func__,__LINE__);
+progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 
+log("vbd::rekey::",__func__,__LINE__);
 		if (!_check_and_decode_read_blk(progress))
 			break;
 
@@ -238,17 +249,23 @@ bool Virtual_block_device::Rekey_vba::execute(Block_io &block_io, Crypto &crypto
 		}
 		break;
 
-	case DECRYPT_BLOCK: progress |= _decrypt_block.execute(crypto); break;
+	case DECRYPT_BLOCK:
+log("vbd::rekey::",__func__,__LINE__);
+progress |= _decrypt_block.execute(crypto); break;
 	case DECRYPT_BLOCK_SUCCEEDED:
 
+log("vbd::rekey::",__func__,__LINE__);
 		_generate_ft_alloc_req_for_rekeying(_lvl, progress);
 		if (VERBOSE_REKEYING)
 			log("      re-encrypt leaf data: plaintext ", _data_blk, " hash ", hash(_data_blk));
 		break;
 
-	case ALLOC_PBAS: progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
+	case ALLOC_PBAS:
+log("vbd::rekey::",__func__,__LINE__);
+progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 
+log("vbd::rekey::",__func__,__LINE__);
 		if (VERBOSE_REKEYING)
 			log("      alloc pba", _num_blks > 1 ? "s" : "", ": ", Pba_allocation { _t1_nodes, _new_pbas });
 
@@ -266,17 +283,23 @@ bool Virtual_block_device::Rekey_vba::execute(Block_io &block_io, Crypto &crypto
 				_helper, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, _attr.in_curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
-	case ENCRYPT_BLOCK: progress |= _encrypt_block.execute(crypto); break;
+	case ENCRYPT_BLOCK:
+log("vbd::rekey::",__func__,__LINE__);
+progress |= _encrypt_block.execute(crypto); break;
 	case ENCRYPT_BLOCK_SUCCEEDED:
 
+log("vbd::rekey::",__func__,__LINE__);
 		_generate_write_blk_req(progress);
 		if (VERBOSE_REKEYING)
 			log("      update branch:\n        ", Branch_lvl_prefix("leaf data: "), _data_blk);
 		break;
 
-	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
+	case WRITE_BLK:
+log("vbd::rekey::",__func__,__LINE__);
+progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 	{
+log("vbd::rekey::",__func__,__LINE__);
 		Snapshot &snap = _attr.in_out_snapshots.items[_snap_idx];
 		if (_lvl < snap.max_level) {
 			Type_1_node &node { _t1_blks.node(_attr.in_vba, _lvl + 1, _attr.in_vbd_degree) };
@@ -427,15 +450,19 @@ bool Virtual_block_device::Write_vba::execute(Client_data_interface &client_data
 	switch (_helper.state) {
 	case INIT:
 
+log("vbd::write::",__func__,__LINE__);
 		_lvl = _attr.in_out_snap.max_level;
 		_read_block.generate(_helper, READ_BLK, READ_BLK_SUCCEEDED, progress, _attr.in_out_snap.pba, _encoded_blk);
 		if (VERBOSE_WRITE_VBA)
 			log("  load branch:\n    ", Branch_lvl_prefix("root: "), _attr.in_out_snap);
 		break;
 
-	case READ_BLK: progress |= _read_block.execute(block_io); break;
+	case READ_BLK:
+log("vbd::write::",__func__,__LINE__);
+progress |= _read_block.execute(block_io); break;
 	case READ_BLK_SUCCEEDED:
 	{
+log("vbd::write::",__func__,__LINE__);
 		if (!_check_and_decode_read_blk(progress))
 			break;
 
@@ -458,9 +485,12 @@ bool Virtual_block_device::Write_vba::execute(Client_data_interface &client_data
 		_lvl--;
 		break;
 	}
-	case ALLOC_PBAS: progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
+	case ALLOC_PBAS:
+log("vbd::write::",__func__,__LINE__);
+progress |= _alloc_pbas.execute(free_tree, block_io, meta_tree); break;
 	case ALLOC_PBAS_SUCCEEDED:
 
+log("vbd::write::",__func__,__LINE__);
 		if (VERBOSE_WRITE_VBA)
 			log("  alloc pba", _num_blks > 1 ? "s" : "", ": ", Pba_allocation(_t1_nodes, _new_pbas));
 
@@ -469,16 +499,22 @@ bool Virtual_block_device::Write_vba::execute(Client_data_interface &client_data
 			_helper, ENCRYPT_BLOCK, ENCRYPT_BLOCK_SUCCEEDED, progress, _attr.in_curr_key_id, _new_pbas.pbas[0], _data_blk);
 		break;
 
-	case ENCRYPT_BLOCK: progress |= _encrypt_block.execute(crypto); break;
+	case ENCRYPT_BLOCK:
+log("vbd::write::",__func__,__LINE__);
+progress |= _encrypt_block.execute(crypto); break;
 	case ENCRYPT_BLOCK_SUCCEEDED:
 
+log("vbd::write::",__func__,__LINE__);
 		calc_hash(_data_blk, _hash);
 		_generate_write_blk_req(progress);
 		break;
 
-	case WRITE_BLK: progress |= _write_block.execute(block_io); break;
+	case WRITE_BLK:
+log("vbd::write::",__func__,__LINE__);
+progress |= _write_block.execute(block_io); break;
 	case WRITE_BLK_SUCCEEDED:
 
+log("vbd::write::",__func__,__LINE__);
 		if (!_lvl)
 			_update_nodes_of_branch_of_written_vba();
 

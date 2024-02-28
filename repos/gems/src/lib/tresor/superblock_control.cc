@@ -51,6 +51,7 @@ bool Superblock_control::Write_vbas::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
+log("sbctl::write::",__func__,__LINE__);
 		if (_attr.in_first_vba + _attr.in_num_vbas - 1 > attr.sb.max_vba()) {
 			_helper.mark_failed(progress, "invalid VBA range");
 			break;
@@ -58,9 +59,12 @@ bool Superblock_control::Write_vbas::execute(Execute_attr const &attr)
 		_start_write_vba(attr, progress);
 		break;
 
-	case WRITE_VBA: progress |= _write_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
+	case WRITE_VBA:
+log("sbctl::write::",__func__,__LINE__);
+progress |= _write_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
 	case WRITE_VBA_SUCCEEDED:
 
+log("sbctl::write::",__func__,__LINE__);
 		if (++_num_written_vbas < _attr.in_num_vbas) {
 			_start_write_vba(attr, progress);
 		} else
@@ -94,6 +98,7 @@ bool Superblock_control::Read_vbas::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
+log("sbctl::read::",__func__,__LINE__);
 		if (_attr.in_first_vba + _attr.in_num_vbas - 1 > attr.sb.max_vba()) {
 			_helper.mark_failed(progress, "invalid VBA range");
 			break;
@@ -101,9 +106,12 @@ bool Superblock_control::Read_vbas::execute(Execute_attr const &attr)
 		_start_read_vba(attr, progress);
 		break;
 
-	case READ_VBA: progress |= _read_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
+	case READ_VBA:
+log("sbctl::read::",__func__,__LINE__);
+progress |= _read_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
 	case READ_VBA_SUCCEEDED:
 
+log("sbctl::read::",__func__,__LINE__);
 		if (++_num_read_vbas < _attr.in_num_vbas) {
 			_start_read_vba(attr, progress);
 		} else
@@ -296,6 +304,7 @@ bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
+log("sbctl::rekey::",__func__,__LINE__);
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		_attr.out_rekeying_finished = false;
 		switch (attr.sb.state) {
@@ -328,25 +337,34 @@ bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 		}
 		break;
 
-	case GENERATE_KEY: progress |= _generate_key.execute(attr.trust_anchor); break;
+	case GENERATE_KEY:
+log("sbctl::rekey::",__func__,__LINE__);
+progress |= _generate_key.execute(attr.trust_anchor); break;
 	case GENERATE_KEY_SUCCEEDED:
 
+log("sbctl::rekey::",__func__,__LINE__);
 		_add_key.generate(_helper, ADD_KEY, ADD_KEY_SUCCEEDED, progress, attr.sb.current_key);
 		if (VERBOSE_REKEYING)
 			log("start rekeying:\n  update sb: keys ", attr.sb.previous_key.id, ",", attr.sb.current_key.id);
 		break;
 
-	case ADD_KEY: progress |= _add_key.execute(attr.crypto); break;
+	case ADD_KEY:
+log("sbctl::rekey::",__func__,__LINE__);
+progress |= _add_key.execute(attr.crypto); break;
 	case ADD_KEY_SUCCEEDED:
 
+log("sbctl::rekey::",__func__,__LINE__);
 		if (VERBOSE_REKEYING)
 			log("  secure sb: gen ", attr.curr_gen);
 		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
 		break;
 
-	case REKEY_VBA: progress |= _rekey_vba.execute(attr.vbd, attr.block_io, attr.crypto, attr.free_tree, attr.meta_tree); break;
+	case REKEY_VBA:
+log("sbctl::rekey::",__func__,__LINE__);
+progress |= _rekey_vba.execute(attr.vbd, attr.block_io, attr.crypto, attr.free_tree, attr.meta_tree); break;
 	case REKEY_VBA_SUCCEEDED:
 	{
+log("sbctl::rekey::",__func__,__LINE__);
 		Number_of_leaves max_nr_of_leaves { 0 };
 		for (Snapshot const &snap : attr.sb.snapshots.items) {
 			if (snap.valid && max_nr_of_leaves < snap.nr_of_leaves)
@@ -364,9 +382,12 @@ bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 		}
 		break;
 	}
-	case REMOVE_KEY: progress |= _remove_key.execute(attr.crypto); break;
+	case REMOVE_KEY:
+log("sbctl::rekey::",__func__,__LINE__);
+progress |= _remove_key.execute(attr.crypto); break;
 	case REMOVE_KEY_SUCCEEDED:
 
+log("sbctl::rekey::",__func__,__LINE__);
 		attr.sb.previous_key = { };
 		attr.sb.state = Superblock::NORMAL;
 		_attr.out_rekeying_finished = true;
@@ -375,8 +396,12 @@ bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 			log("  secure sb: gen ", attr.curr_gen);
 		break;
 
-	case SECURE_SB: progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
-	case SECURE_SB_SUCCEEDED: _helper.mark_succeeded(progress); break;
+	case SECURE_SB:
+log("sbctl::rekey::",__func__,__LINE__);
+progress |= _secure_sb.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
+	case SECURE_SB_SUCCEEDED:
+log("sbctl::rekey::",__func__,__LINE__);
+_helper.mark_succeeded(progress); break;
 	default: break;
 	}
 	return progress;
