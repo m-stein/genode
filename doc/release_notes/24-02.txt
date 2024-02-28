@@ -334,7 +334,7 @@ Improved API safety of MMIO accesses
 
 The 'Register' respectively 'Mmio' APIs have become predominant in
 Genode's native drivers where the type-safe access to hardware registers has
-become a second nature. However, up until recently, one point of unsafety
+become a second nature. However, up until recently, one point of uncertainty
 remained: Since the 'Mmio' utility evaluated only the base address of a
 memory-mapped I/O range, all associated register definitions were assumed
 to be fully contained within the corresponding local memory mapping.
@@ -620,13 +620,13 @@ underwent quite a few usability adjustments.
 As announced in
 [https://genode.org/documentation/release-notes/23.08#Support_of_index_projects - release 23.08],
 Goa has been enabled to export and publish a personal depot index. The depot
-index lists a depot user's packages in a nested structure of '<index>' nodes.
+index lists the depot user's packages in a nested structure of '<index>' nodes.
 The initial support for index projects, however, was restricted to two levels
 of '<index>' nodes. We eliminated this restriction in order to clear the path
 for large depot indexes with hierarchical structure.
 
 When using Goa to export and publish a depot index,
-one always has to provide the '--depot-overwrite' switch in order to overwrite
+one always had to provide the '--depot-overwrite' switch in order to overwrite
 the current depot index. Goa also propagated this switch to any sub-project that
 got exported along with the depot index. In practice, however, an index project
 will typically be exported and published when development on all sub-projects
