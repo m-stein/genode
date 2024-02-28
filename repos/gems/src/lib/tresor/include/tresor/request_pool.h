@@ -73,6 +73,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		Helper _helper;
 		Superblock::State _sb_state { Superblock::INVALID };
+		bool _request_finished { false };
 		union {
 			Generatable_request<Helper, State, Superblock_control::Read_vbas> _read_vbas;
 			Generatable_request<Helper, State, Superblock_control::Write_vbas> _write_vbas;
@@ -160,12 +161,21 @@ class Tresor::Request : private List<Tresor::Request>::Element
 				}
 				break;
 
-			case Request::REKEYING:
+			case Request::REKEY:
 
 				switch(_helper.state) {
-				case INIT: _rekey.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _gen); break;
-				case SB_CONTROL_REQ: progress |= _rekey.execute(attr.sb_control, attr.block_io, attr.trust_anchor); break;
-				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
+				case INIT: _rekey.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _request_finished); break;
+				case SB_CONTROL_REQ: progress |= _rekey.execute(attr.sb_control, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.crypto, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED:
+
+					if (_request_finished)
+						_helper.mark_succeeded(progress);
+					else {
+						_helper.state = INIT;
+						progress = true;
+					}
+					break;
+
 				default: break;
 				}
 				break;
@@ -272,27 +282,19 @@ class Tresor::Request_scheduler : Noncopyable
 						_tail = _list.first();
 				}
 
-				template <typename MOVE_BEHIND_FN>
-				void move_head_backwards(MOVE_BEHIND_FN && can_move_behind)
+				template <typename CAN_YIELD_TO_FN>
+				void try_yield_head(CAN_YIELD_TO_FN && can_yield_to)
 				{
 					Request *head = _list.first();
 					if (!head)
 						return;
 
 					Request *next = head->List<Request>::Element::_next;
-					Request *insert_head_at { };
-					while (1) {
-						if (!next)
-							break;
+					if (!next || !can_yield_to(*next))
+						return;
 
-						if (!can_move_behind(next))
-							break;
-
-						insert_head_at = next;
-						next = next->List<Request>::Element::_next;
-					}
 					remove_head();
-					_list.insert(head, insert_head_at);
+					_list.insert(head, next);
 				}
 		};
 
@@ -308,14 +310,28 @@ class Tresor::Request_scheduler : Noncopyable
 		bool execute(Request::Execute_attr const &attr)
 		{
 			bool progress = false;
-			bool head_complete = false;
 			_schedule.with_head([&] (Request &head) {
 				progress |= head.execute(attr);
-				head_complete = head.complete();
+				if (head.complete())
+					_schedule.remove_head();
+				else
+					switch (head.op()) {
+					case Request::REKEY:
+					case Request::EXTEND_VBD:
+					case Request::EXTEND_FT:
+						_schedule.try_yield_head([&] (Request &to_req) {
+							switch (to_req.op()) {
+							case Request::READ:
+							case Request::WRITE:
+							case Request::SYNC:
+							case Request::DISCARD_SNAPSHOT: return true;
+							default: return false;
+							}
+						});
+						break;
+					default: break;
+					}
 			});
-			if (head_complete)
-				_schedule.remove_head();
-
 			return progress;
 		}
 
