@@ -180,6 +180,44 @@ class Tresor::Request : private List<Tresor::Request>::Element
 				}
 				break;
 
+			case Request::EXTEND_FT:
+
+				switch(_helper.state) {
+				case INIT: _extend_ft.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _count, _request_finished); break;
+				case SB_CONTROL_REQ: progress |= _extend_ft.execute(attr.sb_control, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED:
+
+					if (_request_finished)
+						_helper.mark_succeeded(progress);
+					else {
+						_helper.state = INIT;
+						progress = true;
+					}
+					break;
+
+				default: break;
+				}
+				break;
+
+			case Request::EXTEND_VBD:
+
+				switch(_helper.state) {
+				case INIT: _extend_vbd.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _count, _request_finished); break;
+				case SB_CONTROL_REQ: progress |= _extend_vbd.execute(attr.sb_control, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor); break;
+				case SB_CONTROL_REQ_SUCCEEDED:
+
+					if (_request_finished)
+						_helper.mark_succeeded(progress);
+					else {
+						_helper.state = INIT;
+						progress = true;
+					}
+					break;
+
+				default: break;
+				}
+				break;
+
 			default: ASSERT_NEVER_REACHED;
 			}
 			return progress;

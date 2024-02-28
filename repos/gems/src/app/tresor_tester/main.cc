@@ -727,6 +727,7 @@ class Tresor_tester::Main
 				_mark_command_in_progress(cmd);
 				break;
 			}
+			case Command::BENCHMARK:
 			case Command::CONSTRUCT:
 			case Command::DESTRUCT:
 			case Command::CHECK_SNAPSHOTS:
@@ -785,6 +786,14 @@ class Tresor_tester::Main
 				_vbd.destruct();
 				_sb_control.destruct();
 				_request_scheduler.destruct();
+				_mark_command_complete(cmd, true);
+				cmd_complete = true;
+				progress = true;
+				break;
+
+			case Command::BENCHMARK:
+
+				_benchmark.execute_cmd(*cmd._benchmark_node);
 				_mark_command_complete(cmd, true);
 				cmd_complete = true;
 				progress = true;
