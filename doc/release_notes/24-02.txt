@@ -8,11 +8,51 @@
 
 
 
-; intro
-; @nfeske
+Version 24.02 focuses on developer experience and framework infrastructure.
+Genode's Goa SDK has reached prominence in the past few releases. It largely
+streamlines the porting, development, and publishing of software targeting
+Genode and Sculpt OS in particular.
+With the current release, Goa has become able to conveniently use Sculpt OS as
+a remote test target. Regardless of whether targeting a PC or the PinePhone,
+either can be turned into a test target in seconds and the developer's
+compile-test cycle looks exactly the same
+(Section [Sculpt OS as remote test target for the Goa SDK]).
 
-; mention PinePhone support for receiving and sending SMS messages?
-; mention Fine-grained and dynamic USB access
+A long anticipated infrastructure topic is the rework of Genode's audio
+stack to accommodate latency-sensitive scenarios, using flexible sample rates,
+and making audio drivers pluggable.
+Section [Revised audio infrastructure] gives an overview of the taken
+architectural approach, the interfaces, and a low-complexity mixer modelled
+as self-sufficient resource multiplexer.
+
+Speaking of infrastructure, we are excited to report to have wrapped up the
+transition to our modern Linux device-driver environment based on Linux 6.x.
+The last piece of the puzzle was the TCP/IP stack that was still based
+on code originating from Linux 4.4.3.
+Section [TCP/IP stack based on DDE-Linux version 6.1.20] details the new
+TCP/IP stack.
+
+According to our [https://genode.org/about/road-map - road map], we plan to
+add suspend/resume as feature to Sculpt OS 24.04. As a crucial stepping stone
+towards this goal, all drivers that cannot be easily restarted must become
+suspend/resume aware.
+Section [Suspend/resume awareness of GPU, AHCI, and NVMe drivers] explains
+this achievement for the AHCI, NVMe, and Intel GPU drivers.
+
+Further highlights of the release are the much improved handling of HID
+events including the generalized calibration of motion events,
+API safety improvements, the prospect of de-privileged tracing in Sculpt OS,
+and multi-client support for Vivante GPUs.
+
+On our road map, we had scheduled two further topics that are notably absent,
+namely USB and SMS. But don't fret. Even though the large rework of our USB
+infrastructure for fine-grained and dynamic USB access has been completed just
+in time, we felt that this far-reaching change should better not be rushed
+into the release. It will be merged shortly after, and settle into the upcoming
+Sculpt OS version 24.04 just fine. The second topic not covered is SMS support
+for the PinePhone, which is a topic actively
+[https://github.com/genodelabs/genode/issues/5127 - worked on] but with no
+user-visible effect until its integration in Sculpt OS in April.
 
 
 Revised audio infrastructure
