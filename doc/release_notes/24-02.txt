@@ -64,24 +64,25 @@ the time was ripe for turning the audio infrastructure upside down.
 
 The new architecture as shown on the right turns the mixer into a
 self-sufficient resource multiplexer, which offers a service for playing audio
-and a service for recording audio. Audio drivers as well as audio applications
-are mere clients of the mixer.
+and a service for recording audio. Both audio drivers as well as audio
+applications are becoming mere clients of the mixer. With this architecture,
+the dynamic starting, removal, and restarting of the driver, of even multiple
+drivers, is trivially solved.
 
 To bridge the gap between audio clients operating at different sample rates,
 the mixer automatically detects and converts sample rates as needed.
 Both play and record clients are expected to operate periodically. The number
 of samples produced per period is up to each client and does not need to be
 constant over time. The mixer infers the used sample rates and periods by
-observing the behavior of the clients. The mixer measures the jitter of
-clients to automatically adjust buffering parameters to attain continuous
-playback while trying to optimize for low latency. Those runtime-measurements
-can be augmented by explicit configuration values.
+observing the behavior of the clients. It measures the jitter of clients to
+automatically adjust buffering parameters to attain continuous playback while
+trying to optimize for low latency. Those runtime-measurements can be
+augmented by explicit configuration values.
 
 Multi-channel playing and recording is realized by one session per channel
-whereas one channel is used to drive the time allocation (active time
-synchronization with the mixer via synchronous RPC) while all further channels
-merely enqueue/obtain data into/from their respective sessions without any
-synchronous interplay with the mixer.
+whereas one channel is used to drive the time allocation while all further
+channels merely enqueue/obtain data into/from their respective sessions
+without any synchronous interplay with the mixer.
 
 The mixer routes and mixes audio signals produced by play clients to record
 clients according to its configuration. Typical play clients are an audio
@@ -89,7 +90,7 @@ player or a microphone driver whereas typical record clients are an audio
 recorder or an audio-output driver. A simple mixer configuration looks as
 follows:
 
-! <config jitter_ms="5">
+! <config>
 !
 !   <mix name="left">  <play label_suffix="left"/>  </mix>
 !   <mix name="right"> <play label_suffix="right"/> </mix>
@@ -121,12 +122,13 @@ respective volume attributes.
   a signal mixed 70:30, a signal mixed 30:70, and a square wave as the
   "right" signal (bottom).
 
-The operation of the mixer is described in more detail by the accompanied
-README at _os/src/record_play_mixer/_. The inter-component interfaces are
-located at _os/include/play_session/_ and _os/include/record_session/_.
+The operation and configuration of the mixer is described in more detail by
+the accompanied README at _os/src/record_play_mixer/_. The inter-component
+interfaces are located at _os/include/play_session/_ and
+_os/include/record_session/_.
 
-The _gems/run/waveform_player.run_ script illustrates the integration and
-configuration of the mixer by using a waveform generator as play client and an
+The _gems/run/waveform_player.run_ script illustrates the integration of the
+mixer by using a waveform generator as multi-channel play client and an
 oscilloscope as record client.
 
 Current state and next steps
@@ -134,14 +136,14 @@ Current state and next steps
 
 The new infrastructure is ready to be exercised by the synthetic example
 mentioned above as well as by the _audio_out.run_ and _audio_in.run_ scripts
-located at _repos/dde_bsd/run/_. The OpenBSD-based
-audio driver can be operated in either of two modes. By default, it is
-compatible to the old audio in/out interfaces. The new record/play mode can be
-enabled by setting the 'record_play="yes"' config attribute.
-Over the next release cycle, we will successively convert the other pieces
-of the audio stack, in particular the drivers and the OSS VFS plugin, to
-the new record and play interfaces. Following this transition, the original
-audio in/out interfaces will be removed.
+located at _repos/dde_bsd/run/_. The OpenBSD-based audio driver can be
+operated in either of two modes. By default, it is compatible to the old audio
+in/out interfaces. The new record/play mode can be enabled by setting the
+'record_play="yes"' config attribute. Over the next release cycle, we will
+successively convert the other pieces of the audio stack, in particular the
+other drivers and the OSS VFS plugin, to the new record and play interfaces.
+Following this transition, the original audio in/out interfaces will be
+removed.
 
 
 Fine-grained and dynamic USB access
@@ -176,17 +178,17 @@ merely involved coming up with a solution for synchronizing the run directory
 with Sculpt OS and getting a hold of the log output. The implementation in Goa
 is accompanied by a _goa_testbed_ package that starts a remotely-controlled
 subsystem on Sculpt OS. It particularly hosts a _lighttpd_ and _tcp_terminal_
-comopnent. The former is used for run-directory synchronization based on HTTP
+component. The former is used for run-directory synchronization based on HTTP
 PUT. The latter provides the log output of the test scenario via telnet. For
 more details, you may take a look at the corresponding
 [http://genodians.org/jschlatow/2024-01-29-goa-sculpt - blog post on genodians.org].
 
-In order to integrate support for this into Sculpt OS, we supplemented the Nic
-router config with a _http_ and a _telnet_ domain. Each of these domains is
+In order to integrate support for this mechanism into Sculpt OS, we supplemented the NIC
+router configuration with a _http_ and a _telnet_ domain. Each of these domains is
 intended to accommodate a single client. Ports 80 and 23 of the _uplink_ domain
 are then forwarded to the clients in the _http_ and _telnet_ domain respectively.
 This is complemented by the _goa_testbed_ preset added to the PC and PinePhone
-version of Sculpt OSthat turns the system into a ready-to-use remote test
+version of Sculpt OS that turns the system into a ready-to-use remote test
 target. You can see this feature in action in our
 [http://genodians.org/nfeske/2024-02-15-fosdem-aftermath - FOSDEM talks].
 
@@ -208,7 +210,10 @@ Base framework and OS-level infrastructure
 TCP/IP stack based on DDE-Linux version 6.1.20
 ==============================================
 
-The final piece of code standing in the way of the removal of our dated DDE
+Over the course of the previous four releases, we have gradually modernized
+the arsenal of Linux-based drivers to use our modern Linux device-driver
+environment based on Linux 6.x.
+The final piece of code standing in the way of the removal of our legacy DDE
 Linux approach has been Linux's TCP/IP stack. The stack was based on Linux
 version 4.4.3 and did not even take advantage of lx_kit supported features like
 cooperative scheduling.
@@ -216,31 +221,31 @@ cooperative scheduling.
 For this reason, it was about time to update the TCP/IP port while also adapting
 it to our
 [https://genode.org/documentation/release-notes/21.08#Linux-device-driver_environment_re-imagined - modern]
-DDE approach. Being in such an ancient state this effort ended up being more of
+DDE approach. Being in such an ancient state, this effort ended up being more of
 a re-write than an actual update. The IP stack is also one of the few DDE Linux
-components that is a shared library, as opposed to most drivers which are
-dynamic binaries. This let to improvements of our lx_kit, for example, we had to
+components that is a shared library, as opposed to most drivers, which are
+executable binaries. This led to improvements of our lx_kit, for example, we had to
 replace static C++ constructors by automatically generated functions for kernel
-module-initialization calls, because C++ constructors are supposed to be called
+module-initialization calls because C++ constructors are supposed to be called
 by the binary and not during library initialization (Section
-[Initcall handling without relying on global constructors]). Additionally, we are
+[Initcall handling without relying on global constructors]). Additionally, we took the opportunity of
 experimenting with a socket C-API with the ultimate goal to replace the VFS
 plugins for Linux (vfs_lxip) and lwIP (vfs_lwip) with a unified version, but
-this is an ongoing effort. Nevertheless, with the current release the update of
+this is an ongoing effort. Nevertheless, with the current release, the update of
 our Linux TCP/IP port is complete and from a user perspective, the new version
-as well as the updated VFS plugin are drop-in replacements for version 4.4.3 and
-the transition should be seamless.
+as well as the updated VFS plugin are drop-in replacements for version 4.4.3.
+The transition should be seamless.
 
-While porting the IP stack we also investigated a long standing issue regarding
-the memory consumption of the IP stack, which always seemed a little too high
-and were able to identify the hash tables used for locating sockets as the main
+While porting the IP stack, we also investigated a long standing issue regarding
+the memory consumption of the IP stack, which always seemed a little too high.
+We were able to identify the hash tables used for locating sockets as the main
 reason. These tables are configured for server loads per default (meaning > 1
 million sockets), which Genode with one or few (VFS server) clients per IP stack
 does not default to. This enabled us to reduce the amount of hash table
 allocations during IP stack initialization what leads to reduced memory demands
 (>10MB) of the IP stack.
 
-With the IP stack in place and no legacy components remaining, we removed the DDD
+With the new IP stack in place and no legacy components remaining, we removed the DDD
 Linux port file (_dde_linux.port_) and the legacy lx_kit/lx_emul marking the
 update to the current DDE approach as complete.
 
@@ -252,7 +257,7 @@ Genode got equipped with a light-weight event tracing facility in
 [https://genode.org/documentation/release-notes/13.08#Light-weight_event_tracing - version 13.08].
 The underlying core service - appropriately named TRACE - used to be an
 outlier among core's services in that it provided a privileged interface with
-system-global reach. A trace client is assumed to play a special role and must
+system-global reach. A trace client is assumed to play a privileged role and must
 be ultimately trusted. This is arguable fine for the typical use cases where
 event tracing is used in the lab. However, anticipating on-target debugging
 on Sculpt OS, the desire for on-target tracing by untrusted trace monitors
@@ -261,7 +266,7 @@ secure use of untrusted trace monitors, the global reach of core's trace
 service is no longer satisfactory.
 
 The current release changes core's trace service to expose trace subjects
-only if their PD label matches the label of the trace monitor. Hence, by
+only if their PD label matches up with the label of the trace monitor. Hence, by
 default, a trace monitor can only observe itself and its child components.
 Only if the trace monitor's parent rewrites the trace-session's label, the
 view of trace monitor can become broader. For example, when rewriting the
@@ -295,7 +300,7 @@ Unix-like subsystem may pass the content of an unlinked file to a forked child
 process. This can be observed when using the 'exec' command in Tcl scripts.
 Another example is the use of the 'tmpfile()' POSIX function.
 
-In the use cases we observed, the mechanism was merely used for /tmp files,
+In the use cases we observed, the mechanism was merely used for _/tmp_ files,
 which are usually backed by a '<ram>' file system in Genode's VFS. Hence, to
 accommodate these programs, we changed the unlink operation of the ram fs to
 defer the destruction of a file until it is no longer referenced by any VFS
@@ -349,32 +354,30 @@ case is now covered by the dedicated 'Io::Watch_handler'.
 Device drivers
 ##############
 
-
 Linux-device-driver environment (DDE)
 =====================================
-
 
 ARMv6 compatibility
 -------------------
 
-In the previous release we updated our
+In the previous release, we updated our
 [https://genode.org/documentation/release-notes/23.11#USB_device_drivers_updated_to_Linux_6.1.20 - USB device drivers]
 to Linux 6.1.20 using 'virt_linux'. Drivers or protocol stacks based on
-'virt_linux' do not have direct access to hardware. They either communicate through
+'virt_linux' do not access hardware directly. They either communicate through
 another instance - like the USB host controller for USB device drivers - with the
 hardware or do not require hardware at all (e.g., TCP/IP, WireGuard).
 
-'virt_linux' is still CPU architecture specific because it contains low-level-
-assembly code. A limitation of Genode release 23.11 is that there is no support
-for ARMv6 in 'virt_linux'. But devices based on ARMv6 can still be found in the
-wild (e.g., Raspberry Pi Zero). With the current release we have added support
+The 'virt_linux' flavour is still CPU architecture-specific because it contains low-level
+assembly code. A limitation of Genode release 23.11 was that there is no support
+for ARMv6 in 'virt_linux'. As devices based on ARMv6 can still be found in the
+wild (e.g., Raspberry Pi Zero), the current release supplements support
 for ARMv6 to 'virt_linux', the USB device drivers, and the TCP/IP stack. For
-this to work we had to separate code shared by ARMv6 and ARMv7 platforms. In
-many places there would be a folder like _spec/arm_ which would contain build
-rules or code for both architectures. ARMv6 and ARMv7 have many things in common
-- until they don't. With release 24.02 we have split these folders into _arm_v6_
+this to work, we had to separate code shared by ARMv6 and ARMv7 platforms. In
+many places, there would be a directory like _spec/arm_, which would contain build
+rules or code for both architectures. ARMv6 and ARMv7 have many things in common -
+until they don't. With the current release, we have split these folders into _arm_v6_
 and _arm_v7_ respectively and while we were at it renamed _arm_64_ into _arm_v8_
-for consistency. With this approach it became possible to introduce ARMv6 and
+for consistency. With this approach, it became possible to introduce ARMv6 and
 ARMv7 specific kernel configurations to 'virt_linux', and thus, enable support
 for drivers/protocol stacks for both architectures.
 
@@ -382,27 +385,27 @@ for drivers/protocol stacks for both architectures.
 Initcall handling without relying on global constructors
 --------------------------------------------------------
 
-When porting Linux drivers a lot of code is placed into modules. Modules always
-have a magic module-function call (e.g., 'module_init') which registers a
+When porting Linux drivers, a lot of code is placed into modules. Modules always
+have a magic module-function call (e.g., 'module_init'), which registers a
 function for the initialization of the module and is executed during kernel startup
 prior device probing. DDE Linux mapped 'module_init' indirectly to a macro
-that generated a function as a static constructor (ctor) which in turn registered the
+that generated a function as a static constructor (ctor), which in turn registered the
 required module function (Note: This is simplified because there is also an
-order that must be preserved). This lead to the fact that all ported components
-had to call 'exec_static_constructors' in order to trigger the registration of
-module-init calls before executing any other Linux kernel code, but after
-'Lx_kit' initialization because the init-call functions had to be registered
-somewhere. This behavior let to hen & egg problems in our TCP/IP stack
+order that must be preserved). This solution required all ported components
+to call 'exec_static_constructors' in order to trigger the registration of
+module-init calls before executing any other Linux kernel code, but not before
+the 'Lx_kit' initialization because the init-call functions had to be registered
+in advance. This scheme led to hen-and-egg problems in our TCP/IP stack
 (Section [TCP/IP stack based on DDE-Linux version 6.1.20]) and our WiFi driver
-port because they are shared libraries where, for example,  static constructors
+port because they are shared libraries where static constructors
 must be called at a later stage.
 
-In order to avoid these kind of problems, we changed the module-init approach by
+In order to avoid these kinds of problems, we changed the module-init approach by
 replacing the macro-generated functions with global-function pointers with a well known
 prefix. These pointers are collected by the DDE-Linux-build system using ELF reading
 tools (i.e., 'nm') after the compile step and are placed into a function
 ('lx_emul_register_initcalls') which is called during 'Lx_kit' startup. This
-way no changes to existing drivers are necessary and the static constructor
+way, no changes to existing drivers are necessary and the static constructor
 problem disappeared for the shared library cases.
 
 Note: Any ported driver still using 'exec_static_constructors' can remove the
@@ -412,60 +415,60 @@ call after checking if there are no static constructors from other C++ objects p
 Suspend/resume awareness of GPU, AHCI, and NVMe drivers
 =======================================================
 
-As further step towards general ACPI suspend/resume support, the
-self-written driver for Intel GPU, NVME and AHCI got re-worked to cooperate
+As further step towards general ACPI suspend/resume support, our
+custom-developed drivers for Intel GPU, NVME, and AHCI got re-worked to cooperate
 with the feature.
 
 Before the final suspend, the drivers can now be notified to stop processing
-further client data and to shutdown the used devices by closing the Genode
-specific Platform::Device. By this the platform driver will implicitly
-power-off the used PCI device. The in-use DMA buffers containing all the client
+further client data and to shutdown the used devices by closing the
+'Platform::Device'. This prompts the platform driver to
+power-off the used PCI device. However, used DMA buffers containing all the client
 data are kept in memory and are not de-allocated. This means that the client
-sessions for GPU and Block_session can stay intact (for ACPI S3 - suspend to
-memory) and don't require a re-start of the users of GPU, NVME and AHCI on
+sessions for GPU and 'Block_session' can stay intact (for ACPI S3 - suspend to
+memory) and don't require a restart of the users of GPU, NVME, and AHCI on
 resume.
 
 On resume, after the kernel is up again, the drivers need to get notified to
 re-acquire the PCI device from the platform driver. The platform driver will
-power-on implicitly the re-acquired devices and the GPU/NVME/AHCI drivers will
+power-on the re-acquired devices and the GPU/NVME/AHCI drivers will
 setup the device resources, e.g. MMIO and IRQ and then re-initialize the
 devices. The drivers will finally re-start processing of the sessions, so
 that the clients will just continue to operate as though nothing had
 happened.
 
-The test scenario of for suspend/resume can be test driven by using
+The test scenario of for suspend/resume can be test-driven by using
 _run/acpi_suspend_, which contains a periodic suspend resume cycle for
 developing purposes.
 
-Additionally, we added to the Intel GPU driver an configuration option to
-specify the amount of the graphic aperture provided to the ported Intel
+Additionally, we extended the Intel GPU driver with a configuration option to
+specify the amount of the graphics aperture provided to the ported Intel
 display driver. Beforehand it was a fixed amount (64M), which may not suffice
 for all use-cases. The aperture is a shared resource, which must be used for
 various GPU related internal data structures and is used from CPU side for
 access to the framebuffers by the display driver. When the display driver
-sets up several framebuffers with high resolutions, the fixed amount may be to
+sets up several framebuffers with high resolutions, the fixed amount may be too
 small. The snippet below shows the configuration option and the default value:
 
 ! <start name="intel_gpu_drv" ...>
-!	<resource name="RAM" .../>
-!	<provides>
-!		<service name="Gpu"/>
-!		<service name="Platform"/>
-!	</provides>
-!	<config max_framebuffer_memory="64M">
-! ...
+!   <resource name="RAM" .../>
+!   <provides>
+!     <service name="Gpu"/>
+!     <service name="Platform"/>
+!   </provides>
+!   <config max_framebuffer_memory="64M">
+!   ...
 
 
 Improved human-interface device handling
 ========================================
 
-In preparation of the _Support for I2C based HID (touchpad) devices_
+In preparation of the _support for I2C based HID (touchpad) devices_
 [https://genode.org/about/road-map#February_-_Release_24.02 - road-map item],
 we dusted off several aspects of our input-event handling from the drivers
 over the event API to the event-filter component. At the heart of the
 improvements, we developed a broad understanding of the specifics
 of the different motion-event device types that are widely in use. First,
-there are mice and touchpads which generate relative-motion events that are
+there are mice and touchpads, which generate relative-motion events that are
 translated by the GUI stack to movements of the GUI pointer. Then, we have
 three kinds of absolute-motion devices: pointers (e.g., Qemu usb-tablet or
 IP-KVM device like [https://pikvm.org/ - PiKVM]), touchscreens, and
@@ -478,7 +481,7 @@ all peculiarities of the different device types, for example, touch devices
 that report up to 16 event slots (resp. fingers), and reports them via
 Genode Event sessions. Also, we implemented minimal "gesture" support by a
 simple tap-to-click for touchpads that could be improved in the future,
-e.g., by two-finger-scrolling. Based on the rewrite we could easily enable
+e.g., by two-finger-scrolling. Based on the rewrite, we could easily enable
 support for the Magic Trackpad in usb_hid_drv.
 
 The event filter was extended by a filter node to transform touch and
@@ -493,7 +496,7 @@ event-filter README file.
 !   <scale x="0.0586" y="0.0330"/>
 ! </transform>
 
-Additionally, event filter now support to optionally log motion and touch
+Additionally, the event filter now supports to optionally log motion and touch
 events beside keys and buttons.
 
 ! <log motion="true"> <input name="usb"/> </log>
@@ -505,7 +508,7 @@ integration of the prospected I2C HID support to a later release.
 Multi-client use of Vivante GPU (i.MX8)
 =======================================
 
-In this release we brought our port of the etnaviv driver, which was still
+In this release, we brought our port of the etnaviv driver, which was still
 limited to one client only, up to speed and it now joins the other GPU
 drivers in providing multi-client support.
 
@@ -520,8 +523,8 @@ this reason it was co-located and deployed in tandem with the client requiring
 its service. This factor somewhat restricted its usefulness in Sculpt when
 used in a desktop-like capacity on, e.g., the MNT Reform.
 
-With have lifted this limitation and the driver is now able to accommodate
-multiple concurrent clients.
+The current release lifts this limitation and enables the driver to accommodate
+multiple clients at the same time.
 
 
 Libraries and applications
@@ -530,10 +533,7 @@ Libraries and applications
 VirtualBox
 ==========
 
-Windows BSOD logging
---------------------
-
-At a request of a customer we enabled the reporting of Windows Blue Screen of
+As a debug aid, we enabled the reporting of Windows Blue Screen of
 Death (BSOD) reasons in our VirtualBox port. To enable the output, the new
 release adds a default of '+dbgf+gim' to the 'VBOX_LOG' environment variable.
 With VirtualBox Guest Additions installed in the Windows guest, after a "Guest
@@ -544,20 +544,21 @@ to the log.
 Seoul VMM
 =========
 
-Several improvements got added since the last Genode release, which
+Several improvements got added since the previous Genode release, which
 showed up during daily usage within a Genode developer VM.
 On the one hand, the exported guest cursor shape was a bit off the actual
 position it has to be. Beside the guest shape, also small hot_x, hot_y shifts
 are exported of a few pixels, which are now considered to position the mouse
-cursor shape more accurate.
+cursor shape more accurately.
 Additionally, the processing of alt-gr and <>| keys on German keyboard layouts
 got enabled, which was not supported beforehand.
-Finally, the ahci model and the bindings to the Genode block
-session got reworked. Up to now, the ahci model could not cope with delaying
+Finally, the AHCI model and the bindings to the Genode block
+session got reworked. Up to now, the AHCI model could not cope with delaying
 a block request if the block session was saturated. Instead of making temporary
-copies, as done before, the ahci model now supports internally to keep guest
+copies, as done before, the AHCI model now supports internally to keep guest
 requests in guest memory when necessary and to resume block operations as soon
 as when the block session is able to process more requests.
+
 
 Lighttpd web server version 1.4.73
 ==================================
@@ -569,7 +570,8 @@ module.
 Rather than being used as a general purpose HTTP server that comes with all
 bells and whistles, it powers our [https://genodians.org - Genodians]
 appliance in static fashion and with WebDAV in place is now also the
-foundation for the goa testbed.
+foundation for the goa testbed introduced in
+Section [Sculpt OS as remote test target for the Goa SDK].
 
 
 Jitterentropy version 3.4.1
@@ -590,9 +592,9 @@ Build system and tools
 Goa SDK
 =======
 
-In addition to the support for using
-[Sculpt OS as remote test target for the Goa SDK], the latter underwent quite
-a few usability adjustments.
+In addition to the support for using Sculpt as test target for Goa
+(Section [Sculpt OS as remote test target for the Goa SDK]), the latter
+underwent quite a few usability adjustments.
 
 As announced in
 [https://genode.org/documentation/release-notes/23.08#Support_of_index_projects - release 23.08],
@@ -643,5 +645,5 @@ Convenient parsing of backtraces
 
 The new _backtrace_ tool parses the copied and pasted shared library info of a
 component (generated with <config ld_verbose="yes"/>) and the log output of the
-_Genode::backtrace()_ function and prints the corresponding source locations in
+'Genode::backtrace()' function and prints the corresponding source locations in
 a convenient way.
