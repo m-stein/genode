@@ -83,7 +83,7 @@ Second, in latency-sensitive scenarios, we observed that the existing
 interfaces were prone to effects caused by the drifting of time between the
 producer and consumer of audio data. One effect are buffer under-runs, which
 produce audible noise. The other is the slow accumulation of buffered sample
-data, which increases latency over time (affecting the effectiveness of AEC)
+data, which increases latency over time (affecting the effectiveness of acoustic echo cancellation)
 and yields an audible buffer overrun after a while.
 
 Third, the mixer is a single client of the audio driver, which makes the mixer
@@ -120,7 +120,7 @@ automatically adjust buffering parameters to attain continuous playback while
 trying to optimize for low latency. Those runtime-measurements can be
 augmented by explicit configuration values.
 
-Multi-channel playing and recording is realized by one session per channel
+Multi-channel playing and recording are realized by one session per channel
 whereas one channel is used to drive the time allocation while all further
 channels merely enqueue/obtain data into/from their respective sessions
 without any synchronous interplay with the mixer.
