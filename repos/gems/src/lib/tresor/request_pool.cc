@@ -17,10 +17,9 @@
 using namespace Tresor;
 
 Request::Request(Operation op, Virtual_block_address vba,
-                 Request_offset offset, Number_of_blocks count, Key_id key_id, Request_tag tag, Generation &gen, bool &success)
+                 Request_offset offset, Number_of_blocks count, Request_tag tag, Generation &gen)
 :
-	_op(op), _vba(vba), _offset(offset),
-	_count(count), _key_id(key_id), _tag(tag), _gen(gen), _success(success), _helper(*this)
+	_op(op), _vba(vba), _offset(offset), _count(count), _tag(tag), _gen(gen), _helper(*this)
 { }
 
 

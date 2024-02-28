@@ -24,11 +24,8 @@
 namespace Tresor {
 
 	class Request;
-	class Request_pool;
 	class Request_scheduler;
 	class Initializing_request_scheduler;
-	class Request_pool_channel;
-	class Request_pool_channel_queue;
 }
 
 class Tresor::Request : private List<Tresor::Request>::Element
@@ -58,19 +55,16 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 	private:
 
-		Operation _op;
-		Virtual_block_address const _vba;
-		Request_offset const _offset;
-		Number_of_blocks const _count;
-		Key_id const _key_id;
-		Request_tag const _tag;
-		Generation &_gen;
-		bool &_success;
-
 		enum State { INIT, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, COMPLETE };
 
 		using Helper = Request_helper<Tresor::Request, State>;
 
+		Operation _op;
+		Virtual_block_address const _vba;
+		Request_offset const _offset;
+		Number_of_blocks const _count;
+		Request_tag const _tag;
+		Generation &_gen;
 		Helper _helper;
 		Superblock::State _sb_state { Superblock::INVALID };
 		bool _request_finished { false };
@@ -228,7 +222,7 @@ class Tresor::Request : private List<Tresor::Request>::Element
 		static char const *op_to_string(Operation);
 
 		Request(Operation, Virtual_block_address, Request_offset,
-		        Number_of_blocks, Key_id, Request_tag, Generation &, bool &);
+		        Number_of_blocks, Request_tag, Generation &);
 
 		~Request() { }
 
@@ -239,47 +233,6 @@ class Tresor::Request : private List<Tresor::Request>::Element
 		bool complete() const { return _helper.complete(); }
 		bool success() const { return _helper.success(); }
 		Superblock::State sb_state() const { return _sb_state; }
-};
-
-
-class Tresor::Request_pool_channel_queue
-{
-	NONCOPYABLE(Request_pool_channel_queue);
-
-	public:
-
-		enum { NUM_SLOTS = 16 };
-
-	private:
-
-		using Channel = Request_pool_channel;
-		using Slot_index = uint64_t;
-		using Number_of_slots = uint64_t;
-
-		Slot_index _head { 0 };
-		Slot_index _tail { 0 };
-		Number_of_slots _num_used_slots { 0 };
-		Channel *_slots[NUM_SLOTS] { 0 };
-
-	public:
-
-		Request_pool_channel_queue() { }
-
-		bool empty() const { return _num_used_slots == 0; }
-
-		bool full() const { return _num_used_slots >= NUM_SLOTS; }
-
-		Channel &head() const;
-
-		void enqueue(Channel &);
-
-		void move_one_slot_towards_tail(Channel const &);
-
-		bool is_tail(Channel const &) const;
-
-		Channel &next(Channel const &) const;
-
-		void dequeue(Channel const &);
 };
 
 
@@ -384,7 +337,6 @@ class Tresor::Initializing_request_scheduler
 			enum State { INIT_TRESOR, INIT_TRESOR_SUCCEEDED, INIT_TRESOR_FAILED };
 
 			State _state { INIT_TRESOR };
-			bool _init_tresor_success { };
 			Generation _init_tresor_gen { };
 			Constructible<Request> _init_tresor { };
 			Request_scheduler _scheduler { };
@@ -393,7 +345,7 @@ class Tresor::Initializing_request_scheduler
 
 		Initializing_request_scheduler()
 		{
-			_init_tresor.construct(Request::INITIALIZE, 0, 0, 0, 0, 0, _init_tresor_gen, _init_tresor_success);
+			_init_tresor.construct(Request::INITIALIZE, 0, 0, 0, 0, _init_tresor_gen);
 			_scheduler.add_request(*_init_tresor);
 		}
 

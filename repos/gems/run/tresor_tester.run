@@ -238,7 +238,7 @@ append config {
 
 					<log string="Step 1: Initialize Trust Anchor and Tresor device, start Tresor library"/>
 
-					<trust-anchor op="initialize" passphrase="foobar"/>
+					<initialize-trust-anchor passphrase="foobar"/>
 					<initialize>
 
 						<virtual-block-device
