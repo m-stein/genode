@@ -89,7 +89,6 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 		bool execute(Execute_attr const &attr)
 		{
-			bool x = _helper.state ==INIT;
 			bool progress = false;
 			switch (_op) {
 			case Request::INITIALIZE:
@@ -183,12 +182,6 @@ class Tresor::Request : private List<Tresor::Request>::Element
 
 			default: ASSERT_NEVER_REACHED;
 			}
-
-			if (x || _op == REKEY)
-				log("   start ", *this);
-
-			if (complete())
-				log("   finish ", *this);
 			return progress;
 		}
 
@@ -303,38 +296,29 @@ class Tresor::Request_scheduler : Noncopyable
 					remove_head();
 					_list.insert(head, next);
 				}
-
-				void print(Output &out) const {
-					Request const *req = _list.first();
-					while(req) {
-						Genode::print(out, " ", req);
-						req = req->List<Request>::Element::_next;
-					}
-				}
 		};
 
 		Schedule _schedule { };
 
 	public:
 
-		void add_request(Request &req)
-		{
-			_schedule.add_tail(req);
-		}
+		void add_request(Request &req) { _schedule.add_tail(req); }
 
 		bool execute(Request::Execute_attr const &attr)
 		{
 			bool progress = false;
 			_schedule.with_head([&] (Request &head) {
 				progress |= head.execute(attr);
-				if (head.complete()) {
+				if (head.complete())
 					_schedule.remove_head();
-					log("      started requests: ", _schedule);
-				} else
-					switch (head.op()) {
+				else
+					switch (head._op) {
 					case Request::REKEY:
 					case Request::EXTEND_VBD:
 					case Request::EXTEND_FT:
+						if (head._helper.state != Request::INIT)
+							break;
+
 						_schedule.try_yield_head([&] (Request &to_req) {
 							switch (to_req.op()) {
 							case Request::READ:

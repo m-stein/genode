@@ -557,16 +557,6 @@ class Tresor_tester::Main
 		Sb_check _sb_check { };
 		Constructible<Crypto_key> _crypto_keys[2] { };
 
-		struct X {
-		Avl_tree<Command> &_commands;
-		void print(Output &out) const {
-
-			_commands.for_each([&] (Command const &cmd) {
-				if (cmd._type == Command::REQUEST && cmd._state == Command::NEW_IN_PROGRESS)
-					Genode::print(out, " ", cmd.id(), "(", cmd._tresor_request_ptr, ")"); });
-		};
-		};
-
 		NONCOPYABLE(Main);
 
 		static void _generate_blk_data(Tresor::Block &blk_data, Virtual_block_address vba, Salt salt)
@@ -675,11 +665,8 @@ class Tresor_tester::Main
 		void _mark_command_complete(Command &cmd, bool success)
 		{
 			cmd._state = Command::NEW_COMPLETE;
-			if (VERBOSE) {
+			if (VERBOSE)
 				log("finish command ", cmd._id, ": ", cmd._type_to_string(cmd._type));
-				X x(_commands);
-				log("   started commands: ", x);
-			}
 			if (!success) {
 				_num_errors++;
 				log("command ", cmd._id, " failed: ", cmd._type_to_string(cmd._type));
@@ -917,10 +904,8 @@ class Tresor_tester::Main
 
 		void _handle_signal()
 		{
-log(">>>");
 			bool all_cmds_complete;
 			while (_execute_commands(all_cmds_complete));
-log("<<<");
 			if (all_cmds_complete) {
 				if (_num_errors) {
 					error(_num_errors, " command", _num_errors > 1 ? "s" : "", " failed!");
