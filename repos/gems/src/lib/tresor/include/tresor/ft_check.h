@@ -20,58 +20,50 @@
 
 namespace Tresor { class Ft_check; }
 
-class Tresor::Ft_check
+struct Tresor::Ft_check : Noncopyable
 {
-	private:
+	class Check : Noncopyable
+	{
+		public:
 
-		NONCOPYABLE(Ft_check);
+			using Module = Ft_check;
 
-	public:
+			struct Attr { Tree_root const &in_ft; };
 
-		class Check
-		{
-			public:
+		private:
 
-				using Module = Ft_check;
+			enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
 
-				struct Attr { Tree_root const &in_ft; };
+			using Helper = Request_helper<Check, State>;
 
-			private:
+			Helper _helper;
+			Attr const _attr;
+			Type_1_node_block_walk _t1_blks { };
+			Type_2_node_block _t2_blk { };
+			bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
+			Number_of_leaves _num_remaining_leaves { 0 };
+			Block _blk { };
+			Generatable_request<Helper, State, Block_io::Read> _read_block { };
 
-				enum State { INIT, IN_PROGRESS, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED };
+			bool _execute_node(Block_io &, Tree_level_index, Tree_node_index, bool &);
 
-				using Helper = Request_helper<Check, State>;
+		public:
 
-				Helper _helper;
-				Attr const _attr;
-				Type_1_node_block_walk _t1_blks { };
-				Type_2_node_block _t2_blk { };
-				bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
-				Number_of_leaves _num_remaining_leaves { 0 };
-				Block _blk { };
-				Generatable_request<Helper, State, Block_io::Read> _read_block { };
+			Check(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-				NONCOPYABLE(Check);
+			void print(Output &out) const { Genode::print(out, "check ", _attr.in_ft); }
 
-				bool _execute_node(Block_io &, Tree_level_index, Tree_node_index, bool &);
+			bool execute(Block_io &);
 
-			public:
+			bool complete() const { return _helper.complete(); }
+			bool success() const { return _helper.success(); }
+	};
 
-				Check(Attr const &attr) : _helper(*this), _attr(attr) { }
+	Ft_check() { }
 
-				void print(Output &out) const { Genode::print(out, "check ", _attr.in_ft); }
+	bool execute(Check &req, Block_io &block_io) { return req.execute(block_io); }
 
-				bool execute(Block_io &);
-
-				bool complete() const { return _helper.complete(); }
-				bool success() const { return _helper.success(); }
-		};
-
-		Ft_check() { }
-
-		bool execute(Check &req, Block_io &block_io) { return req.execute(block_io); }
-
-		static constexpr char const *name() { return "ft_check"; }
+	static constexpr char const *name() { return "ft_check"; }
 };
 
 #endif /* _TRESOR__FT_CHECK_H_ */

@@ -23,7 +23,7 @@
 
 /* tresor includes */
 #include <tresor/math.h>
-#include <tresor/module.h>
+#include <tresor/verbosity.h>
 
 namespace Tresor {
 
@@ -161,14 +161,12 @@ namespace Tresor {
 
 
 template <typename REQ, typename STATE>
-class Tresor::Request_helper
+class Tresor::Request_helper : Noncopyable
 {
 	private:
 
 		REQ const &_req;
 		bool _success { false };
-
-		NONCOPYABLE(Request_helper);
 
 	public:
 

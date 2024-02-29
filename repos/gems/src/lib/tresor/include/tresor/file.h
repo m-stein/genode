@@ -62,7 +62,11 @@ class Tresor::File
 		Vfs::Vfs_handle &_handle;
 		Vfs::file_size _num_processed_bytes { 0 };
 
-		NONCOPYABLE(File);
+		/*
+		 * Noncopyable
+		 */
+		File(File const &) = delete;
+		File &operator = (File const &) = delete;
 
 	public:
 

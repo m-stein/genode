@@ -22,64 +22,56 @@
 
 namespace Tresor { class Sb_check; }
 
-class Tresor::Sb_check
+struct Tresor::Sb_check : Noncopyable
 {
-	private:
+	class Check : Noncopyable
+	{
+		public:
 
-		NONCOPYABLE(Sb_check);
+			using Module = Sb_check;
 
-	public:
+		private:
 
-		class Check
-		{
-			public:
+			enum State {
+				INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, CHECK_VBD, CHECK_VBD_SUCCEEDED, CHECK_FT, CHECK_FT_SUCCEEDED,
+				CHECK_MT, CHECK_MT_SUCCEEDED};
 
-				using Module = Sb_check;
+			using Helper = Request_helper<Check, State>;
 
-			private:
+			Helper _helper;
+			Generation _highest_gen { 0 };
+			Superblock_index _highest_gen_sb_idx { 0 };
+			bool _scan_for_highest_gen_sb_done { false };
+			Superblock_index _sb_idx { 0 };
+			Superblock _sb { };
+			Snapshot_index _snap_idx { 0 };
+			Constructible<Tree_root> _tree_root { };
+			Block _blk { };
+			union {
+				Generatable_request<Helper, State, Vbd_check::Check> _check_vbd;
+				Generatable_request<Helper, State, Ft_check::Check> _check_ft;
+				Generatable_request<Helper, State, Block_io::Read> _read_block;
+			};
 
-				enum State {
-					INIT, COMPLETE, READ_BLK, READ_BLK_SUCCEEDED, CHECK_VBD, CHECK_VBD_SUCCEEDED, CHECK_FT, CHECK_FT_SUCCEEDED,
-					CHECK_MT, CHECK_MT_SUCCEEDED};
+		public:
 
-				using Helper = Request_helper<Check, State>;
+			Check() : _helper(*this) { }
 
-				Helper _helper;
-				Generation _highest_gen { 0 };
-				Superblock_index _highest_gen_sb_idx { 0 };
-				bool _scan_for_highest_gen_sb_done { false };
-				Superblock_index _sb_idx { 0 };
-				Superblock _sb { };
-				Snapshot_index _snap_idx { 0 };
-				Constructible<Tree_root> _tree_root { };
-				Block _blk { };
-				union {
-					Generatable_request<Helper, State, Vbd_check::Check> _check_vbd;
-					Generatable_request<Helper, State, Ft_check::Check> _check_ft;
-					Generatable_request<Helper, State, Block_io::Read> _read_block;
-				};
+			~Check() { }
 
-				NONCOPYABLE(Check);
+			void print(Output &out) const { Genode::print(out, "check"); }
 
-			public:
+			bool execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io);
 
-				Check() : _helper(*this) { }
+			bool complete() const { return _helper.complete(); }
+			bool success() const { return _helper.success(); }
+	};
 
-				~Check() { }
+	Sb_check() { }
 
-				void print(Output &out) const { Genode::print(out, "check"); }
+	bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io) { return check.execute(vbd_check, ft_check, block_io); };
 
-				bool execute(Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io);
-
-				bool complete() const { return _helper.complete(); }
-				bool success() const { return _helper.success(); }
-		};
-
-		Sb_check() { }
-
-		bool execute(Check &check, Vbd_check &vbd_check, Ft_check &ft_check, Block_io &block_io) { return check.execute(vbd_check, ft_check, block_io); };
-
-		static constexpr char const *name() { return "sb_check"; }
+	static constexpr char const *name() { return "sb_check"; }
 };
 
 #endif /* _TRESOR__SB_CHECK_H_ */
