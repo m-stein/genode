@@ -472,7 +472,7 @@ for all use-cases. The aperture is a shared resource, which must be used for
 various GPU-related internal data structures and is used from CPU side for
 access to the framebuffers by the display driver. When the display driver
 sets up several framebuffers with high resolutions, the fixed amount may be too
-small. The snippet below shows the configuration option and the default value:
+small. The snippet below shows the new configuration option and the default value:
 
 ! <start name="intel_gpu_drv" ...>
 !   <resource name="RAM" .../>
@@ -487,7 +487,7 @@ small. The snippet below shows the configuration option and the default value:
 Improved human-interface device handling
 ========================================
 
-In preparation of the _support for I2C based HID (touchpad) devices_
+In preparation of the _support for I2C-based HID (touchpad) devices_
 [https://genode.org/about/road-map#February_-_Release_24.02 - road-map item],
 we dusted off several aspects of our input-event handling from the drivers
 over the event API to the event-filter component. At the heart of the
@@ -496,7 +496,7 @@ of the different motion-event device types that are widely in use. First,
 there are mice and touchpads, which generate relative-motion events that are
 translated by the GUI stack to movements of the GUI pointer. Then, we have
 three kinds of absolute-motion devices: pointers (e.g., Qemu usb-tablet or
-IP-KVM device like [https://pikvm.org/ - PiKVM]), touchscreens, and
+IP-KVM device-like [https://pikvm.org/ - PiKVM]), touchscreens, and
 graphics-tablet tools (e.g., stylus). These devices require translation of
 device-specific absolute coordinates to screen coordinates.
 
@@ -534,7 +534,7 @@ Multi-client use of Vivante GPU (i.MX8)
 =======================================
 
 In this release, we brought our port of the etnaviv driver, which was still
-limited to one client only, up to speed, and it now joins the other GPU
+limited to one client only, up to speed. It now joins the other GPU
 drivers in providing multi-client support.
 
 Back in release
@@ -571,7 +571,7 @@ Seoul VMM
 
 Several improvements got added since the previous Genode release, which
 showed up during daily use of a Genode developer VM.
-On the one hand, the exported guest cursor shape was a bit offset from its
+On the one hand, the exported guest-cursor shape was a bit offset from its
 actual position. Besides the guest shape, small hot_x, hot_y shifts
 are exported, which are now considered in order to position the mouse
 cursor shape more accurately.

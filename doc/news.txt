@@ -19,7 +19,7 @@ streams at flexible sample rates, the dynamic starting and removal of audio
 sources and sinks, and latency optimization.
 
 Besides audio, the second infrastructural rework is a new TCP/IP stack based
-on DDE-Linux 6.1.20, wraps up our long-year transition from a fairly
+on DDE-Linux 6.1.20. It wraps up our long-year transition from a fairly
 fragmented landscape of ported driver code to the consistent use of our modern
 Linux device-driver environment across all Linux-based drivers and protocol
 stacks.
@@ -31,8 +31,8 @@ quick and uniform way, whether testing directly on a Linux-based development
 environment, or on a Sculpt PC reachable via a local network, or a PinePhone
 connected to the same wireless access point.
 
-Further highlights of the release are the versatile handling of human
-interface devices including the calibration of motion events, the use of
+Further highlights of the release are the versatile handling of human-interface
+devices including the calibration of motion events, the use of
 Vivante GPUs by multiple clients, and the driver-related preparatory steps
 needed for implementing suspend/resume for Sculpt OS.
 
