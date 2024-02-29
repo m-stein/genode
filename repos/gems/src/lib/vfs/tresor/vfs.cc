@@ -21,11 +21,11 @@
 
 /* tresor includes */
 #include <tresor/block_io.h>
-#include <tresor/client_data.h>
+#include <tresor/client_data_interface.h>
 #include <tresor/crypto.h>
 #include <tresor/free_tree.h>
 #include <tresor/meta_tree.h>
-#include <tresor/request_pool.h>
+#include <tresor/request_scheduler.h>
 #include <tresor/superblock_control.h>
 #include <tresor/trust_anchor.h>
 #include <tresor/virtual_block_device.h>
@@ -33,9 +33,12 @@
 #include "splitter.h"
 
 namespace Vfs_tresor {
+
 	using namespace Vfs;
 	using namespace Genode;
 	using namespace Tresor;
+
+	using Command_id = uint64_t;
 
 	class Data_file_system;
 
@@ -90,65 +93,46 @@ namespace Vfs_tresor {
 } /* namespace Vfs_tresor */
 
 
-class Vfs_tresor::Client_data : public Tresor::Module, public Tresor::Module_channel
+class Vfs_tresor::Client_data : Noncopyable, public Client_data_interface
 {
 	private:
-
-		using Request = Client_data_request;
 
 		Lookup_buffer &_lookup;
 
-		NONCOPYABLE(Client_data);
-
-		void _request_submitted(Module_request &mod_req) override
+		void obtain_data(Obtain_data_attr const &attr) override
 		{
-			Request &req { *static_cast<Request *>(&mod_req) };
-			switch (req._type) {
-			case Request::OBTAIN_PLAINTEXT_BLK:
-			{
-				req._blk = _lookup.src_for_writing_vba(req._req_tag, req._vba);
-				req._success = true;
-				break;
-			}
-			case Request::SUPPLY_PLAINTEXT_BLK:
-			{
-				_lookup.dst_for_reading_vba(req._req_tag, req._vba) = req._blk;
-				req._success = true;
-				break;
-			} }
+			attr.out_blk = _lookup.source_buffer(attr.in_vba);
 		}
 
-		bool _request_complete() override { return true; }
+		void supply_data(Supply_data_attr const &attr) override
+		{
+			_lookup.destination_buffer(attr.in_vba) = attr.in_blk;
+		}
 
 	public:
 
-		Client_data(Lookup_buffer &lb) : Module_channel(CLIENT_DATA, 0), _lookup(lb) { add_channel(*this); }
+		Client_data(Lookup_buffer &lookup) : _lookup(lookup) { }
 };
 
 
-class Vfs_tresor::Wrapper
-:
-	private Tresor::Module_composition,
-	public  Tresor::Module
+class Vfs_tresor::Wrapper : Noncopyable
 {
 	private:
 
-		NONCOPYABLE(Wrapper);
+		enum { MAX_NUM_COMMANDS = 16 };
 
 		Vfs::Env &_vfs_env;
-
-		Constructible<Request_pool>            _request_pool { };
-		Constructible<Tresor::Free_tree>       _free_tree    { };
-		Constructible<Virtual_block_device>    _vbd          { };
-		Constructible<Superblock_control>      _sb_control   { };
-		Tresor::Meta_tree                      _meta_tree    { };
-		Constructible<Tresor::Trust_anchor>    _trust_anchor { };
-		Constructible<Tresor::Crypto>          _crypto       { };
-		Constructible<Tresor::Block_io>        _block_io     { };
-
-		Constructible<Tresor::Splitter>        _splitter     { };
-		Constructible<Client_data>             _client_data  { };
-
+		Request_scheduler _request_scheduler { };
+		Free_tree _free_tree { };
+		Virtual_block_device _vbd { };
+		Superblock_control _sb_control { };
+		Meta_tree _meta_tree { };
+		Trust_anchor _trust_anchor { };
+		Crypto _crypto { };
+		Block_io _block_io { };
+		Splitter _splitter { };
+		Client_data _client_data { };
+		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
 
 	public:
 
@@ -157,7 +141,7 @@ class Vfs_tresor::Wrapper
 
 	private:
 
-		class Command : public Module_channel
+		class Command : Noncopyable
 		{
 			public:
 
@@ -170,14 +154,10 @@ class Vfs_tresor::Wrapper
 
 			private:
 
-				NONCOPYABLE(Command);
-
+				Command_id _id;
 				Vfs_tresor::Wrapper &_main;
-
 				State _state { IDLE };
 				bool  _success { false };
-
-				void _generated_req_completed(State_uint) override { _main.mark_command_completed(id()); }
 
 			public:
 
@@ -188,11 +168,10 @@ class Vfs_tresor::Wrapper
 				Key_id           key_id { 0 };
 
 				/* for READ/WRITE */
-				Genode::uint64_t  offset           { 0 };
-				char             *buffer_start     { nullptr };
-				size_t            buffer_num_bytes { 0 };
+				Genode::uint64_t  offset { 0 };
+				Byte_range_ptr    buffer { };
 
-				Command(Vfs_tresor::Wrapper &main, Module_channel_id id) : Module_channel(COMMAND_POOL, id), _main(main) { }
+				Command(Vfs_tresor::Wrapper &main, Command_id id) : _id(id), _main(main) { }
 
 				void reset()
 				{
@@ -309,9 +288,6 @@ class Vfs_tresor::Wrapper
 			});
 			return done;
 		}
-
-		enum { MAX_NUM_COMMANDS = 16 };
-		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
 
 		bool ready_to_submit_request()
 		{
@@ -512,16 +488,6 @@ class Vfs_tresor::Wrapper
 
 		void _initialize_tresor()
 		{
-			_free_tree.construct();
-			_vbd.construct();
-			_sb_control.construct();
-			_request_pool.construct();
-
-			add_module(FREE_TREE, *_free_tree);
-			add_module(VIRTUAL_BLOCK_DEVICE, *_vbd);
-			add_module(SUPERBLOCK_CONTROL, *_sb_control);
-			add_module(REQUEST_POOL, *_request_pool);
-
 			Module_channel_id id = 0;
 			for (auto & cmd : _commands) {
 				cmd.construct(*this, id++);
@@ -699,14 +665,14 @@ class Vfs_tresor::Wrapper
 			_initialize_tresor();
 		}
 
-		void mark_command_in_progress(Module_channel_id cmd_id)
+		void mark_command_in_progress(Command_id cmd_id)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				cmd.state(Command::IN_PROGRESS);
 			});
 		}
 
-		void mark_command_completed(Module_channel_id cmd_id)
+		void mark_command_completed(Command_id cmd_id)
 		{
 			with_channel<Command>(cmd_id, [&] (Command &cmd) {
 				cmd.state(Command::COMPLETED);
@@ -714,7 +680,7 @@ class Vfs_tresor::Wrapper
 			});
 		}
 
-		void execute(bool &progress) override
+		void execute(bool &progress)
 		{
 			_with_first_processable_cmd([&] (Command &cmd) {
 				cmd.execute(_verbose, progress);
