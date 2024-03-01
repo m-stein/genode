@@ -115,6 +115,12 @@ namespace Tresor {
 
 	class Pba_allocation;
 
+	struct Virtual_byte_range
+	{
+		addr_t start;
+		size_t num_bytes;
+	};
+
 	using Branch_lvl_prefix = Fixed_length<15>;
 
 	constexpr Virtual_block_address tree_max_max_vba(Tree_degree      degree,
