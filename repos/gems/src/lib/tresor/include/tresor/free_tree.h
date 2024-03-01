@@ -19,17 +19,19 @@
 #include <tresor/block_io.h>
 #include <tresor/meta_tree.h>
 
-namespace Tresor { struct Free_tree; }
+namespace Tresor { class Free_tree; }
 
-struct Tresor::Free_tree : Noncopyable
+class Tresor::Free_tree : Noncopyable
 {
-	class Allocate_pbas;
-	class Extend_tree;
+	public:
 
-	template <typename REQUEST>
-	bool execute(REQUEST &req, Block_io &block_io, Meta_tree &meta_tree) { return req.execute(block_io, meta_tree); }
+		class Allocate_pbas;
+		class Extend_tree;
 
-	static constexpr char const *name() { return "free_tree"; }
+		template <typename REQUEST>
+		bool execute(REQUEST &req, Block_io &block_io, Meta_tree &meta_tree) { return req.execute(block_io, meta_tree); }
+
+		static constexpr char const *name() { return "free_tree"; }
 };
 
 class Tresor::Free_tree::Allocate_pbas : Noncopyable
