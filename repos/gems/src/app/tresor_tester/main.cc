@@ -200,8 +200,8 @@ struct Tresor_tester::Request_node : Noncopyable
 	using Operation = Tresor::Request::Operation;
 
 	Operation const op;
-	Virtual_block_address const vba;
-	Number_of_blocks const count;
+	Virtual_byte_range const virt_range;
+	Number_of_blocks const num_blocks;
 	bool const sync;
 	bool const salt_avail;
 	Salt const salt;
@@ -225,25 +225,15 @@ struct Tresor_tester::Request_node : Noncopyable
 	Request_node(Xml_node const &node)
 	:
 		op(read_op_attr(node)),
-		vba(has_vba() ? read_attribute<Virtual_block_address>(node, "vba") : 0),
-		count(has_count() ? read_attribute<Number_of_blocks>(node, "count") : 0),
-		sync(read_attribute<bool>(node, "sync")),
-		salt_avail(has_salt() ? node.has_attribute("salt") : false),
-		salt(has_salt() && salt_avail ? read_attribute<Salt>(node, "salt") : 0),
-		snap_id(has_snap_id() ? read_attribute<Snapshot_id>(node, "id") : 0)
+		virt_range(
+			node.attribute_value("vba", (Virtual_block_address)0) * BLOCK_SIZE,
+			node.attribute_value("count", (Number_of_blocks)0) * BLOCK_SIZE),
+		num_blocks(node.attribute_value("count", (Number_of_blocks)0)),
+		sync(node.attribute_value("sync", false)),
+		salt_avail(node.has_attribute("salt")),
+		salt(node.attribute_value("salt", (Salt)0)),
+		snap_id(node.attribute_value("id", (Snapshot_id)0))
 	{ }
-
-	bool has_vba() const { return op == Operation::READ || op == Operation::WRITE || op == Operation::SYNC; }
-
-	bool has_salt() const { return op == Operation::READ || op == Operation::WRITE; }
-
-	bool has_count() const
-	{
-		return op == Operation::READ || op == Operation::WRITE || op == Operation::SYNC ||
-			   op == Operation::EXTEND_FT || op == Operation::EXTEND_VBD;
-	}
-
-	bool has_snap_id() const { return op == Operation::DISCARD_SNAPSHOT || op == Operation::CREATE_SNAPSHOT; }
 };
 
 struct Tresor_tester::Command : Avl_node<Command>
@@ -556,10 +546,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 			{
 				Request_node const &node { *cmd.request_node };
 				cmd.generation = node.op == Request::DISCARD_SNAPSHOT ? _snap_id_to_gen(node.snap_id) : 0;
-				cmd.request_ptr = new (_heap) Request(
-					node.op, node.has_vba() ? node.vba : 0, 0, node.has_count() ? node.count : 0,
-					cmd.id, cmd.generation);
-
+				cmd.request_ptr = new (_heap) Request(node.op, node.virt_range, 0, node.num_blocks, cmd.id, cmd.generation);
 				_request_scheduler->add_request(*cmd.request_ptr);
 				_mark_command_in_progress(cmd);
 				break;

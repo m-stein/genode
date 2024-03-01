@@ -16,28 +16,10 @@
 
 using namespace Tresor;
 
-Request::Request(Operation op, Virtual_block_address vba,
-                 Request_offset offset, Number_of_blocks count, Request_tag tag, Generation &gen)
+Request::Request(Operation op, Virtual_byte_range virt_range, Request_offset offset, Number_of_blocks num_blocks, Request_tag tag, Generation &gen)
 :
-	_op(op), _vba(vba), _offset(offset), _count(count), _tag(tag), _gen(gen), _helper(*this)
+	_op(op), _virt_range(virt_range), _num_blocks(num_blocks), _offset(offset), _tag(tag), _gen(gen), _helper(*this)
 { }
-
-
-void Request::print(Output &out) const
-{
-	Genode::print(out, op_to_string(_op));
-	switch (_op) {
-	case READ:
-	case WRITE:
-	case SYNC:
-		if (_count > 1)
-			Genode::print(out, " vbas ", _vba, "..", _vba + _count - 1);
-		else
-			Genode::print(out, " vba ", _vba);
-		break;
-	default: break;
-	}
-}
 
 
 char const *Request::op_to_string(Operation op)

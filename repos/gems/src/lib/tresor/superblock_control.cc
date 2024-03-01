@@ -19,9 +19,9 @@
 
 using namespace Tresor;
 
-void Superblock_control::Write_vbas::_start_write_vba(Execute_attr const &attr, bool &progress)
+void Superblock_control::Write::_start_write_vba(Execute_attr const &attr, bool &progress)
 {
-	Virtual_block_address vba = _attr.in_first_vba + _num_written_vbas;
+	Virtual_block_address vba = _first_vba() + _num_written_vbas;
 	attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 	if (attr.sb.curr_snap().gen != attr.curr_gen) {
 		Snapshot &snap { attr.sb.curr_snap() };
@@ -45,13 +45,13 @@ void Superblock_control::Write_vbas::_start_write_vba(Execute_attr const &attr, 
 }
 
 
-bool Superblock_control::Write_vbas::execute(Execute_attr const &attr)
+bool Superblock_control::Write::execute(Execute_attr const &attr)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		if (_attr.in_first_vba + _attr.in_num_vbas - 1 > attr.sb.max_vba()) {
+		if (_first_vba() + _num_vbas() - 1 > attr.sb.max_vba()) {
 			_helper.mark_failed(progress, "invalid VBA range");
 			break;
 		}
@@ -61,7 +61,7 @@ bool Superblock_control::Write_vbas::execute(Execute_attr const &attr)
 	case WRITE_VBA: progress |= _write_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
 	case WRITE_VBA_SUCCEEDED:
 
-		if (++_num_written_vbas < _attr.in_num_vbas) {
+		if (++_num_written_vbas < _num_vbas()) {
 			_start_write_vba(attr, progress);
 		} else
 			_helper.mark_succeeded(progress);
@@ -73,9 +73,9 @@ bool Superblock_control::Write_vbas::execute(Execute_attr const &attr)
 }
 
 
-void Superblock_control::Read_vbas::_start_read_vba(Execute_attr const &attr, bool &progress)
+void Superblock_control::Read::_start_read_vba(Execute_attr const &attr, bool &progress)
 {
-	Virtual_block_address vba = _attr.in_first_vba + _num_read_vbas;
+	Virtual_block_address vba = _first_vba() + _num_read_vbas;
 	Key_id key_id { attr.sb.state == Superblock::REKEYING && vba >= attr.sb.rekeying_vba ?
 		attr.sb.previous_key.id : attr.sb.current_key.id };
 
@@ -88,13 +88,13 @@ void Superblock_control::Read_vbas::_start_read_vba(Execute_attr const &attr, bo
 }
 
 
-bool Superblock_control::Read_vbas::execute(Execute_attr const &attr)
+bool Superblock_control::Read::execute(Execute_attr const &attr)
 {
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
 
-		if (_attr.in_first_vba + _attr.in_num_vbas - 1 > attr.sb.max_vba()) {
+		if (_first_vba() + _num_vbas() - 1 > attr.sb.max_vba()) {
 			_helper.mark_failed(progress, "invalid VBA range");
 			break;
 		}
@@ -104,7 +104,7 @@ bool Superblock_control::Read_vbas::execute(Execute_attr const &attr)
 	case READ_VBA: progress |= _read_vba.execute(attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
 	case READ_VBA_SUCCEEDED:
 
-		if (++_num_read_vbas < _attr.in_num_vbas) {
+		if (++_num_read_vbas < _num_vbas()) {
 			_start_read_vba(attr, progress);
 		} else
 			_helper.mark_succeeded(progress);

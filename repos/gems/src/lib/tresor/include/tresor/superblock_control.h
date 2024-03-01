@@ -85,7 +85,7 @@ class Tresor::Superblock_control : Noncopyable
 
 	public:
 
-		class Write_vbas : Noncopyable
+		class Write : Noncopyable
 		{
 			public:
 
@@ -93,8 +93,7 @@ class Tresor::Superblock_control : Noncopyable
 
 				struct Attr
 				{
-					Virtual_block_address const in_first_vba;
-					Number_of_blocks const in_num_vbas;
+					Virtual_byte_range const in_virt_range;
 					Request_offset const in_client_req_offset;
 					Request_tag const in_client_req_tag;
 				};
@@ -115,7 +114,7 @@ class Tresor::Superblock_control : Noncopyable
 
 				enum State { INIT, COMPLETE, WRITE_VBA, WRITE_VBA_SUCCEEDED };
 
-				using Helper = Request_helper<Write_vbas, State>;
+				using Helper = Request_helper<Write, State>;
 
 				Helper _helper;
 				Attr const _attr;
@@ -126,11 +125,15 @@ class Tresor::Superblock_control : Noncopyable
 
 				void _start_write_vba(Execute_attr const &, bool &);
 
+				Virtual_block_address _first_vba() { return (Virtual_block_address)(_attr.in_virt_range.start / BLOCK_SIZE); }
+
+				Number_of_blocks _num_vbas() { return (Virtual_block_address)(_attr.in_virt_range.num_bytes / BLOCK_SIZE); }
+
 			public:
 
-				Write_vbas(Attr const &attr) : _helper(*this), _attr(attr) { }
+				Write(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-				~Write_vbas() { }
+				~Write() { }
 
 				void print(Output &out) const { Genode::print(out, "write vba"); }
 
@@ -307,7 +310,7 @@ class Tresor::Superblock_control : Noncopyable
 				bool success() const { return _helper.success(); }
 		};
 
-		class Read_vbas : Noncopyable
+		class Read : Noncopyable
 		{
 			public:
 
@@ -315,8 +318,7 @@ class Tresor::Superblock_control : Noncopyable
 
 				struct Attr
 				{
-					Virtual_block_address const in_first_vba;
-					Number_of_blocks const in_num_vbas;
+					Virtual_byte_range const in_virt_range;
 					Request_offset const in_client_req_offset;
 					Request_tag const in_client_req_tag;
 				};
@@ -335,7 +337,7 @@ class Tresor::Superblock_control : Noncopyable
 
 				enum State { INIT, COMPLETE, READ_VBA, READ_VBA_SUCCEEDED };
 
-				using Helper = Request_helper<Read_vbas, State>;
+				using Helper = Request_helper<Read, State>;
 
 				Helper _helper;
 				Attr const _attr;
@@ -344,11 +346,15 @@ class Tresor::Superblock_control : Noncopyable
 
 				void _start_read_vba(Execute_attr const &, bool &progress);
 
+				Virtual_block_address _first_vba() { return (Virtual_block_address)(_attr.in_virt_range.start / BLOCK_SIZE); }
+
+				Number_of_blocks _num_vbas() { return (Virtual_block_address)(_attr.in_virt_range.num_bytes / BLOCK_SIZE); }
+
 			public:
 
-				Read_vbas(Attr const &attr) : _helper(*this), _attr(attr) { }
+				Read(Attr const &attr) : _helper(*this), _attr(attr) { }
 
-				~Read_vbas() { }
+				~Read() { }
 
 				void print(Output &out) const { Genode::print(out, "read vbas"); }
 
@@ -639,12 +645,12 @@ class Tresor::Superblock_control : Noncopyable
 			return req.execute({_sb, _curr_gen, block_io, trust_anchor, *this });
 		}
 
-		bool execute(Read_vbas &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
+		bool execute(Read &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Crypto &crypto)
 		{
 			return req.execute({ vbd, client_data, block_io, crypto, _sb, _curr_gen });
 		}
 
-		bool execute(Write_vbas &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto)
+		bool execute(Write &req, Virtual_block_device &vbd, Client_data_interface &client_data, Block_io &block_io, Free_tree &free_tree, Meta_tree &meta_tree, Crypto &crypto)
 		{
 			return req.execute({ vbd, client_data, block_io, free_tree, meta_tree, crypto, _sb, _curr_gen });
 		}

@@ -60,17 +60,17 @@ class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 		using Helper = Request_helper<Tresor::Request, State>;
 
 		Operation _op;
-		Virtual_block_address const _vba;
+		Virtual_byte_range const _virt_range;
+		Number_of_blocks const _num_blocks;
 		Request_offset const _offset;
-		Number_of_blocks const _count;
 		Request_tag const _tag;
 		Generation &_gen;
 		Helper _helper;
 		Superblock::State _sb_state { Superblock::INVALID };
 		bool _request_finished { false };
 		union {
-			Generatable_request<Helper, State, Superblock_control::Read_vbas> _read_vbas;
-			Generatable_request<Helper, State, Superblock_control::Write_vbas> _write_vbas;
+			Generatable_request<Helper, State, Superblock_control::Read> _read;
+			Generatable_request<Helper, State, Superblock_control::Write> _write;
 			Generatable_request<Helper, State, Superblock_control::Discard_snapshot> _discard_snap;
 			Generatable_request<Helper, State, Superblock_control::Create_snapshot> _create_snap;
 			Generatable_request<Helper, State, Superblock_control::Initialize> _init_sb_control;
@@ -98,8 +98,8 @@ class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 			case Request::READ:
 
 				switch (_helper.state) {
-				case INIT: _read_vbas.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _vba, _count, _offset, _tag); break;
-				case SB_CONTROL_REQ: progress |= _read_vbas.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
+				case INIT: _read.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _virt_range, _offset, _tag); break;
+				case SB_CONTROL_REQ: progress |= _read.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto); break;
 				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
 				default: break;
 				}
@@ -108,8 +108,8 @@ class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 			case Request::WRITE:
 
 				switch (_helper.state) {
-				case INIT: _write_vbas.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _vba, _count, _offset, _tag); break;
-				case SB_CONTROL_REQ: progress |= _write_vbas.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
+				case INIT: _write.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _virt_range, _offset, _tag); break;
+				case SB_CONTROL_REQ: progress |= _write.execute(attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto); break;
 				case SB_CONTROL_REQ_SUCCEEDED: _helper.mark_succeeded(progress); break;
 				default: break;
 				}
@@ -177,7 +177,7 @@ class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 			case Request::EXTEND_FT:
 
 				switch(_helper.state) {
-				case INIT: _extend_ft.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _count, _request_finished); break;
+				case INIT: _extend_ft.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _num_blocks, _request_finished); break;
 				case SB_CONTROL_REQ: progress |= _extend_ft.execute(attr.sb_control, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor); break;
 				case SB_CONTROL_REQ_SUCCEEDED:
 
@@ -196,7 +196,7 @@ class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 			case Request::EXTEND_VBD:
 
 				switch(_helper.state) {
-				case INIT: _extend_vbd.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _count, _request_finished); break;
+				case INIT: _extend_vbd.generate(_helper, SB_CONTROL_REQ, SB_CONTROL_REQ_SUCCEEDED, progress, _num_blocks, _request_finished); break;
 				case SB_CONTROL_REQ: progress |= _extend_vbd.execute(attr.sb_control, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor); break;
 				case SB_CONTROL_REQ_SUCCEEDED:
 
@@ -221,12 +221,11 @@ class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 
 		static char const *op_to_string(Operation);
 
-		Request(Operation, Virtual_block_address, Request_offset,
-		        Number_of_blocks, Request_tag, Generation &);
+		Request(Operation, Virtual_byte_range, Request_offset, Number_of_blocks, Request_tag, Generation &);
 
 		~Request() { }
 
-		void print(Output &) const;
+		void print(Output &out) const { Genode::print(out, op_to_string(_op)); }
 
 		Operation op() const { return _op; }
 
@@ -345,7 +344,7 @@ class Tresor::Initializing_request_scheduler : Noncopyable
 
 		Initializing_request_scheduler()
 		{
-			_init_tresor.construct(Request::INITIALIZE, 0, 0, 0, 0, _init_tresor_gen);
+			_init_tresor.construct(Request::INITIALIZE, Virtual_byte_range {0, 0}, 0, 0, 0, _init_tresor_gen);
 			_scheduler.add_request(*_init_tresor);
 		}
 
