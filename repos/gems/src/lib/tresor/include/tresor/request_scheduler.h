@@ -28,7 +28,7 @@ namespace Tresor {
 	class Initializing_request_scheduler;
 }
 
-class Tresor::Request : private List<Tresor::Request>::Element
+class Tresor::Request : Noncopyable, private List<Tresor::Request>::Element
 {
 	friend class Request_scheduler;
 	friend class List<Tresor::Request>;
@@ -330,16 +330,16 @@ class Tresor::Request_scheduler : Noncopyable
 };
 
 
-class Tresor::Initializing_request_scheduler
+class Tresor::Initializing_request_scheduler : Noncopyable
 {
 	private:
 
-			enum State { INIT_TRESOR, INIT_TRESOR_SUCCEEDED, INIT_TRESOR_FAILED };
+		enum State { INIT_TRESOR, INIT_TRESOR_SUCCEEDED, INIT_TRESOR_FAILED };
 
-			State _state { INIT_TRESOR };
-			Generation _init_tresor_gen { };
-			Constructible<Request> _init_tresor { };
-			Request_scheduler _scheduler { };
+		State _state { INIT_TRESOR };
+		Generation _init_tresor_gen { };
+		Constructible<Request> _init_tresor { };
+		Request_scheduler _scheduler { };
 
 	public:
 

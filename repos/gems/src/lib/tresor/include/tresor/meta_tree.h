@@ -18,15 +18,17 @@
 #include <tresor/types.h>
 #include <tresor/block_io.h>
 
-namespace Tresor { struct Meta_tree; }
+namespace Tresor { class Meta_tree; }
 
-struct Tresor::Meta_tree : Noncopyable
+class Tresor::Meta_tree : Noncopyable
 {
-	class Allocate_pba;
+	public:
 
-	bool execute(Allocate_pba &, Block_io &);
+		class Allocate_pba;
 
-	static constexpr char const *name() { return "meta_tree"; }
+		bool execute(Allocate_pba &, Block_io &);
+
+		static constexpr char const *name() { return "meta_tree"; }
 };
 
 class Tresor::Meta_tree::Allocate_pba : Noncopyable

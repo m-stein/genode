@@ -34,6 +34,8 @@
 
 namespace Vfs_tresor {
 
+	enum { VERBOSE = 1 };
+
 	using namespace Vfs;
 	using namespace Genode;
 	using namespace Tresor;
@@ -115,31 +117,15 @@ class Vfs_tresor::Client_data : Noncopyable, public Client_data_interface
 };
 
 
-class Vfs_tresor::Wrapper : Noncopyable
+class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 {
-	private:
-
-		enum { MAX_NUM_COMMANDS = 16 };
-
-		Vfs::Env &_vfs_env;
-		Request_scheduler _request_scheduler { };
-		Free_tree _free_tree { };
-		Virtual_block_device _vbd { };
-		Superblock_control _sb_control { };
-		Meta_tree _meta_tree { };
-		Trust_anchor _trust_anchor { };
-		Crypto _crypto { };
-		Block_io _block_io { };
-		Splitter _splitter { };
-		Client_data _client_data { };
-		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
-
 	public:
 
 		enum class Result { UNKNOWN, OK, ERROR, EOF };
 
-
 	private:
+
+		enum { MAX_NUM_COMMANDS = 16 };
 
 		class Command : Noncopyable
 		{
@@ -147,99 +133,149 @@ class Vfs_tresor::Wrapper : Noncopyable
 
 				using Operation = Tresor::Request::Operation;
 
-				enum State { IDLE, PENDING, IN_PROGRESS, COMPLETED };
-
-				static char const *op_to_string(Command::Operation op) {
-					return Tresor::Request::op_to_string(op); }
-
 			private:
 
-				Command_id _id;
+				enum State { NEW_INIT, NEW_IN_PROGRESS, NEW_COMPLETE };
+
+				Command_id const _id;
 				Vfs_tresor::Wrapper &_main;
-				State _state { IDLE };
-				bool  _success { false };
+				Operation const _op;
+				Generation const _gen;
+				Request_offset const _offset;
+				Number_of_blocks const _count;
+				Byte_range_ptr const _buffer;
+				State _state { NEW_INIT };
+				bool _success { };
+				Result _result { Result::UNKNOWN };
+				Constructible<Splitter::Read> _read { };
+				Constructible<Splitter::Write> _write { };
+				Constructible<Tresor::Request> _request { };
+
+				template <typename REQUEST>
+				bool _try_complete_request(REQUEST &req, bool &progress)
+				{
+					if (!req->complete())
+						return false;
+
+					_state = NEW_COMPLETE;
+					if (VERBOSE)
+						log("finish command: ", *this);
+
+					_success = req->success();
+					if (!_success)
+						error("command failed: ", *this);
+					req.destruct();
+					progress = true;
+					return true;
+				}
 
 			public:
 
-				Result           result { Result::UNKNOWN };
-				Operation        op     { Operation::READ };
-				Number_of_blocks count  { 0 };
-				Generation       gen    { 0 };
-				Key_id           key_id { 0 };
-
-				/* for READ/WRITE */
-				Genode::uint64_t  offset { 0 };
-				Byte_range_ptr    buffer { };
-
-				Command(Vfs_tresor::Wrapper &main, Command_id id) : _id(id), _main(main) { }
-
-				void reset()
-				{
-					_success = false;
-
-					result = Result::UNKNOWN;
-					op = Operation::READ;
-					count = 0;
-					gen = 0;
-					key_id = 0;
-					offset = 0;
-					buffer_start = nullptr;
-					buffer_num_bytes = 0;
-				}
+				Command(Vfs_tresor::Wrapper &main, Command_id id, Operation op, Generation gen, Request_offset offset, Number_of_blocks count, Byte_range_ptr const &buffer)
+				:
+					_id(id), _main(main), _op(op), _gen(gen), _offset(offset), _count(count), _buffer(buffer.start, buffer.num_bytes)
+				{ }
 
 				bool success() const { return _success; }
 
-				bool eof(Virtual_block_address max) const {
-					return offset / Tresor::BLOCK_SIZE > max; }
+				bool eof(Virtual_block_address max) const { return _offset / Tresor::BLOCK_SIZE > max; }
 
-				bool synchronize() const { return op == Operation::SYNC; }
+				bool synchronize() const { return _op == Request::SYNC; }
 
-				State state() const { return _state; }
-
-				void state(State state)
+				bool execute(Splitter &splitter, Request_scheduler &scheduler, Request::Execute_attr const &request_attr, bool &complete)
 				{
-					ASSERT(state != _state);
-					_state = state;
-				}
+					bool progress = false;
+					switch (_op) {
+					case Request::READ:
 
-				void execute(bool verbose, bool &progress)
-				{
-					ASSERT(_state == State::PENDING);
-
-					if (verbose)
-						log("Execute request ", *this);
-
-					switch (op) {
-					case Command::Operation::READ:
-						generate_req<Splitter_request>(State::COMPLETED,
-							progress, Splitter_request::Operation::READ, _success,
-							offset, Byte_range_ptr(buffer_start, buffer_num_bytes), key_id, gen);
+						switch (_state) {
+						case NEW_INIT:
+							_read.construct(_offset, _buffer, _gen);
+							_state = NEW_IN_PROGRESS;
+							progress = true;
+							break;
+						case NEW_IN_PROGRESS:
+							progress |= splitter.execute(*_read, {scheduler, request_attr});
+							complete = _try_complete_request(_read, progress);
+						default: break;
+						}
 						break;
-					case Command::Operation::WRITE:
-						generate_req<Splitter_request>(State::COMPLETED,
-							progress, Splitter_request::Operation::WRITE, _success,
-							offset, Byte_range_ptr(buffer_start, buffer_num_bytes), key_id, gen);
+
+					case Request::WRITE:
+
+						switch (_state) {
+						case NEW_INIT:
+							_write.construct(_offset, _buffer, _gen);
+							_state = NEW_IN_PROGRESS;
+							progress = true;
+							break;
+						case NEW_IN_PROGRESS:
+							progress |= splitter.execute(*_write, {scheduler, request_attr});
+							complete = _try_complete_request(_write, progress);
+						default: break;
+						}
 						break;
+
 					default:
-						generate_req<Tresor::Request>(State::COMPLETED,
-							progress, op, 0, 0, count, key_id, id(), gen, _success);
+
+						switch (_state) {
+						case NEW_INIT:
+							_request.construct(0, _count, _id, _gen);
+							_state = NEW_IN_PROGRESS;
+							progress = true;
+							break;
+						case NEW_IN_PROGRESS:
+							progress |= scheduler.execute(request_attr);
+							complete = _try_complete_request(_request, progress);
+						default: break;
+						}
 						break;
 					}
-
-					_main.mark_command_in_progress(id());
+					return progress;
 				}
 
 				void print(Genode::Output &out) const
 				{
-					Genode::print(out, "op: ", op_to_string(op), " "
-					                   "count: ", count, " "
-					                   "gen: ", gen, " "
-					                   "key_id: ", key_id, " "
-					                   "offset: ", offset, " "
-					                   "buffer_start: ", (void*)buffer_start, " "
-					                   "buffer_num_bytes: ", buffer_num_bytes);
+					Genode::print(out, "op: ", Tresor::Request::op_to_string(_op), " "
+					                   "count: ", _count, " "
+					                   "gen: ", _gen, " "
+					                   "offset: ", _offset, " "
+					                   "buffer.start: ", (void*)_buffer.start, " "
+					                   "buffer.num_bytes: ", _buffer.num_bytes);
 				}
 		};
+
+		Vfs::Env &_vfs_env;
+		bool const _verbose;
+		bool const _debug;
+		Tresor::Path const _crypto_path;
+		Tresor::Path const _block_io_path;
+		Tresor::Path const _trust_anchor_path;
+		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs::Vfs_handle &_crypto_add_key_file { open_file(_vfs_env, { _crypto_path, "/add_key" }, Vfs::Directory_service::OPEN_MODE_WRONLY) };
+		Vfs::Vfs_handle &_crypto_remove_key_file { open_file(_vfs_env, { _crypto_path, "/remove_key" }, Vfs::Directory_service::OPEN_MODE_WRONLY) };
+		Vfs::Vfs_handle &_ta_decrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/decrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs::Vfs_handle &_ta_encrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs::Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs::Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Tresor::Request_scheduler _request_scheduler { };
+		Tresor::Free_tree _free_tree { };
+		Tresor::Virtual_block_device _vbd { };
+		Superblock_control _sb_control { };
+		Meta_tree _meta_tree { };
+		Trust_anchor _trust_anchor { { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
+		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
+		Block_io _block_io { _block_io_file };
+		Splitter _splitter { };
+		Client_data _client_data { _splitter };
+		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
+
+		/*
+		 * Noncopyable
+		 */
+		Wrapper(Wrapper const &) = delete;
+		Wrapper &operator = (Wrapper const &) = delete;
 
 		template <typename FUNC>
 		void _with_first_processable_cmd(FUNC && func)
@@ -251,42 +287,19 @@ class Vfs_tresor::Wrapper : Noncopyable
 				if (done)
 					return;
 
-				if (cmd.state() == Command::PENDING) {
+				if (cmd.state() == Command::NEW_INIT) {
 					done = true;
 					if (first_uncompleted_cmd || !cmd.synchronize())
 						func(cmd);
 				}
 
-				if (cmd.state() == Command::IN_PROGRESS) {
+				if (cmd.state() == Command::NEW_IN_PROGRESS) {
 					if (cmd.synchronize())
 						done = true;
 					else
 						first_uncompleted_cmd = false;
 				}
 			});
-		}
-
-		template <typename FUNC>
-		bool _with_first_idle_cmd(FUNC && func)
-		{
-			bool done { false };
-			for_each_channel<Command>([&] (Command &cmd) {
-				if (done)
-					return;
-
-				if (cmd.state() == Command::IDLE) {
-					done = true;
-					/*
-					 * Always provide a fresh Command to ease burden on
-					 * the callee and set it PENDING afterwards as
-					 * 'func' may not fail.
-					 */
-					cmd.reset();
-					func(cmd);
-					cmd.state(Command::PENDING);
-				}
-			});
-			return done;
 		}
 
 		bool ready_to_submit_request()
@@ -335,12 +348,11 @@ class Vfs_tresor::Wrapper : Noncopyable
 
 		struct Rekeying : Control_request
 		{
-			uint32_t              key_id;
 			Virtual_block_address max_vba;
 			Virtual_block_address rekeying_vba;
 			uint64_t              percent_done;
 
-			Rekeying() : key_id(0), max_vba(0), rekeying_vba(0), percent_done(0) { }
+			Rekeying() : max_vba(0), rekeying_vba(0), percent_done(0) { }
 
 			void mark_in_progress(Virtual_block_address max,
 			                      Virtual_block_address rekeying)
@@ -353,9 +365,7 @@ class Vfs_tresor::Wrapper : Noncopyable
 
 		struct Deinitialize : Control_request
 		{
-			uint32_t key_id;
-
-			Deinitialize() : key_id(0) { state = State::IDLE; }
+			Deinitialize() : { state = State::IDLE; }
 		};
 
 		struct Extending : Control_request
@@ -417,22 +427,7 @@ class Vfs_tresor::Wrapper : Noncopyable
 		Command          *_io_cmd_ptr    { nullptr };
 
 		bool _active_io_cmd_for_handle(Vfs_handle const &handle) const {
-			return _io_handle_ptr == &handle; }
-
-		template <typename SETUP_FN>
-		bool _setup_io_cmd_for_handle(Vfs_handle const &handle,
-		                              SETUP_FN   const &setup_fn)
-		{
-			ASSERT(_io_handle_ptr == nullptr);
-
-			bool done = _with_first_idle_cmd([&] (Command &cmd) {
-				setup_fn(cmd);
-
-				_io_cmd_ptr    = &cmd;
-				_io_handle_ptr = &handle;
-			});
-			return done;
-		}
+			return ; }
 
 		template <typename PENDING_FN, typename COMPLETE_FN>
 		bool _with_io_active_cmd_for_handle(Vfs_handle  const &handle,
@@ -473,27 +468,8 @@ class Vfs_tresor::Wrapper : Noncopyable
 		Pointer<Rekey_progress_file_system>  _rekey_progress_fs  { };
 		Pointer<Deinitialize_file_system>    _deinit_fs          { };
 
-		/* configuration options */
-		bool _verbose       { false };
-		bool _debug         { false };
-
-		void _read_config(Xml_node config)
-		{
-			_verbose      = config.attribute_value("verbose", _verbose);
-			_debug        = config.attribute_value("debug",   _debug);
-		}
-
 		struct Could_not_open_block_backend : Genode::Exception { };
 		struct No_valid_superblock_found    : Genode::Exception { };
-
-		void _initialize_tresor()
-		{
-			Module_channel_id id = 0;
-			for (auto & cmd : _commands) {
-				cmd.construct(*this, id++);
-				add_channel(*cmd);
-			}
-		}
 
 		void _process_completed(Command &cmd)
 		{
@@ -619,73 +595,92 @@ class Vfs_tresor::Wrapper : Noncopyable
 			fn(node);
 		}
 
+		template <typename FUNC>
+		void _for_each_command(FUNC && func)
+		{
+			for (Constructible<Command> &cmd : _commands) {
+				if (cmd.constructed())
+					func(cmd);
+			}
+		}
+
+		bool _execute_commands()
+		{
+			bool cmds_in_progress = false;
+			bool progress = false;
+			bool ignore_remaining_cmds = false;
+			Command *last_cmd_ptr { };
+			_for_each_command([&] (Command &cmd)
+			{
+				if (ignore_remaining_cmds)
+					return;
+
+				switch (cmd.state) {
+				case Command::INIT:
+
+					if (_synchronized_command(cmd) && cmds_in_progress) {
+						ignore_remaining_cmds = true;
+						break;
+					}
+					_start_command(cmd);
+					progress = true;
+					cmds_in_progress = true;
+					break;
+
+				case Command::IN_PROGRESS:
+
+					bool cmd_complete;
+					progress |= _execute_command(cmd, cmd_complete);
+					if (!cmd_complete)
+						cmds_in_progress = true;
+					break;
+
+				default: break;
+				}
+				last_cmd_ptr = &cmd;
+			});
+			return progress;
+		}
+
+		/********************************
+		 ** Crypto_key_files_interface **
+		 ********************************/
+
+		void add_crypto_key(Key_id key_id) override
+		{
+			for (Constructible<Crypto_key> &key : _crypto_keys)
+				if (!key.constructed()) {
+					key.construct(key_id,
+						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR),
+						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/decrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR)
+					);
+					return;
+				}
+			ASSERT_NEVER_REACHED;
+		}
+
+		void remove_crypto_key(Key_id key_id) override
+		{
+			Constructible<Crypto_key> &crypto_key = _crypto_key(key_id);
+			_vfs_env.root_dir().close(&crypto_key->encrypt_file);
+			_vfs_env.root_dir().close(&crypto_key->decrypt_file);
+			crypto_key.destruct();
+		}
+
+		Vfs::Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
+		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
+
 	public:
 
-		Wrapper(Vfs::Env &vfs_env, Xml_node config) : _vfs_env(vfs_env)
-		{
-			_read_config(config);
-
-			using S = Genode::String<32>;
-
-			S const block_path =
-				config.attribute_value("block", S());
-			if (block_path.valid())
-				_with_node("block_io", block_path.string(),
-					[&] (Xml_node const &node) {
-						_block_io.construct(vfs_env, node);
-					});
-
-			S const trust_anchor_path =
-				config.attribute_value("trust_anchor", S());
-			if (trust_anchor_path.valid())
-				_with_node("trust_anchor", trust_anchor_path.string(),
-					[&] (Xml_node const &node) {
-						_trust_anchor.construct(vfs_env, node);
-					});
-
-			S const crypto_path =
-				config.attribute_value("crypto", S());
-			if (crypto_path.valid())
-				_with_node("crypto", crypto_path.string(),
-					[&] (Xml_node const &node) {
-						_crypto.construct(vfs_env, node);
-					});
-
-			_splitter.construct();
-			_client_data.construct(*_splitter);
-
-			add_module(COMMAND_POOL,  *this);
-			add_module(META_TREE,     _meta_tree);
-			add_module(CRYPTO,        *_crypto);
-			add_module(TRUST_ANCHOR,  *_trust_anchor);
-			add_module(CLIENT_DATA,   *_client_data);
-			add_module(BLOCK_IO,      *_block_io);
-			add_module(SPLITTER,      *_splitter);
-
-			_initialize_tresor();
-		}
-
-		void mark_command_in_progress(Command_id cmd_id)
-		{
-			with_channel<Command>(cmd_id, [&] (Command &cmd) {
-				cmd.state(Command::IN_PROGRESS);
-			});
-		}
-
-		void mark_command_completed(Command_id cmd_id)
-		{
-			with_channel<Command>(cmd_id, [&] (Command &cmd) {
-				cmd.state(Command::COMPLETED);
-				_process_completed(cmd);
-			});
-		}
-
-		void execute(bool &progress)
-		{
-			_with_first_processable_cmd([&] (Command &cmd) {
-				cmd.execute(_verbose, progress);
-			});
-		}
+		Wrapper(Vfs::Env &vfs_env, Xml_node const &config)
+		:
+			_vfs_env(vfs_env),
+			_verbose(config.attribute_value("verbose", _verbose)),
+			_debug(config.attribute_value("debug", _debug)),
+			_crypto_path(config.attribute_value("crypto", Tresor::Path())),
+			_block_io_path(config.attribute_value("block", Tresor::Path())),
+			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
+		{ }
 
 		Genode::uint64_t max_vba()
 		{
@@ -707,41 +702,33 @@ class Vfs_tresor::Wrapper : Noncopyable
 		                       PENDING_FN           const &pending_fn,
 		                       COMPLETE_FN          const &complete_fn)
 		{
-
 			Genode::Mutex::Guard guard { _io_mutex };
+			ASSERT(!_io_handle_ptr);
+			for (Constructible<Command> &cmd : _commands) {
+				if (cmd.constructed())
+					continue;
 
-			/* queue new I/O request */
-			if (!_active_io_cmd_for_handle(handle)) {
-				bool const done =
-					_setup_io_cmd_for_handle(handle, [&] (Command &cmd) {
-
-					cmd.op               = op;
-					cmd.gen              = gen;
-					cmd.offset           = handle.seek();
-					/* make a copy as the object may be dynamic */
-					cmd.buffer_start     = data.start;
-					cmd.buffer_num_bytes = data.num_bytes;
-				});
-
-				if (!done) {
-					pending_fn();
-					return;
-				}
+				cmd.construct(op, gen, handle.seek(), data, 0, data);
+				_io_cmd_ptr = &cmd;
+				_io_handle_ptr = &handle;
+				break;
 			}
-
+			if (!_io_handle_ptr) {
+				pending_fn();
+				return;
+			}
 			execute();
-
 			_with_io_active_cmd_for_handle(handle,
 				[&] { pending_fn(); },
 				[&] (Command const &cmd) {
 					complete_fn(cmd.result,
-					            cmd.buffer_num_bytes);
+					            cmd.buffer.num_bytes);
 			});
 		}
 
 		void execute()
 		{
-			execute_modules();
+			while (_execute_commands());
 			_vfs_env.io().commit();
 
 			Tresor::Superblock_info const sb_info {
@@ -814,7 +801,6 @@ class Vfs_tresor::Wrapper : Noncopyable
 			bool result = _with_first_idle_cmd([&] (Command &cmd) {
 
 				cmd.op = Command::Operation::REKEY;
-				cmd.key_id = _rekey_obj.key_id;
 
 				_rekey_obj.mark_in_progress(_sb_control->max_vba(),
 				                            _sb_control->rekeying_vba());

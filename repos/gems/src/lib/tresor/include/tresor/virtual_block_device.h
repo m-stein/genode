@@ -23,17 +23,19 @@
 
 namespace Tresor { class Virtual_block_device; }
 
-struct Tresor::Virtual_block_device : Noncopyable
+class Tresor::Virtual_block_device : Noncopyable
 {
-	class Rekey_vba;
-	class Read_vba;
-	class Write_vba;
-	class Extend_tree;
+	public:
 
-	template <typename REQUEST, typename... ARGS>
-	bool execute(REQUEST &req, ARGS &&... args) { return req.execute(args...); }
+		class Rekey_vba;
+		class Read_vba;
+		class Write_vba;
+		class Extend_tree;
 
-	static constexpr char const *name() { return "vbd"; }
+		template <typename REQUEST, typename... ARGS>
+		bool execute(REQUEST &req, ARGS &&... args) { return req.execute(args...); }
+
+		static constexpr char const *name() { return "vbd"; }
 };
 
 class Tresor::Virtual_block_device::Rekey_vba : Noncopyable
