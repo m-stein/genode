@@ -290,7 +290,7 @@ struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
 	bool extend_free_tree_finished { };
 	bool restarted { };
 
-	char const *type_to_string() const
+	char const *op_to_string() const
 	{
 		switch (type) {
 		case INITIALIZE: return "initialize tresor container";
@@ -361,7 +361,7 @@ struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
 			func(*this);
 	}
 
-	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " type ", type_to_string()); }
+	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " op \"", op_to_string(), "\""); }
 };
 
 struct Tresor_tester::Snapshot_reference : Avl_node<Snapshot_reference>
@@ -887,7 +887,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 			return progress;
 		}
 
-		bool _execute_command_tree()
+		bool _execute_commands()
 		{
 			bool cmd_complete;
 			bool progress = false;
@@ -930,7 +930,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 
 		void _handle_signal()
 		{
-			while (_execute_command_tree());
+			while (_execute_commands());
 			if (_command_schedule.empty()) {
 				if (_num_errors) {
 					error(_num_errors, " command", _num_errors > 1 ? "s" : "", " failed!");

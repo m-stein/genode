@@ -39,8 +39,8 @@ namespace Vfs_tresor {
 	using namespace Genode;
 	using namespace Tresor;
 
+	template <typename> class Schedule;
 	class Data_file_system;
-
 	class Extend_file_system;
 	class Extend_progress_file_system;
 	class Rekey_file_system;
@@ -48,70 +48,68 @@ namespace Vfs_tresor {
 	class Deinitialize_file_system;
 	class Create_snapshot_file_system;
 	class Discard_snapshot_file_system;
-
-	struct Control_local_factory;
-	class  Control_file_system;
-
-	struct Snapshot_local_factory;
-	class  Snapshot_file_system;
-
-	struct Snapshots_local_factory;
-	class  Snapshots_file_system;
-
-	struct Local_factory;
-	class  File_system;
-
+	class Control_local_factory;
+	class Control_file_system;
+	class Snapshot_local_factory;
+	class Snapshot_file_system;
+	class Snapshots_local_factory;
+	class Snapshots_file_system;
+	class Local_factory;
+	class File_system;
 	class Command;
-	class Client_data;
-	class Wrapper;
+	class Tresor_adapter;
+}
 
-	template <typename T>
-	class Pointer
-	{
-		private:
-
-			T *_obj;
-
-		public:
-
-			struct Invalid : Genode::Exception { };
-
-			Pointer() : _obj(nullptr) { }
-
-			Pointer(T &obj) : _obj(&obj) { }
-
-			T &obj() const
-			{
-				if (_obj == nullptr)
-					throw Invalid();
-
-				return *_obj;
-			}
-
-			bool valid() const { return _obj != nullptr; }
-	};
-} /* namespace Vfs_tresor */
-
-
-class Vfs_tresor::Client_data : Noncopyable, public Client_data_interface
+template <typename T>
+class Vfs_tresor::Schedule : Noncopyable
 {
 	private:
 
-		Lookup_buffer &_lookup;
-
-		void obtain_data(Obtain_data_attr const &attr) override
-		{
-			attr.out_blk = _lookup.source_buffer(attr.in_vba);
-		}
-
-		void supply_data(Supply_data_attr const &attr) override
-		{
-			_lookup.destination_buffer(attr.in_vba) = attr.in_blk;
-		}
+		T *_tail { };
+		List<T> _list { };
 
 	public:
 
-		Client_data(Lookup_buffer &lookup) : _lookup(lookup) { }
+		void add_tail(T &request)
+		{
+			_list.insert(&request, _tail);
+			_tail = &request;
+		}
+
+		bool empty() const { return !_list.first(); }
+
+		template <typename FN>
+		void with_head(FN && fn)
+		{
+			if (_list.first())
+				fn(*_list.first());
+		}
+
+		void remove_head()
+		{
+			T *head = _list.first();
+			if (!head)
+				return;
+
+			_list.remove(head);
+			if (_tail == head)
+				_tail = _list.first();
+		}
+
+		template <typename CAN_YIELD_TO_FN>
+		void try_yield_head(CAN_YIELD_TO_FN && can_yield_to)
+		{
+			T *head = _list.first();
+			if (!head)
+				return;
+
+			T *next = head->List<T>::Element::_next;
+			if (!next || !can_yield_to(*next))
+				return;
+
+			remove_head();
+			_list.insert(head, next);
+		}
 };
 
 
@@ -127,14 +125,7 @@ struct Vfs_tresor::Command : List<Command>::Element
 
 	enum State { INIT, IN_PROGRESS, COMPLETE };
 
-	/*
-	 * Noncopyable
-	 */
-	Command(Command const &) = delete;
-	Command &operator = (Command const &) = delete;
-
 	State state { INIT };
-
 	Id id;
 	Operation const op;
 	Generation generation { };
@@ -145,51 +136,51 @@ struct Vfs_tresor::Command : List<Command>::Element
 	Superblock_control::Deinitialize *deinit_sb_control_ptr { };
 	Superblock_control::Create_snapshot *create_snap_ptr { };
 	Superblock_control::Discard_snapshot *discard_snap_ptr { };
-	Splitter::Write *write_ptr { };
-	Splitter::Read *read_ptr { };
 	Superblock_control::Rekey *rekey_ptr { };
 	Superblock_control::Extend_vbd *extend_vbd_ptr { };
 	Superblock_control::Extend_free_tree *extend_free_tree_ptr { };
-	Superblock_control::Synchronize *sync_ptr { };
 	Superblock::State sb_state { Superblock::INVALID };
 	bool rekey_finished { };
 	bool extend_vbd_finished { };
 	bool extend_free_tree_finished { };
+	Vfs_handle *handle_ptr { };
+
+	/*
+	 * Noncopyable
+	 */
+	Command(Command const &) = delete;
+	Command &operator = (Command const &) = delete;
 
 	char const *op_to_string() const
 	{
-		switch(request_node->op) {
-		case Request_node::INITIALIZE: return "initialize superblock control";
-		case Request_node::DEINITIALIZE: return "deinitialize superblock control";
-		case Request_node::CREATE_SNAPSHOT: return "create snapshot";
-		case Request_node::DISCARD_SNAPSHOT: return "discard snapshot";
-		case Request_node::READ: return "read";
-		case Request_node::WRITE: return "write";
-		case Request_node::SYNC: return "sync";
-		case Request_node::REKEY: return "rekey";
-		case Request_node::EXTEND_VBD: return "extend virtual block device";
-		case Request_node::EXTEND_FREE_TREE: return "extend free tree";
+		switch(op) {
+		case INITIALIZE: return "initialize superblock control";
+		case DEINITIALIZE: return "deinitialize superblock control";
+		case CREATE_SNAPSHOT: return "create snapshot";
+		case DISCARD_SNAPSHOT: return "discard snapshot";
+		case READ: return "read";
+		case WRITE: return "write";
+		case SYNC: return "sync";
+		case REKEY: return "rekey";
+		case EXTEND_VBD: return "extend virtual block device";
+		case EXTEND_FREE_TREE: return "extend free tree";
 		}
 		ASSERT_NEVER_REACHED;
 	}
 
-	Command(Command_id id, Operation op, Generation generation, addr_t virt_range_start,
+	Command(Id id, Operation op, Generation generation, addr_t virt_range_start,
 	        Number_of_blocks num_blocks, Byte_range_ptr const &buffer)
 	:
 		id(id), op(op), generation(generation), virt_range_start(virt_range_start),
 		num_blocks(num_blocks), buffer(buffer.start, buffer.num_bytes)
 	{ }
 
-	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " type ", type_to_string()); }
+	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " op \"", op_to_string(), "\""); }
 };
 
 
-class Vfs_tresor::Wrapper : public Crypto_key_files_interface
+class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
 {
-	public:
-
-		enum class Result { UNKNOWN, OK, ERROR, EOF };
-
 	private:
 
 		enum { MAX_NUM_COMMANDS = 16 };
@@ -208,7 +199,8 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 		Vfs::Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Tresor::Request_scheduler _request_scheduler { };
+		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
+		Schedule<Command> _command_scheduler;
 		Tresor::Free_tree _free_tree { };
 		Tresor::Virtual_block_device _vbd { };
 		Superblock_control _sb_control { };
@@ -217,305 +209,26 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
 		Block_io _block_io { _block_io_file };
 		Splitter _splitter { };
-		Client_data _client_data { _splitter };
-		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
+		Snapshots_file_system *_snapshots_fs_ptr { };
+		Extend_file_system * _extend_fs_ptr  { };
+		Extend_progress_file_system *_extend_progress_fs_ptr { };
+		Rekey_file_system * _rekey_fs_ptr  { };
+		Rekey_progress_file_system *_rekey_progress_fs_ptr { };
+		Deinitialize_file_system *_deinit_fs_ptr  { };
 
 		/*
 		 * Noncopyable
 		 */
-		Wrapper(Wrapper const &) = delete;
-		Wrapper &operator = (Wrapper const &) = delete;
+		Tresor_adapter(Wrapper const &) = delete;
+		Tresor_adapter &operator = (Wrapper const &) = delete;
 
-		template <typename FUNC>
-		void _with_first_processable_cmd(FUNC && func)
+		bool _ready_to_submit_request() const
 		{
-			bool first_uncompleted_cmd { true };
-			bool done { false };
-			for_each_channel<Command>([&] (Command &cmd) {
+			for (Constructible<Command> const &cmd : _commands)
+				if (!cmd.constructed())
+					return true;
 
-				if (done)
-					return;
-
-				if (cmd.state() == Command::NEW_INIT) {
-					done = true;
-					if (first_uncompleted_cmd || !cmd.synchronize())
-						func(cmd);
-				}
-
-				if (cmd.state() == Command::NEW_IN_PROGRESS) {
-					if (cmd.synchronize())
-						done = true;
-					else
-						first_uncompleted_cmd = false;
-				}
-			});
-		}
-
-		bool ready_to_submit_request()
-		{
-			bool result = false;
-			for_each_channel<Command>([&] (Command const &cmd) {
-				if (cmd.state() == Command::State::IDLE)
-					result = true;
-			});
-			return result;
-		}
-
-	public:
-
-		struct Control_request
-		{
-			enum State { UNKNOWN, IDLE, IN_PROGRESS, };
-			enum Result { NONE, SUCCESS, FAILED, };
-
-			State  state;
-			Result last_result;
-
-			Control_request() : state(State::UNKNOWN), last_result(Result::NONE) { }
-
-			bool idle()        const { return state == IDLE; }
-			bool in_progress() const { return state == IN_PROGRESS; }
-
-			bool success()     const { return last_result == SUCCESS; }
-
-			void mark_in_progress()
-			{
-				state       = State::IN_PROGRESS;
-				last_result = Result::NONE;
-			}
-
-			static char const *state_to_cstring(State const s)
-			{
-				switch (s) {
-				case State::UNKNOWN:     return "unknown";
-				case State::IDLE:        return "idle";
-				case State::IN_PROGRESS: return "in-progress";
-				}
-				return "-";
-			}
-		};
-
-		struct Rekeying : Control_request
-		{
-			Virtual_block_address max_vba;
-			Virtual_block_address rekeying_vba;
-			uint64_t              percent_done;
-
-			Rekeying() : max_vba(0), rekeying_vba(0), percent_done(0) { }
-
-			void mark_in_progress(Virtual_block_address max,
-			                      Virtual_block_address rekeying)
-			{
-				max_vba      = max;
-				rekeying_vba = rekeying;
-				Control_request::mark_in_progress();
-			}
-		};
-
-		struct Deinitialize : Control_request
-		{
-			Deinitialize() : { state = State::IDLE; }
-		};
-
-		struct Extending : Control_request
-		{
-			enum Type { INVALID, VBD, FT };
-
-			Type                  type;
-			Virtual_block_address resizing_nr_of_pbas;
-			uint64_t              percent_done;
-
-			Extending() : type(Type::INVALID), resizing_nr_of_pbas(0), percent_done(0) { }
-
-			void mark_in_progress(Type type, Virtual_block_address resizing_nr_of_pbas)
-			{
-				type                = type;
-				resizing_nr_of_pbas = resizing_nr_of_pbas;
-				Control_request::mark_in_progress();
-			}
-
-			static Type string_to_type(char const *s)
-			{
-				if (Genode::strcmp("vbd", s, 3) == 0) {
-					return Type::VBD;
-				} else
-
-				if (Genode::strcmp("ft", s, 2) == 0) {
-					return Type::FT;
-				}
-
-				return Type::INVALID;
-			}
-
-			static char const *type_to_string(Type type)
-			{
-				switch (type) {
-				case Type::VBD:     return "vbd";
-				case Type::FT:      return "ft";
-				case Type::INVALID: return "invalid";
-				}
-				return nullptr;
-			}
-		};
-
-	private:
-
-		/*
-		 * XXX The initial object state of Rekeying and
-		 *     Extending relies on 'execute()' querying
-		 *     the Superblock_info to switch from UNKNOWN
-		 *     to the current state and could therefore
-		 *     deny attempts.
-		 */
-		Rekeying     _rekey_obj  { };
-		Extending    _extend_obj { };
-		Deinitialize _deinit_obj { };
-
-		Genode::Mutex     _io_mutex { };
-		Vfs_handle const *_io_handle_ptr { nullptr };
-		Command          *_io_cmd_ptr    { nullptr };
-
-		bool _active_io_cmd_for_handle(Vfs_handle const &handle) const {
-			return ; }
-
-		template <typename PENDING_FN, typename COMPLETE_FN>
-		bool _with_io_active_cmd_for_handle(Vfs_handle  const &handle,
-		                                    PENDING_FN  const &pending_fn,
-		                                    COMPLETE_FN const &complete_fn)
-		{
-			bool found = false;
-			if (_io_handle_ptr && _io_handle_ptr == &handle) {
-				if (_io_cmd_ptr) {
-					Command &cmd = *_io_cmd_ptr;
-
-					switch (cmd.state()) {
-					case Command::State::IDLE:
-						/* should never happen */
-						break;
-					case Command::State::PENDING: [[fallthrough]];
-					case Command::State::IN_PROGRESS:
-						pending_fn();
-						break;
-					case Command::State::COMPLETED:
-						complete_fn(*_io_cmd_ptr);
-						cmd.state(Command::IDLE);
-
-						_io_cmd_ptr    = nullptr;
-						_io_handle_ptr = nullptr;
-						break;
-					}
-					found = true;
-				}
-			}
-			return found;
-		}
-
-		Pointer<Snapshots_file_system>       _snapshots_fs       { };
-		Pointer<Extend_file_system>          _extend_fs          { };
-		Pointer<Extend_progress_file_system> _extend_progress_fs { };
-		Pointer<Rekey_file_system>           _rekey_fs           { };
-		Pointer<Rekey_progress_file_system>  _rekey_progress_fs  { };
-		Pointer<Deinitialize_file_system>    _deinit_fs          { };
-
-		struct Could_not_open_block_backend : Genode::Exception { };
-		struct No_valid_superblock_found    : Genode::Exception { };
-
-		void _process_completed(Command &cmd)
-		{
-			using R = Result;
-
-			bool const success = cmd.success();
-
-			if (_verbose)
-				log("Completed request ", cmd, " ",
-				    success ? "successfull" : "failed");
-
-			switch (cmd.op) {
-			case Command::Operation::REKEY:
-			{
-				_rekey_obj.state = Rekeying::State::IDLE;
-				_rekey_obj.last_result = success ? Rekeying::Result::SUCCESS
-				                                 : Rekeying::Result::FAILED;
-
-				_rekey_fs_trigger_watch_response();
-				_rekey_progress_fs_trigger_watch_response();
-
-				cmd.state(Command::IDLE);
-				break;
-			}
-			case Command::Operation::DEINITIALIZE:
-			{
-				_deinit_obj.state = Deinitialize::State::IDLE;
-				_deinit_obj.last_result = success ? Deinitialize::Result::SUCCESS
-				                                  : Deinitialize::Result::FAILED;
-
-				_deinit_fs_trigger_watch_response();
-
-				cmd.state(Command::IDLE);
-				break;
-			}
-			case Command::Operation::EXTEND_VBD:
-			{
-				_extend_obj.state = Extending::State::IDLE;
-				_extend_obj.last_result =
-					success ? Extending::Result::SUCCESS
-					        : Extending::Result::FAILED;
-
-				_extend_fs_trigger_watch_response();
-				_extend_progress_fs_trigger_watch_response();
-
-				cmd.state(Command::IDLE);
-				break;
-			}
-			case Command::Operation::EXTEND_FT:
-			{
-				_extend_obj.state = Extending::State::IDLE;
-				_extend_obj.last_result =
-					success ? Extending::Result::SUCCESS
-					        : Extending::Result::FAILED;
-
-				_extend_fs_trigger_watch_response();
-
-				cmd.state(Command::IDLE);
-				break;
-			}
-			case Command::Operation::CREATE_SNAPSHOT:
-			{
-				/* FIXME more TODO here? */
-				_snapshots_fs_update_snapshot_registry();
-
-				cmd.state(Command::IDLE);
-				break;
-			}
-			case Command::Operation::DISCARD_SNAPSHOT:
-			{
-				/* FIXME more TODO here? */
-				_snapshots_fs_update_snapshot_registry();
-
-				cmd.state(Command::IDLE);
-				break;
-			}
-			case Command::Operation::READ: [[fallthrough]];
-			case Command::Operation::WRITE:
-			{
-				bool const eof = cmd.eof(_sb_control->max_vba());
-
-				cmd.result = success ? R::OK
-				                     : eof ? R::EOF
-				                           : R::ERROR;
-				break;
-			}
-			case Command::Operation::SYNC:
-				cmd.result = success ? R::OK : R::ERROR;
-				break;
-			/* not handled here */
-			case Command::Operation::RESUME_REKEYING:
-				cmd.result = success ? R::OK : R::ERROR;
-				break;
-			case Command::Operation::INITIALIZE:
-				cmd.result = success ? R::OK : R::ERROR;
-				break;
-			} /* switch */
+			return false;
 		}
 
 		void _snapshots_fs_update_snapshot_registry();
@@ -530,66 +243,6 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 
 		void _deinit_fs_trigger_watch_response();
 
-		template <typename FN>
-		void _with_node(char const *name, char const *path, FN const &fn)
-		{
-			char xml_buffer[128] { };
-
-			Genode::Xml_generator xml {
-				xml_buffer, sizeof(xml_buffer), name,
-				[&] { xml.attribute("path", path); }
-			};
-
-			Genode::Xml_node node { xml_buffer, sizeof(xml_buffer) };
-			fn(node);
-		}
-
-		template <typename FUNC>
-		void _for_each_command(FUNC && func)
-		{
-			for (Constructible<Command> &cmd : _commands) {
-				if (cmd.constructed())
-					func(cmd);
-			}
-		}
-
-		bool _execute_commands()
-		{
-			bool cmds_in_progress = false;
-			bool progress = false;
-			bool ignore_remaining_cmds = false;
-			Command *last_cmd_ptr { };
-			_for_each_command([&] (Command &cmd)
-			{
-				if (ignore_remaining_cmds)
-					return;
-
-				switch (cmd.state) {
-				case Command::INIT:
-
-					if (_synchronized_command(cmd) && cmds_in_progress) {
-						ignore_remaining_cmds = true;
-						break;
-					}
-					_start_command(cmd);
-					progress = true;
-					cmds_in_progress = true;
-					break;
-
-				case Command::IN_PROGRESS:
-
-					bool cmd_complete;
-					progress |= _execute_command(cmd, cmd_complete);
-					if (!cmd_complete)
-						cmds_in_progress = true;
-					break;
-
-				default: break;
-				}
-				last_cmd_ptr = &cmd;
-			});
-			return progress;
-		}
 
 		/********************************
 		 ** Crypto_key_files_interface **
@@ -619,9 +272,24 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 		Vfs::Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
 		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
 
+
+		/***************************
+		 ** Client_data_interface **
+		 ***************************/
+
+		void obtain_data(Obtain_data_attr const &attr) override
+		{
+			attr.out_blk = _splitter.source_buffer(attr.in_vba);
+		}
+
+		void supply_data(Supply_data_attr const &attr) override
+		{
+			_splitter.destination_buffer(attr.in_vba) = attr.in_blk;
+		}
+
 	public:
 
-		Wrapper(Vfs::Env &vfs_env, Xml_node const &config)
+		Tresor_adapter(Vfs::Env &vfs_env, Xml_node const &config)
 		:
 			_vfs_env(vfs_env),
 			_verbose(config.attribute_value("verbose", _verbose)),
@@ -631,27 +299,15 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
 		{ }
 
-		Genode::uint64_t max_vba()
+		Virtual_block_address max_vba()
 		{
 			return _sb_control->max_vba();
 		}
 
-		/*
-		 * Handle a I/O request
-		 *
-		 * We rely on the 'handle' as well as the memory covered by
-		 * 'data' being valid throughout the processing of the pending
-		 * request.
-		 */
-		template <typename PENDING_FN, typename COMPLETE_FN>
-		void handle_io_request(Vfs_handle           const &handle,
-		                       Byte_range_ptr       const &data,
-		                       Tresor::Request::Operation  op,
-		                       Generation                  gen,
-		                       PENDING_FN           const &pending_fn,
-		                       COMPLETE_FN          const &complete_fn)
+		enum class Add_data_command_result { RETRY_LATER, OK }
+
+		void add_data_command(Command::Operation op, Vfs_handle const &handle, Byte_range_ptr const &buffer, Generation generation)
 		{
-			Genode::Mutex::Guard guard { _io_mutex };
 			ASSERT(!_io_handle_ptr);
 			for (unsigned idx = 0; idx < MAX_NUM_COMMANDS; idx++) {
 
@@ -660,21 +316,26 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 					continue;
 
 				cmd.construct(idx, op, gen, handle.seek(), 0, data);
-				_io_cmd_ptr = &(*cmd);
-				_io_handle_ptr = &handle;
-				break;
+				_command_schedule.add_tail(*cmd);
+				execute();
+				switch (cmd->state) {
+				case Command::INIT:
+				case Command::IN_PROGRESS:
+					pending_fn();
+					break;
+				case Command::COMPLETE:
+					complete_fn(*_io_cmd_ptr);
+					_commands[_io_cmd_id].destruct();
+
+					_io_cmd_ptr    = nullptr;
+					_io_handle_ptr = nullptr;
+					break;
+				}
+				}
+				return Add_data_command_result::OK;
 			}
-			if (!_io_handle_ptr) {
-				pending_fn();
-				return;
-			}
-			execute();
-			_with_io_active_cmd_for_handle(handle,
-				[&] { pending_fn(); },
-				[&] (Command const &cmd) {
-					complete_fn(cmd.result,
-					            cmd.buffer.num_bytes);
-			});
+			return Add_data_command_result::RETRY_LATER;
+
 		}
 
 		void execute()
@@ -746,7 +407,7 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 
 		bool start_rekeying()
 		{
-			if (!ready_to_submit_request())
+			if (!_ready_to_submit_request())
 				return false;
 
 			bool result = _with_first_idle_cmd([&] (Command &cmd) {
@@ -769,7 +430,7 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 
 		bool start_deinitialize()
 		{
-			if (!ready_to_submit_request())
+			if (!_ready_to_submit_request())
 				return false;
 
 			bool result = _with_first_idle_cmd([&] (Command &cmd) {
@@ -790,7 +451,7 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 		bool start_extending(Extending::Type       type,
 		                     Tresor::Number_of_blocks blocks)
 		{
-			if (!ready_to_submit_request() || type == Extending::Type::INVALID)
+			if (!_ready_to_submit_request() || type == Extending::Type::INVALID)
 				return false;
 
 			Command::Operation op = Command::Operation::EXTEND_VBD;
@@ -833,7 +494,7 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 
 		bool create_snapshot()
 		{
-			if (!ready_to_submit_request())
+			if (!_ready_to_submit_request())
 				return false;
 
 			bool result = _with_first_idle_cmd([&] (Command &cmd) {
@@ -845,7 +506,7 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 
 		bool discard_snapshot(Generation snap_gen)
 		{
-			if (!ready_to_submit_request())
+			if (!_ready_to_submit_request())
 				return false;
 
 			bool result = _with_first_idle_cmd([&] (Command &cmd) {
@@ -1036,87 +697,106 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 {
 	private:
 
-		Wrapper &_w;
-		Generation _snap_gen;
+		Tresor_adapter &_adapter;
+		Generation const _generation;
 
-		using OP = Tresor::Request::Operation;
-		using FR = Wrapper::Result;
-		using RR = Vfs::File_io_service::Read_result;
-		using SR = Vfs::File_io_service::Sync_result;
-		using WR = Vfs::File_io_service::Write_result;
+		using FR = Tresor_adapter::Result;
+		using Read_result = Vfs::File_io_service::Read_result;
+		using Sync_result = Vfs::File_io_service::Sync_result;
+		using Write_result = Vfs::File_io_service::Write_result;
 
-		static RR read_result(FR r)
+		static Read_result read_result(FR r)
 		{
 			switch (r) {
-			case FR::OK:      return RR::READ_OK;
-			case FR::EOF:     return RR::READ_OK;
-			case FR::ERROR:   return RR::READ_ERR_IO;
-			case FR::UNKNOWN: return RR::READ_ERR_INVALID;
+			case FR::OK:      return Read_result::READ_OK;
+			case FR::EOF:     return Read_result::READ_OK;
+			case FR::ERROR:   return Read_result::READ_ERR_IO;
+			case FR::UNKNOWN: return Read_result::READ_ERR_INVALID;
 			}
-			return RR::READ_ERR_INVALID;
+			return Read_result::READ_ERR_INVALID;
 		}
 
-		static SR sync_result(FR r)
+		static Sync_result sync_result(FR r)
 		{
 			switch (r) {
-			case FR::OK:      return SR::SYNC_OK;
-			case FR::EOF:     return SR::SYNC_ERR_INVALID;
-			case FR::ERROR:   return SR::SYNC_ERR_INVALID;
-			case FR::UNKNOWN: return SR::SYNC_ERR_INVALID;
+			case FR::OK:      return Sync_result::SYNC_OK;
+			case FR::EOF:     return Sync_result::SYNC_ERR_INVALID;
+			case FR::ERROR:   return Sync_result::SYNC_ERR_INVALID;
+			case FR::UNKNOWN: return Sync_result::SYNC_ERR_INVALID;
 			}
-			return SR::SYNC_ERR_INVALID;
+			return Sync_result::SYNC_ERR_INVALID;
 		}
 
-		static WR write_result(FR r)
+		static Write_result write_result(FR r)
 		{
 			switch (r) {
-			case FR::OK:      return WR::WRITE_OK;
-			case FR::EOF:     return WR::WRITE_OK;
-			case FR::ERROR:   return WR::WRITE_ERR_IO;
-			case FR::UNKNOWN: return WR::WRITE_ERR_INVALID;
+			case FR::OK:      return Write_result::WRITE_OK;
+			case FR::EOF:     return Write_result::WRITE_OK;
+			case FR::ERROR:   return Write_result::WRITE_ERR_IO;
+			case FR::UNKNOWN: return Write_result::WRITE_ERR_INVALID;
 			}
-			return WR::WRITE_ERR_INVALID;
+			return Write_result::WRITE_ERR_INVALID;
 		}
-
 
 	public:
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
-			Generation _snap_gen { INVALID_GENERATION };
+			enum State { INIT, READ, WRITE, SYNC };
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service &fs,
-			           Genode::Allocator &alloc,
-			           Wrapper &w,
-			           Generation snap_gen)
+			State _state { INIT };
+			Tresor_adapter &_adapter;
+			Generation const _generation { };
+			Constructible<Splitter::Write> _write { };
+			Constructible<Splitter::Read> _read { };
+			Constructible<Superblock_control::Synchronize> _sync { };
+
+			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+			           Genode::Allocator &alloc, Tresor_adapter &adapter, Generation generation)
 			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w), _snap_gen(snap_gen)
+				Single_vfs_handle(dir_service, file_io_service, alloc, 0),
+				_adapter(adapter), _generation(generation)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
-				RR result = RR::READ_ERR_INVALID;
-				_w.handle_io_request(*this, dst, OP::READ, _snap_gen,
-					[&] { result = READ_QUEUED; },
-					[&] (FR fresult, size_t count) {
-						result    = read_result(fresult);
-						out_count = count;
+				Read_result result = Read_result::READ_ERR_INVALID;
+				out_count = 0;
+				switch (_state) {
+				case INIT:
+
+					_read.construct(handle.seek(), _generation, dst);
+					_adapter.add_request(*this);
+					_state = READ;
+					result = Read_result::READ_QEUED;
+					break;
+
+				case READ:
+
+					while (_adapter.execute_requests()) ;
+					if (_read->complete()) {
+						_state = INIT;
+						if (_read.success()) {
+							result = Read_result::OK;
+							out_count = dst.num_bytes;
+						} else
+							result = Read_result::READ_ERR_IO;
+						_read.destruct();
 					}
-				);
+					break;
+
+				default: break;
 				return result;
 			}
 
 			Write_result write(Const_byte_range_ptr const &src,
 			                   size_t &out_count) override
 			{
-				WR result = WR::WRITE_ERR_INVALID;
-				_w.handle_io_request(*this,
+				Write_result result = Write_result::WRITE_ERR_INVALID;
+				auto result = _adapter.add_data_command(*this,
 				                     Byte_range_ptr(const_cast<char*>(src.start),
 				                                    src.num_bytes),
-				                     OP::WRITE, _snap_gen,
+				                     Command::WRITE, _generation,
 					[&] { result = WRITE_ERR_WOULD_BLOCK; },
 					[&] (FR fresult, size_t count) {
 						result    = write_result(fresult);
@@ -1128,10 +808,10 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 			Sync_result sync() override
 			{
-				SR result = SR::SYNC_ERR_INVALID;
-				_w.handle_io_request(*this,
+				Sync_result result = Sync_result::SYNC_ERR_INVALID;
+				_adapter.add_data_command(*this,
 				                     Byte_range_ptr(nullptr, 0),
-				                     OP::SYNC, 0,
+				                     Command::SYNC, 0,
 					[&] { result = SYNC_QUEUED; },
 					[&] (FR fresult, size_t) {
 						result = sync_result(fresult);
@@ -1144,11 +824,10 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 			bool write_ready() const override { return true; }
 		};
 
-		Data_file_system(Wrapper &w, Generation snap_gen)
+		Data_file_system(Tresor_adapter &adapter, Generation generation)
 		:
-			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(),
-			                   Node_rwx::rw(), Xml_node("<data/>")),
-			_w(w), _snap_gen(snap_gen)
+			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")),
+			_adapter(adapter), _generation(generation)
 		{ }
 
 		~Data_file_system()
@@ -1166,7 +845,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 			Stat_result result = Single_file_system::stat(path, out);
 
 			/* max_vba range is from 0 ... N - 1 */
-			out.size = (_w.max_vba() + 1) * Tresor::BLOCK_SIZE;
+			out.size = (_adapter.max_vba() + 1) * Tresor::BLOCK_SIZE;
 			return result;
 		}
 
@@ -1189,7 +868,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				return OPEN_ERR_UNACCESSIBLE;
 
 			*out_handle =
-				new (alloc) Vfs_handle(*this, *this, alloc, _w, _snap_gen);
+				new (alloc) Vfs_handle(*this, *this, alloc, _adapter, _generation);
 
 			return OPEN_OK;
 		}
@@ -1208,7 +887,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 		Watch_handle_registry _handle_registry { };
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		using Content_string = String<32>;
 
@@ -1223,15 +902,15 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_adapter(adapter)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
@@ -1246,10 +925,10 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 				 * For now trigger extending execution via this hook
 				 * like we do in the Data_file_system.
 				 */
-				_w.execute();
+				_adapter.execute();
 
-				Wrapper::Extending const & extending {
-					_w.extending_progress() };
+				Tresor_adapter::Extending const & extending {
+					_adapter.extending_progress() };
 
 				if (extending.in_progress())
 					return READ_QUEUED;
@@ -1268,14 +947,14 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				using Type = Wrapper::Extending::Type;
-				if (!_w.extending_progress().idle()) {
+				using Type = Tresor_adapter::Extending::Type;
+				if (!_adapter.extending_progress().idle()) {
 					return WRITE_ERR_IO;
 				}
 
 				char tree[16];
 				Arg_string::find_arg(src.start, "tree").string(tree, sizeof (tree), "-");
-				Type type = Wrapper::Extending::string_to_type(tree);
+				Type type = Tresor_adapter::Extending::string_to_type(tree);
 				if (type == Type::INVALID) {
 					return WRITE_ERR_IO;
 				}
@@ -1285,7 +964,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 					return WRITE_ERR_IO;
 				}
 
-				bool const okay = _w.start_extending(type, blocks);
+				bool const okay = _adapter.start_extending(type, blocks);
 				if (!okay) {
 					return WRITE_ERR_IO;
 				}
@@ -1300,13 +979,13 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Extend_file_system(Wrapper &w)
+		Extend_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::rw(), Xml_node("<extend/>")),
-			_w(w)
+			_adapter(adapter)
 		{
-			_w.manage_extend_file_system(*this);
+			_adapter.manage_extend_file_system(*this);
 		}
 
 		static char const *type_name() { return "extend"; }
@@ -1356,7 +1035,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -1388,7 +1067,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 		Watch_handle_registry _handle_registry { };
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		using Content_string = String<32>;
 
@@ -1403,15 +1082,15 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_adapter(adapter)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst,
@@ -1427,10 +1106,10 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 				 * For now trigger extending execution via this hook
 				 * like we do in the Data_file_system.
 				 */
-				_w.execute();
+				_adapter.execute();
 
-				Wrapper::Extending const & extending {
-					_w.extending_progress() };
+				Tresor_adapter::Extending const & extending {
+					_adapter.extending_progress() };
 
 				if (extending.idle()) {
 					Content_string const content { "idle" };
@@ -1441,7 +1120,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 				if (extending.in_progress()) {
 					char const * const type =
-						Wrapper::Extending::type_to_string(extending.type);
+						Tresor_adapter::Extending::type_to_string(extending.type);
 					Content_string const content { type, " at ", extending.percent_done, "%" };
 					copy_content(content, dst.start, dst.num_bytes);
 					out_count = dst.num_bytes;
@@ -1463,13 +1142,13 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Extend_progress_file_system(Wrapper &w)
+		Extend_progress_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::rw(), Xml_node("<extend_progress/>")),
-			_w(w)
+			_adapter(adapter)
 		{
-			_w.manage_extend_progress_file_system(*this);
+			_adapter.manage_extend_progress_file_system(*this);
 		}
 
 		static char const *type_name() { return "extend_progress"; }
@@ -1519,7 +1198,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -1552,7 +1231,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 		Watch_handle_registry _handle_registry { };
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		using Content_string = String<32>;
 
@@ -1567,7 +1246,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			/* store VBA in case the handle is kept open */
 			Virtual_block_address _last_rekeying_vba;
@@ -1575,11 +1254,11 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w),
-				_last_rekeying_vba(_w.rekeying_progress().rekeying_vba)
+				_adapter(adapter),
+				_last_rekeying_vba(_adapter.rekeying_progress().rekeying_vba)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
@@ -1594,10 +1273,10 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 				 * For now trigger rekeying execution via this hook
 				 * like we do in the Data_file_system.
 				 */
-				_w.execute();
+				_adapter.execute();
 
-				Wrapper::Rekeying const & rekeying {
-					_w.rekeying_progress() };
+				Tresor_adapter::Rekeying const & rekeying {
+					_adapter.rekeying_progress() };
 
 				if (rekeying.in_progress())
 					return READ_QUEUED;
@@ -1616,7 +1295,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				if (!_w.rekeying_progress().idle()) {
+				if (!_adapter.rekeying_progress().idle()) {
 					return WRITE_ERR_IO;
 				}
 
@@ -1627,7 +1306,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 					return WRITE_ERR_IO;
 				}
 
-				if (!_w.start_rekeying()) {
+				if (!_adapter.start_rekeying()) {
 					return WRITE_ERR_IO;
 				}
 
@@ -1641,13 +1320,13 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Rekey_file_system(Wrapper &w)
+		Rekey_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::rw(), Xml_node("<rekey/>")),
-			_w(w)
+			_adapter(adapter)
 		{
-			_w.manage_rekey_file_system(*this);
+			_adapter.manage_rekey_file_system(*this);
 		}
 
 		static char const *type_name() { return "rekey"; }
@@ -1697,7 +1376,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -1730,7 +1409,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 
 		Watch_handle_registry _handle_registry { };
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		using Content_string = String<32>;
 
@@ -1745,15 +1424,15 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_adapter(adapter)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst,
@@ -1769,10 +1448,10 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 				 * For now trigger rekeying execution via this hook
 				 * like we do in the Data_file_system.
 				 */
-				_w.execute();
+				_adapter.execute();
 
-				Wrapper::Rekeying const & rekeying {
-					_w.rekeying_progress() };
+				Tresor_adapter::Rekeying const & rekeying {
+					_adapter.rekeying_progress() };
 
 				if (rekeying.idle()) {
 					Content_string const content { "idle" };
@@ -1803,13 +1482,13 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Rekey_progress_file_system(Wrapper &w)
+		Rekey_progress_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::rw(), Xml_node("<rekey_progress/>")),
-			_w(w)
+			_adapter(adapter)
 		{
-			_w.manage_rekey_progress_file_system(*this);
+			_adapter.manage_rekey_progress_file_system(*this);
 		}
 
 		static char const *type_name() { return "rekey_progress"; }
@@ -1859,7 +1538,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -1892,26 +1571,26 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 		Watch_handle_registry _handle_registry { };
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		using Content_string = String<32>;
 
-		static Content_string content_string(Wrapper const &wrapper)
+		static Content_string content_string(Tresor_adapter const &adapter)
 		{
-			Wrapper::Deinitialize const & deinitialize_progress {
-				wrapper.deinitialize_progress() };
+			Tresor_adapter::Deinitialize const & deinitialize_progress {
+				adapter.deinitialize_progress() };
 
 			bool const in_progress { deinitialize_progress.in_progress() };
 
 			bool const last_result {
 				!in_progress &&
 				deinitialize_progress.last_result !=
-					Wrapper::Deinitialize::Result::NONE };
+					Tresor_adapter::Deinitialize::Result::NONE };
 
 			bool const success { deinitialize_progress.success() };
 
 			Content_string const result {
-				Wrapper::Deinitialize::state_to_cstring(deinitialize_progress.state),
+				Tresor_adapter::Deinitialize::state_to_cstring(deinitialize_progress.state),
 				" last-result:",
 				last_result ? success ? "success" : "failed" : "none",
 				"\n" };
@@ -1921,15 +1600,15 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_adapter(adapter)
 			{ }
 
 			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
@@ -1938,15 +1617,15 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 					out_count = 0;
 					return READ_OK;
 				}
-				_w.execute();
+				_adapter.execute();
 
-				Wrapper::Deinitialize const & deinitialize_progress {
-					_w.deinitialize_progress() };
+				Tresor_adapter::Deinitialize const & deinitialize_progress {
+					_adapter.deinitialize_progress() };
 
 				if (deinitialize_progress.in_progress())
 					return READ_QUEUED;
 
-				Content_string const result { content_string(_w) };
+				Content_string const result { content_string(_adapter) };
 				copy_cstring(dst.start, result.string(), dst.num_bytes);
 				out_count = dst.num_bytes;
 
@@ -1955,7 +1634,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				if (!_w.deinitialize_progress().idle()) {
+				if (!_adapter.deinitialize_progress().idle()) {
 					return WRITE_ERR_IO;
 				}
 
@@ -1966,7 +1645,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 					return WRITE_ERR_IO;
 				}
 
-				if (!_w.start_deinitialize()) {
+				if (!_adapter.start_deinitialize()) {
 					return WRITE_ERR_IO;
 				}
 
@@ -1980,13 +1659,13 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Deinitialize_file_system(Wrapper &w)
+		Deinitialize_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::rw(), Xml_node("<deinitialize/>")),
-			_w(w)
+			_adapter(adapter)
 		{
-			_w.manage_deinit_file_system(*this);
+			_adapter.manage_deinit_file_system(*this);
 		}
 
 		static char const *type_name() { return "deinitialize"; }
@@ -2036,7 +1715,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -2046,7 +1725,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-			out.size = content_string(_w).length() - 1;
+			out.size = content_string(_adapter).length() - 1;
 			return result;
 		}
 
@@ -2063,19 +1742,19 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_adapter(adapter)
 			{ }
 
 			Read_result read(Byte_range_ptr const &, size_t &) override
@@ -2091,7 +1770,7 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 				if (!create_snapshot)
 					return WRITE_ERR_IO;
 
-				if (!_w.create_snapshot()) {
+				if (!_adapter.create_snapshot()) {
 					out_count = 0;
 					return WRITE_OK;
 				}
@@ -2105,11 +1784,11 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Create_snapshot_file_system(Wrapper &w)
+		Create_snapshot_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::wo(), Xml_node("<create_snapshot/>")),
-			_w(w)
+			_adapter(adapter)
 		{ }
 
 		static char const *type_name() { return "create_snapshot"; }
@@ -2130,7 +1809,7 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -2156,19 +1835,19 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		Wrapper &_w;
+		Tresor_adapter &_adapter;
 
 		struct Vfs_handle : Single_vfs_handle
 		{
-			Wrapper &_w;
+			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
 			           Genode::Allocator &alloc,
-			           Wrapper &w)
+			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
-				_w(w)
+				_adapter(adapter)
 			{ }
 
 			Read_result read(Byte_range_ptr const &, size_t &) override
@@ -2185,7 +1864,7 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 				if (snap_gen == INVALID_GENERATION)
 					return WRITE_ERR_IO;
 
-				if (!_w.discard_snapshot(snap_gen)) {
+				if (!_adapter.discard_snapshot(snap_gen)) {
 					out_count = 0;
 					return WRITE_OK;
 				}
@@ -2198,11 +1877,11 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Discard_snapshot_file_system(Wrapper &w)
+		Discard_snapshot_file_system(Tresor_adapter &adapter)
 		:
 			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
 			                   Node_rwx::wo(), Xml_node("<discard_snapshot/>")),
-			_w(w)
+			_adapter(adapter)
 		{ }
 
 		static char const *type_name() { return "discard_snapshot"; }
@@ -2223,7 +1902,7 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _w);
+					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
@@ -2250,7 +1929,7 @@ struct Vfs_tresor::Snapshot_local_factory : File_system_factory
 	Data_file_system _block_fs;
 
 	Snapshot_local_factory(Vfs::Env & /* env */,
-	                       Wrapper &tresor,
+	                       Tresor_adapter &tresor,
 	                       Generation snap_gen)
 	: _block_fs(tresor, snap_gen) { }
 
@@ -2291,7 +1970,7 @@ class Vfs_tresor::Snapshot_file_system : private Snapshot_local_factory,
 	public:
 
 		Snapshot_file_system(Vfs::Env &vfs_env,
-		                    Wrapper &tresor,
+		                    Tresor_adapter &tresor,
 		                    Generation snap_gen,
 		                    bool readonly = false)
 		:
@@ -2325,7 +2004,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 		struct Snapshot_registry
 		{
 			Genode::Allocator                                          &_alloc;
-			Wrapper                                                    &_wrapper;
+			Tresor_adapter                                             &_adapter;
 			Snapshots_file_system                                      &_snapshots_fs;
 			uint32_t                                                    _number_of_snapshots { 0 };
 			Genode::Registry<Genode::Registered<Snapshot_file_system>>  _registry            { };
@@ -2336,10 +2015,10 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 
 			Snapshot_registry(Genode::Allocator     &alloc,
-			                  Wrapper               &wrapper,
+			                  Tresor_adapter               &adapter,
 			                  Snapshots_file_system &snapshots_fs)
 			:
-				_alloc(alloc), _wrapper(wrapper), _snapshots_fs(snapshots_fs)
+				_alloc(alloc), _adapter(adapter), _snapshots_fs(snapshots_fs)
 			{ }
 
 			void update(Vfs::Env &vfs_env);
@@ -2554,7 +2233,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 		};
 
 		Snapshot_registry  _snap_reg;
-		Wrapper           &_wrapper;
+		Tresor_adapter           &_adapter;
 
 		char const *_sub_path(char const *path) const
 		{
@@ -2585,11 +2264,11 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 		Snapshots_file_system(Vfs::Env         &vfs_env,
 		                      Genode::Xml_node  /* node */,
-		                      Wrapper          &wrapper)
+		                      Tresor_adapter          &adapter)
 		:
-			_vfs_env(vfs_env), _snap_reg(vfs_env.alloc(), wrapper, *this), _wrapper(wrapper)
+			_vfs_env(vfs_env), _snap_reg(vfs_env.alloc(), adapter, *this), _adapter(adapter)
 		{
-			_wrapper.manage_snapshots_file_system(*this);
+			_adapter.manage_snapshots_file_system(*this);
 		}
 
 		static char const *type_name() { return "snapshots"; }
@@ -2836,7 +2515,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 struct Vfs_tresor::Control_local_factory : File_system_factory
 {
-	Wrapper                      &_wrapper;
+	Tresor_adapter                      &_adapter;
 	Rekey_file_system             _rekeying_fs;
 	Rekey_progress_file_system    _rekeying_progress_fs;
 	Deinitialize_file_system      _deinitialize_fs;
@@ -2847,25 +2526,25 @@ struct Vfs_tresor::Control_local_factory : File_system_factory
 
 	Control_local_factory(Vfs::Env & /* env */,
 	                      Xml_node   /* config */,
-	                      Wrapper  & wrapper)
+	                      Tresor_adapter  & adapter)
 	:
-		_wrapper(wrapper),
-		_rekeying_fs(wrapper),
-		_rekeying_progress_fs(wrapper),
-		_deinitialize_fs(wrapper),
-		_create_snapshot_fs(wrapper),
-		_discard_snapshot_fs(wrapper),
-		_extend_fs(wrapper),
-		_extend_progress_fs(wrapper)
+		_adapter(adapter),
+		_rekeying_fs(adapter),
+		_rekeying_progress_fs(adapter),
+		_deinitialize_fs(adapter),
+		_create_snapshot_fs(adapter),
+		_discard_snapshot_fs(adapter),
+		_extend_fs(adapter),
+		_extend_progress_fs(adapter)
 	{ }
 
 	~Control_local_factory()
 	{
-		_wrapper.dissolve_rekey_file_system(_rekeying_fs);
-		_wrapper.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
-		_wrapper.dissolve_deinit_file_system(_deinitialize_fs);
-		_wrapper.dissolve_extend_file_system(_extend_fs);
-		_wrapper.dissolve_extend_progress_file_system(_extend_progress_fs);
+		_adapter.dissolve_rekey_file_system(_rekeying_fs);
+		_adapter.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
+		_adapter.dissolve_deinit_file_system(_deinitialize_fs);
+		_adapter.dissolve_extend_file_system(_extend_fs);
+		_adapter.dissolve_extend_progress_file_system(_extend_progress_fs);
 	}
 
 	Vfs::File_system *create(Vfs::Env&, Xml_node node) override
@@ -2932,7 +2611,7 @@ class Vfs_tresor::Control_file_system : private Control_local_factory,
 
 		Control_file_system(Vfs::Env         &vfs_env,
 		                    Genode::Xml_node  node,
-		                    Wrapper          &tresor)
+		                    Tresor_adapter          &tresor)
 		:
 			Control_local_factory(vfs_env, node, tresor),
 			Vfs::Dir_file_system(vfs_env, Xml_node(_config(node).string()),
@@ -2947,23 +2626,23 @@ class Vfs_tresor::Control_file_system : private Control_local_factory,
 
 struct Vfs_tresor::Local_factory : File_system_factory
 {
-	Wrapper               &_wrapper;
+	Tresor_adapter               &_adapter;
 	Snapshot_file_system   _current_snapshot_fs;
 	Snapshots_file_system  _snapshots_fs;
 	Control_file_system    _control_fs;
 
 	Local_factory(Vfs::Env &env, Xml_node config,
-	              Wrapper &wrapper)
+	              Tresor_adapter &adapter)
 	:
-		_wrapper(wrapper),
-		_current_snapshot_fs(env, wrapper, 0, false),
-		_snapshots_fs(env, config, wrapper),
-		_control_fs(env, config, wrapper)
+		_adapter(adapter),
+		_current_snapshot_fs(env, adapter, 0, false),
+		_snapshots_fs(env, config, adapter),
+		_control_fs(env, config, adapter)
 	{ }
 
 	~Local_factory()
 	{
-		_wrapper.dissolve_snapshots_file_system(_snapshots_fs);
+		_adapter.dissolve_snapshots_file_system(_snapshots_fs);
 	}
 
 	Vfs::File_system *create(Vfs::Env&, Xml_node node) override
@@ -2989,7 +2668,7 @@ class Vfs_tresor::File_system : private Local_factory,
 {
 	private:
 
-		Wrapper &_wrapper;
+		Tresor_adapter &_adapter;
 
 		typedef String<256> Config;
 
@@ -3019,21 +2698,21 @@ class Vfs_tresor::File_system : private Local_factory,
 	public:
 
 		File_system(Vfs::Env &vfs_env, Genode::Xml_node node,
-		            Wrapper &wrapper)
+		            Tresor_adapter &adapter)
 		:
-			Local_factory(vfs_env, node, wrapper),
+			Local_factory(vfs_env, node, adapter),
 			Vfs::Dir_file_system(vfs_env, Xml_node(_config(node).string()),
 			                     *this),
-			_wrapper(wrapper)
+			_adapter(adapter)
 		{ }
 
 		~File_system()
 		{
 			/*
-			 * XXX rather then destroying the wrapper here, it should be
+			 * XXX rather then destroying the adapter here, it should be
 			 *     done on the out-side where it was allocated in the first
 			 *     place but the factory interface does not support that yet
-			 *     destroy(vfs_env.alloc().alloc()), &_wrapper);
+			 *     destroy(vfs_env.alloc().alloc()), &_adapter);
 			 */
 		}
 };
@@ -3051,11 +2730,11 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 		                         Genode::Xml_node node) override
 		{
 			try {
-				/* XXX wrapper is not managed and will leak */
-				Vfs_tresor::Wrapper *wrapper =
-					new (vfs_env.alloc()) Vfs_tresor::Wrapper { vfs_env, node };
+				/* XXX adapter is not managed and will leak */
+				Vfs_tresor::Tresor_adapter *adapter =
+					new (vfs_env.alloc()) Vfs_tresor::Tresor_adapter { vfs_env, node };
 				return new (vfs_env.alloc())
-					Vfs_tresor::File_system(vfs_env, node, *wrapper);
+					Vfs_tresor::File_system(vfs_env, node, *adapter);
 			} catch (...) {
 				Genode::error("could not create 'tresor_fs' ");
 			}
@@ -3069,54 +2748,48 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 
 
 /**********************
- ** Vfs_tresor::Wrapper **
+ ** Vfs_tresor::Tresor_adapter **
  **********************/
 
-void Vfs_tresor::Wrapper::_snapshots_fs_update_snapshot_registry()
+void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 {
-	if (_snapshots_fs.valid()) {
-		_snapshots_fs.obj().update_snapshot_registry();
-	}
+	if (_snapshots_fs_ptr)
+		_snapshots_fs_ptr->.update_snapshot_registry();
 }
 
 
-void Vfs_tresor::Wrapper::_extend_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 {
-	if (_extend_fs.valid()) {
-		_extend_fs.obj().trigger_watch_response();
-	}
+	if (_extend_fs_ptr)
+		_extend_fs_ptr->.trigger_watch_response();
 }
 
 
-void Vfs_tresor::Wrapper::_extend_progress_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 {
-	if (_extend_progress_fs.valid()) {
-		_extend_progress_fs.obj().trigger_watch_response();
-	}
+	if (_extend_progress_fs_ptr)
+		_extend_progress_fs_ptr->.trigger_watch_response();
 }
 
 
-void Vfs_tresor::Wrapper::_rekey_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 {
-	if (_rekey_fs.valid()) {
-		_rekey_fs.obj().trigger_watch_response();
-	}
+	if (_rekey_fs_ptr)
+		_rekey_fs_ptr->.trigger_watch_response();
 }
 
 
-void Vfs_tresor::Wrapper::_rekey_progress_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 {
-	if (_rekey_progress_fs.valid()) {
-		_rekey_progress_fs.obj().trigger_watch_response();
-	}
+	if (_rekey_progress_fs_ptr) {
+		_rekey_progress_fs_ptr->.trigger_watch_response();
 }
 
 
-void Vfs_tresor::Wrapper::_deinit_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::_deinit_fs_trigger_watch_response()
 {
-	if (_deinit_fs.valid()) {
-		_deinit_fs.obj().trigger_watch_response();
-	}
+	if (_deinit_fs_ptr)
+		_deinit_fs_ptr->.trigger_watch_response();
 }
 
 
@@ -3127,7 +2800,7 @@ void Vfs_tresor::Wrapper::_deinit_fs_trigger_watch_response()
 void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_env)
 {
 	Tresor::Snapshots_info snap_info { };
-	_wrapper.snapshots_info(snap_info);
+	_adapter.snapshots_info(snap_info);
 	bool trigger_watch_response { false };
 
 	/* alloc new */
@@ -3147,7 +2820,7 @@ void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_
 
 			new (_alloc)
 				Genode::Registered<Snapshot_file_system> {
-					_registry, vfs_env, _wrapper, snap_gen, true };
+					_registry, vfs_env, _adapter, snap_gen, true };
 
 			++_number_of_snapshots;
 			trigger_watch_response = true;
@@ -3179,4 +2852,4 @@ void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_
 	if (trigger_watch_response) {
 		_snapshots_fs.trigger_watch_response();
 	}
-}  
+}
