@@ -45,7 +45,6 @@ namespace Tresor_tester {
 	using namespace Tresor;
 
 	using Salt = uint64_t;
-	using Command_id = uint64_t;
 
 	template <typename> class Schedule;
 	class Log_node;
@@ -249,6 +248,7 @@ struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
 	friend class Schedule<Command>;
 
 	using Node_type = String<64>;
+	using Id = uint64_t;
 
 	enum Type {
 		REQUEST, INIT_TRUST_ANCHOR, START_BENCHMARK, FINISH_BENCHMARK, CONSTRUCT, DESTRUCT, INITIALIZE, CHECK,
@@ -263,7 +263,7 @@ struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
 	Command &operator = (Command const &) = delete;
 
 	Type const type;
-	Command_id const id;
+	Id const id;
 	State state { INIT };
 	Constructible<Request_node> request_node { };
 	Constructible<Initialize_trust_anchor_node> init_trust_anchor_node { };
@@ -338,7 +338,7 @@ struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
 
 	bool higher(Command *other_ptr) { return other_ptr->id > id; }
 
-	Command(Xml_node const &node, Command_id id) : type(type_from_node(node)), id(id)
+	Command(Xml_node const &node, Id id) : type(type_from_node(node)), id(id)
 	{
 		switch (type) {
 		case INITIALIZE: initialize_config.construct(node); break;
@@ -351,7 +351,7 @@ struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
 	}
 
 	template <typename FUNC>
-	void with_command(Command_id id, FUNC && func)
+	void with_command(Command::Id id, FUNC && func)
 	{
 		if (id != this->id) {
 			Command *cmd_ptr { Avl_node<Command>::child(id > this->id) };
@@ -944,7 +944,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 		}
 
 		template <typename FUNC>
-		void _with_command(Command_id id, FUNC && func)
+		void _with_command(Command::Id id, FUNC && func)
 		{
 			ASSERT(_command_tree.first());
 			_command_tree.first()->with_command(id, func);
@@ -1035,7 +1035,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 
 		Main(Genode::Env &env) : _env(env)
 		{
-			Command_id command_id { 0 };
+			Command::Id command_id { 0 };
 			_config_rom.xml().sub_node("commands").for_each_sub_node([&] (Xml_node const &node) {
 				Command *cmd_ptr = new (_heap) Command(node, command_id++);
 				_command_tree.insert(cmd_ptr);
