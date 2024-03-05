@@ -25,7 +25,6 @@
 #include <tresor/crypto.h>
 #include <tresor/free_tree.h>
 #include <tresor/meta_tree.h>
-#include <tresor/request_scheduler.h>
 #include <tresor/superblock_control.h>
 #include <tresor/trust_anchor.h>
 #include <tresor/virtual_block_device.h>
@@ -64,6 +63,7 @@ namespace Vfs_tresor {
 	struct Local_factory;
 	class  File_system;
 
+	class Command;
 	class Client_data;
 	class Wrapper;
 
@@ -114,6 +114,86 @@ class Vfs_tresor::Client_data : Noncopyable, public Client_data_interface
 	public:
 
 		Client_data(Lookup_buffer &lookup) : _lookup(lookup) { }
+};
+
+
+struct Vfs_tresor::Command : List<Command>::Element
+{
+	using Id = uint64_t;
+
+	friend class Schedule<Command>;
+
+	enum Operation {
+		READ, WRITE, SYNC, CREATE_SNAPSHOT, DISCARD_SNAPSHOT, REKEY, EXTEND_VBD,
+		EXTEND_FREE_TREE, DEINITIALIZE, INITIALIZE };
+
+	enum State { INIT, IN_PROGRESS, COMPLETE };
+
+	/*
+	 * Noncopyable
+	 */
+	Command(Command const &) = delete;
+	Command &operator = (Command const &) = delete;
+
+	State state { INIT };
+
+	Id id;
+	Operation const op;
+	Generation generation { };
+	addr_t const virt_range_start;
+	Number_of_blocks const num_blocks;
+	Byte_range_ptr const buffer;
+	Superblock_control::Initialize *init_sb_control_ptr { };
+	Superblock_control::Deinitialize *deinit_sb_control_ptr { };
+	Superblock_control::Create_snapshot *create_snap_ptr { };
+	Superblock_control::Discard_snapshot *discard_snap_ptr { };
+	Splitter::Write *write_ptr { };
+	Splitter::Read *read_ptr { };
+	Superblock_control::Rekey *rekey_ptr { };
+	Superblock_control::Extend_vbd *extend_vbd_ptr { };
+	Superblock_control::Extend_free_tree *extend_free_tree_ptr { };
+	Superblock_control::Synchronize *sync_ptr { };
+	Superblock::State sb_state { Superblock::INVALID };
+	bool rekey_finished { };
+	bool extend_vbd_finished { };
+	bool extend_free_tree_finished { };
+
+	char const *op_to_string() const
+	{
+		switch(request_node->op) {
+		case Request_node::INITIALIZE: return "initialize superblock control";
+		case Request_node::DEINITIALIZE: return "deinitialize superblock control";
+		case Request_node::CREATE_SNAPSHOT: return "create snapshot";
+		case Request_node::DISCARD_SNAPSHOT: return "discard snapshot";
+		case Request_node::READ: return "read";
+		case Request_node::WRITE: return "write";
+		case Request_node::SYNC: return "sync";
+		case Request_node::REKEY: return "rekey";
+		case Request_node::EXTEND_VBD: return "extend virtual block device";
+		case Request_node::EXTEND_FREE_TREE: return "extend free tree";
+		}
+		ASSERT_NEVER_REACHED;
+	}
+
+	Command(Command_id id, Operation op, Generation generation, addr_t virt_range_start,
+	        Number_of_blocks num_blocks, Byte_range_ptr const &buffer)
+	:
+		id(id), op(op), generation(generation), virt_range_start(virt_range_start),
+		num_blocks(num_blocks), buffer(buffer.start, buffer.num_bytes)
+	{ }
+
+	template <typename FUNC>
+	void with_command(Command_id id, FUNC && func)
+	{
+		if (id != this->id) {
+			Command *cmd_ptr { Avl_node<Command>::child(id > this->id) };
+			ASSERT(cmd_ptr);
+			cmd_ptr->with_command(id, func);
+		} else
+			func(*this);
+	}
+
+	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " type ", type_to_string()); }
 };
 
 
@@ -182,7 +262,7 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 
 				bool synchronize() const { return _op == Request::SYNC; }
 
-				bool execute(Splitter &splitter, Request_scheduler &scheduler, Request::Execute_attr const &request_attr, bool &complete)
+				bool execute(Splitter &splitter, Superblock_control &sb_control, Request::Execute_attr const &request_attr, bool &complete)
 				{
 					bool progress = false;
 					switch (_op) {
