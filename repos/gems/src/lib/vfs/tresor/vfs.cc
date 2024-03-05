@@ -39,8 +39,6 @@ namespace Vfs_tresor {
 	using namespace Genode;
 	using namespace Tresor;
 
-	using Command_id = uint64_t;
-
 	class Data_file_system;
 
 	class Extend_file_system;
@@ -119,9 +117,9 @@ class Vfs_tresor::Client_data : Noncopyable, public Client_data_interface
 
 struct Vfs_tresor::Command : List<Command>::Element
 {
-	using Id = uint64_t;
-
 	friend class Schedule<Command>;
+
+	using Id = uint64_t;
 
 	enum Operation {
 		READ, WRITE, SYNC, CREATE_SNAPSHOT, DISCARD_SNAPSHOT, REKEY, EXTEND_VBD,
@@ -182,17 +180,6 @@ struct Vfs_tresor::Command : List<Command>::Element
 		num_blocks(num_blocks), buffer(buffer.start, buffer.num_bytes)
 	{ }
 
-	template <typename FUNC>
-	void with_command(Command_id id, FUNC && func)
-	{
-		if (id != this->id) {
-			Command *cmd_ptr { Avl_node<Command>::child(id > this->id) };
-			ASSERT(cmd_ptr);
-			cmd_ptr->with_command(id, func);
-		} else
-			func(*this);
-	}
-
 	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " type ", type_to_string()); }
 };
 
@@ -206,124 +193,6 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 	private:
 
 		enum { MAX_NUM_COMMANDS = 16 };
-
-		class Command : Noncopyable
-		{
-			public:
-
-				using Operation = Tresor::Request::Operation;
-
-			private:
-
-				enum State { NEW_INIT, NEW_IN_PROGRESS, NEW_COMPLETE };
-
-				Command_id const _id;
-				Vfs_tresor::Wrapper &_main;
-				Operation const _op;
-				Generation const _gen;
-				Request_offset const _offset;
-				Number_of_blocks const _count;
-				Byte_range_ptr const _buffer;
-				State _state { NEW_INIT };
-				bool _success { };
-				Result _result { Result::UNKNOWN };
-				Constructible<Splitter::Read> _read { };
-				Constructible<Splitter::Write> _write { };
-				Constructible<Tresor::Request> _request { };
-
-				template <typename REQUEST>
-				bool _try_complete_request(REQUEST &req, bool &progress)
-				{
-					if (!req->complete())
-						return false;
-
-					_state = NEW_COMPLETE;
-					if (VERBOSE)
-						log("finish command: ", *this);
-
-					_success = req->success();
-					if (!_success)
-						error("command failed: ", *this);
-					req.destruct();
-					progress = true;
-					return true;
-				}
-
-			public:
-
-				Command(Vfs_tresor::Wrapper &main, Command_id id, Operation op, Generation gen, Request_offset offset, Number_of_blocks count, Byte_range_ptr const &buffer)
-				:
-					_id(id), _main(main), _op(op), _gen(gen), _offset(offset), _count(count), _buffer(buffer.start, buffer.num_bytes)
-				{ }
-
-				bool success() const { return _success; }
-
-				bool eof(Virtual_block_address max) const { return _offset / Tresor::BLOCK_SIZE > max; }
-
-				bool synchronize() const { return _op == Request::SYNC; }
-
-				bool execute(Splitter &splitter, Superblock_control &sb_control, Request::Execute_attr const &request_attr, bool &complete)
-				{
-					bool progress = false;
-					switch (_op) {
-					case Request::READ:
-
-						switch (_state) {
-						case NEW_INIT:
-							_read.construct(_offset, _buffer, _gen);
-							_state = NEW_IN_PROGRESS;
-							progress = true;
-							break;
-						case NEW_IN_PROGRESS:
-							progress |= splitter.execute(*_read, {scheduler, request_attr});
-							complete = _try_complete_request(_read, progress);
-						default: break;
-						}
-						break;
-
-					case Request::WRITE:
-
-						switch (_state) {
-						case NEW_INIT:
-							_write.construct(_offset, _buffer, _gen);
-							_state = NEW_IN_PROGRESS;
-							progress = true;
-							break;
-						case NEW_IN_PROGRESS:
-							progress |= splitter.execute(*_write, {scheduler, request_attr});
-							complete = _try_complete_request(_write, progress);
-						default: break;
-						}
-						break;
-
-					default:
-
-						switch (_state) {
-						case NEW_INIT:
-							_request.construct(0, _count, _id, _gen);
-							_state = NEW_IN_PROGRESS;
-							progress = true;
-							break;
-						case NEW_IN_PROGRESS:
-							progress |= scheduler.execute(request_attr);
-							complete = _try_complete_request(_request, progress);
-						default: break;
-						}
-						break;
-					}
-					return progress;
-				}
-
-				void print(Genode::Output &out) const
-				{
-					Genode::print(out, "op: ", Tresor::Request::op_to_string(_op), " "
-					                   "count: ", _count, " "
-					                   "gen: ", _gen, " "
-					                   "offset: ", _offset, " "
-					                   "buffer.start: ", (void*)_buffer.start, " "
-					                   "buffer.num_bytes: ", _buffer.num_bytes);
-				}
-		};
 
 		Vfs::Env &_vfs_env;
 		bool const _verbose;
@@ -784,12 +653,14 @@ class Vfs_tresor::Wrapper : public Crypto_key_files_interface
 		{
 			Genode::Mutex::Guard guard { _io_mutex };
 			ASSERT(!_io_handle_ptr);
-			for (Constructible<Command> &cmd : _commands) {
+			for (unsigned idx = 0; idx < MAX_NUM_COMMANDS; idx++) {
+
+				Constructible<Command> &cmd = _commands[idx];
 				if (cmd.constructed())
 					continue;
 
-				cmd.construct(op, gen, handle.seek(), data, 0, data);
-				_io_cmd_ptr = &cmd;
+				cmd.construct(idx, op, gen, handle.seek(), 0, data);
+				_io_cmd_ptr = &(*cmd);
 				_io_handle_ptr = &handle;
 				break;
 			}

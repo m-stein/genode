@@ -16,7 +16,7 @@
 #define _TRESOR__IO_SPLITTER_H_
 
 /* tresor includes */
-#include <tresor/request_scheduler.h>
+#include <tresor/superblock_control.h>
 
 namespace Tresor {
 
@@ -50,8 +50,11 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 
 				struct Execute_attr
 				{
-					Request_scheduler &scheduler;
-					Request::Execute_attr const request_attr;
+					Superblock_control &sb_control;
+					Virtual_block_device &vbd;
+					Client_data_interface &client_data;
+					Block_io &block_io;
+					Crypto &crypto;
 				};
 
 			private:
@@ -60,30 +63,32 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					INIT, COMPLETE, READ_FIRST_BLOCK, READ_FIRST_BLOCK_SUCCEEDED, READ_LAST_BLOCK, READ_LAST_BLOCK_SUCCEEDED,
 					READ_MIDDLE_BLOCKS, READ_MIDDLE_BLOCKS_SUCCEEDED };
 
-				Request_helper<Read, State> _helper;
+				using Helper = Request_helper<Read, State>;
+
+				Helper _helper;
 				Attr const _attr;
 				addr_t _curr_off { };
 				addr_t _curr_buf_addr { };
 				Block _blk  { };
 				Generation _gen { };
-				Constructible<Request> _request { };
+				Generatable_request<Helper, State, Superblock_control::Read> _read;
 
 				Virtual_block_address _curr_vba() const { return (Virtual_block_address)(_curr_off / BLOCK_SIZE); }
 
-				void _generate_request(State target_state, Request_scheduler &scheduler, bool &progress)
+				void _generate_request(State target_state, Superblock_control &sb_control, bool &progress)
 				{
 					Number_of_blocks num_blocks =
 						target_state == READ_MIDDLE_BLOCKS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
 
 					_request.construct(Request::READ, _curr_vba(), 0, num_blocks, 0, _gen);
-					scheduler.add_request(*_request);
+					sb_control.add_request(*_request);
 					_helper.state = target_state;
 					progress = true;
 				}
 
 				bool _execute_request(State succeeded_state, Execute_attr const &attr)
 				{
-					bool progress = attr.scheduler.execute(attr.request_attr);
+					bool progress = attr.sb_control.execute(attr.request_attr);
 					if (_request->complete()) {
 						if (_request->success())
 							_helper.generated_req_succeeded(succeeded_state, progress);
@@ -105,20 +110,20 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					return _attr.in_off + _attr.in_buf.num_bytes - _curr_off;
 				}
 
-				void _advance_curr_off(size_t advance, Request_scheduler &scheduler, bool &progress)
+				void _advance_curr_off(size_t advance, Superblock_control &sb_control, bool &progress)
 				{
 					_curr_off += advance;
 					if (!_num_remaining_bytes()) {
 						_helper.mark_succeeded(progress);
 					} else if (_curr_off % BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_request(READ_FIRST_BLOCK, scheduler, progress);
+						_generate_request(READ_FIRST_BLOCK, sb_control, progress);
 					} else if (_num_remaining_bytes() < BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_request(READ_LAST_BLOCK, scheduler, progress);
+						_generate_request(READ_LAST_BLOCK, sb_control, progress);
 					} else {
 						_curr_buf_addr = (addr_t)_attr.in_buf.start + _curr_buf_off();
-						_generate_request(READ_MIDDLE_BLOCKS, scheduler, progress);
+						_generate_request(READ_MIDDLE_BLOCKS, sb_control, progress);
 					}
 				}
 
@@ -135,7 +140,7 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					case INIT:
 
 						_gen = _attr.in_gen;
-						_advance_curr_off(_attr.in_off, attr.scheduler, progress);
+						_advance_curr_off(_attr.in_off, attr.sb_control, progress);
 						break;
 
 					case READ_FIRST_BLOCK: progress |= _execute_request(READ_FIRST_BLOCK_SUCCEEDED, attr); break;
@@ -144,20 +149,20 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
 						memcpy(_attr.in_buf.start, (void *)((addr_t)&_blk + num_outside_bytes), num_inside_bytes);
-						_advance_curr_off(num_inside_bytes, attr.scheduler, progress);
+						_advance_curr_off(num_inside_bytes, attr.sb_control, progress);
 						break;
 					}
 					case READ_MIDDLE_BLOCKS: progress |= _execute_request(READ_MIDDLE_BLOCKS_SUCCEEDED, attr); break;
 					case READ_MIDDLE_BLOCKS_SUCCEEDED:
 
-						_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, attr.scheduler, progress);
+						_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, attr.sb_control, progress);
 						break;
 
 					case READ_LAST_BLOCK: progress |= _execute_request(READ_LAST_BLOCK_SUCCEEDED, attr); break;
 					case READ_LAST_BLOCK_SUCCEEDED:
 
 						memcpy((void *)((addr_t)_attr.in_buf.start + _curr_buf_off()), &_blk, _num_remaining_bytes());
-						_advance_curr_off(_num_remaining_bytes(), attr.scheduler, progress);
+						_advance_curr_off(_num_remaining_bytes(), attr.sb_control, progress);
 						break;
 
 					default: break;
@@ -191,7 +196,7 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 
 				struct Execute_attr
 				{
-					Request_scheduler &scheduler;
+					Superblock_control &sb_control;
 					Request::Execute_attr const request_attr;
 				};
 
@@ -224,7 +229,7 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					return _attr.in_off + _attr.in_buf.num_bytes - _curr_off;
 				}
 
-				void _generate_request(State target_state, Request_scheduler &scheduler, bool &progress)
+				void _generate_request(State target_state, Superblock_control &sb_control, bool &progress)
 				{
 					Number_of_blocks num_blocks =
 						target_state == WRITE_MIDDLE_BLOCKS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
@@ -239,31 +244,31 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					default: ASSERT_NEVER_REACHED;
 					}
 					_request.construct(op, _curr_vba(), 0, num_blocks, 0, _gen);
-					scheduler.add_request(*_request);
+					sb_control.add_request(*_request);
 					_helper.state = target_state;
 					progress = true;
 				}
 
-				void _advance_curr_off(size_t advance, Request_scheduler &scheduler, bool &progress)
+				void _advance_curr_off(size_t advance, Superblock_control &sb_control, bool &progress)
 				{
 					_curr_off += advance;
 					if (!_num_remaining_bytes()) {
 						_helper.mark_succeeded(progress);
 					} else if (_curr_off % BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_request(READ_FIRST_BLOCK, scheduler, progress);
+						_generate_request(READ_FIRST_BLOCK, sb_control, progress);
 					} else if (_num_remaining_bytes() < BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_request(READ_LAST_BLOCK, scheduler, progress);
+						_generate_request(READ_LAST_BLOCK, sb_control, progress);
 					} else {
 						_curr_buf_addr = (addr_t)_attr.in_buf.start + _curr_buf_off();
-						_generate_request(WRITE_MIDDLE_BLOCKS, scheduler, progress);
+						_generate_request(WRITE_MIDDLE_BLOCKS, sb_control, progress);
 					}
 				}
 
 				bool _execute_request(State succeeded_state, Execute_attr const &attr)
 				{
-					bool progress = attr.scheduler.execute(attr.request_attr);
+					bool progress = attr.sb_control.execute(attr.request_attr);
 					if (_request->complete()) {
 						if (_request->success())
 							_helper.generated_req_succeeded(succeeded_state, progress);
@@ -286,7 +291,7 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					case INIT:
 
 						_gen = _attr.in_gen;
-						_advance_curr_off(_attr.in_off, attr.scheduler, progress);
+						_advance_curr_off(_attr.in_off, attr.sb_control, progress);
 						break;
 
 					case READ_FIRST_BLOCK_SUCCEEDED:
@@ -295,7 +300,7 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
 						memcpy((void *)((addr_t)&_blk + num_outside_bytes), _attr.in_buf.start, num_inside_bytes);
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_request(WRITE_FIRST_BLOCK, attr.scheduler, progress);
+						_generate_request(WRITE_FIRST_BLOCK, attr.sb_control, progress);
 						break;
 					}
 					case WRITE_FIRST_BLOCK: progress |= _execute_request(WRITE_FIRST_BLOCK_SUCCEEDED, attr); break;
@@ -303,13 +308,13 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 					{
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
-						_advance_curr_off(num_inside_bytes, attr.scheduler, progress);
+						_advance_curr_off(num_inside_bytes, attr.sb_control, progress);
 						break;
 					}
 					case WRITE_MIDDLE_BLOCKS: progress |= _execute_request(WRITE_MIDDLE_BLOCKS_SUCCEEDED, attr); break;
 					case WRITE_MIDDLE_BLOCKS_SUCCEEDED:
 
-						_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, attr.scheduler, progress);
+						_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, attr.sb_control, progress);
 						break;
 
 					case READ_LAST_BLOCK: progress |= _execute_request(READ_LAST_BLOCK_SUCCEEDED, attr); break;
@@ -317,11 +322,11 @@ struct Tresor::Splitter : Noncopyable, public Lookup_buffer
 
 						memcpy(&_blk, (void *)((addr_t)_attr.in_buf.start + _curr_buf_off()), _num_remaining_bytes());
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_request(WRITE_LAST_BLOCK, attr.scheduler, progress);
+						_generate_request(WRITE_LAST_BLOCK, attr.sb_control, progress);
 						break;
 
 					case WRITE_LAST_BLOCK: progress |= _execute_request(WRITE_LAST_BLOCK_SUCCEEDED, attr); break;
-					case WRITE_LAST_BLOCK_SUCCEEDED: _advance_curr_off(_num_remaining_bytes(), attr.scheduler, progress); break;
+					case WRITE_LAST_BLOCK_SUCCEEDED: _advance_curr_off(_num_remaining_bytes(), attr.sb_control, progress); break;
 					default: break;
 					}
 					return progress;
