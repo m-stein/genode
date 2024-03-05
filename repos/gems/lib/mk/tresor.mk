@@ -1,7 +1,6 @@
 TRESOR_DIR := $(REP_DIR)/src/lib/tresor
 
 SRC_CC += crypto.cc
-SRC_CC += request_scheduler.cc
 SRC_CC += hash.cc
 SRC_CC += trust_anchor.cc
 SRC_CC += block_io.cc
