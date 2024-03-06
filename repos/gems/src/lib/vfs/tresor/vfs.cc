@@ -700,43 +700,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		Tresor_adapter &_adapter;
 		Generation const _generation;
 
-		using FR = Tresor_adapter::Result;
 		using Read_result = Vfs::File_io_service::Read_result;
 		using Sync_result = Vfs::File_io_service::Sync_result;
 		using Write_result = Vfs::File_io_service::Write_result;
-
-		static Read_result read_result(FR r)
-		{
-			switch (r) {
-			case FR::OK:      return Read_result::READ_OK;
-			case FR::EOF:     return Read_result::READ_OK;
-			case FR::ERROR:   return Read_result::READ_ERR_IO;
-			case FR::UNKNOWN: return Read_result::READ_ERR_INVALID;
-			}
-			return Read_result::READ_ERR_INVALID;
-		}
-
-		static Sync_result sync_result(FR r)
-		{
-			switch (r) {
-			case FR::OK:      return Sync_result::SYNC_OK;
-			case FR::EOF:     return Sync_result::SYNC_ERR_INVALID;
-			case FR::ERROR:   return Sync_result::SYNC_ERR_INVALID;
-			case FR::UNKNOWN: return Sync_result::SYNC_ERR_INVALID;
-			}
-			return Sync_result::SYNC_ERR_INVALID;
-		}
-
-		static Write_result write_result(FR r)
-		{
-			switch (r) {
-			case FR::OK:      return Write_result::WRITE_OK;
-			case FR::EOF:     return Write_result::WRITE_OK;
-			case FR::ERROR:   return Write_result::WRITE_ERR_IO;
-			case FR::UNKNOWN: return Write_result::WRITE_ERR_INVALID;
-			}
-			return Write_result::WRITE_ERR_INVALID;
-		}
 
 	public:
 
