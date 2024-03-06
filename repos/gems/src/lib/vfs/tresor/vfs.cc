@@ -40,6 +40,7 @@ namespace Vfs_tresor {
 	using namespace Tresor;
 
 	template <typename> class Schedule;
+	class Schedule_item;
 	class Data_file_system;
 	class Extend_file_system;
 	class Extend_progress_file_system;
@@ -56,9 +57,16 @@ namespace Vfs_tresor {
 	class Snapshots_file_system;
 	class Local_factory;
 	class File_system;
-	class Command;
 	class Tresor_adapter;
+	class Crypto_key;
 }
+
+struct Vfs_tresor::Crypto_key
+{
+	Key_id const key_id;
+	Vfs::Vfs_handle &encrypt_file;
+	Vfs::Vfs_handle &decrypt_file;
+};
 
 template <typename T>
 class Vfs_tresor::Schedule : Noncopyable
@@ -69,6 +77,8 @@ class Vfs_tresor::Schedule : Noncopyable
 		List<T> _list { };
 
 	public:
+
+		using Item = List<T>::Element;
 
 		void add_tail(T &request)
 		{
@@ -103,7 +113,7 @@ class Vfs_tresor::Schedule : Noncopyable
 			if (!head)
 				return;
 
-			T *next = head->List<T>::Element::_next;
+			T *next = head->Item::_next;
 			if (!next || !can_yield_to(*next))
 				return;
 
@@ -113,73 +123,23 @@ class Vfs_tresor::Schedule : Noncopyable
 };
 
 
-struct Vfs_tresor::Command : List<Command>::Element
+struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
 {
-	friend class Schedule<Command>;
+	friend class Schedule<Schedule_item>;
 
-	using Id = uint64_t;
+	enum State { COMPLETE, CAN_YIELD, CANNOT_YIELD };
 
-	enum Operation {
-		READ, WRITE, SYNC, CREATE_SNAPSHOT, DISCARD_SNAPSHOT, REKEY, EXTEND_VBD,
-		EXTEND_FREE_TREE, DEINITIALIZE, INITIALIZE };
+	virtual bool execute() = 0;
 
-	enum State { INIT, IN_PROGRESS, COMPLETE };
+	virtual State state() const = 0;
 
-	State state { INIT };
-	Id id;
-	Operation const op;
-	Generation generation { };
-	addr_t const virt_range_start;
-	Number_of_blocks const num_blocks;
-	Byte_range_ptr const buffer;
-	Superblock_control::Initialize *init_sb_control_ptr { };
-	Superblock_control::Deinitialize *deinit_sb_control_ptr { };
-	Superblock_control::Create_snapshot *create_snap_ptr { };
-	Superblock_control::Discard_snapshot *discard_snap_ptr { };
-	Superblock_control::Rekey *rekey_ptr { };
-	Superblock_control::Extend_vbd *extend_vbd_ptr { };
-	Superblock_control::Extend_free_tree *extend_free_tree_ptr { };
-	Superblock::State sb_state { Superblock::INVALID };
-	bool rekey_finished { };
-	bool extend_vbd_finished { };
-	bool extend_free_tree_finished { };
-	Vfs_handle *handle_ptr { };
+	virtual bool can_be_yielded_to() const = 0;
 
-	/*
-	 * Noncopyable
-	 */
-	Command(Command const &) = delete;
-	Command &operator = (Command const &) = delete;
-
-	char const *op_to_string() const
-	{
-		switch(op) {
-		case INITIALIZE: return "initialize superblock control";
-		case DEINITIALIZE: return "deinitialize superblock control";
-		case CREATE_SNAPSHOT: return "create snapshot";
-		case DISCARD_SNAPSHOT: return "discard snapshot";
-		case READ: return "read";
-		case WRITE: return "write";
-		case SYNC: return "sync";
-		case REKEY: return "rekey";
-		case EXTEND_VBD: return "extend virtual block device";
-		case EXTEND_FREE_TREE: return "extend free tree";
-		}
-		ASSERT_NEVER_REACHED;
-	}
-
-	Command(Id id, Operation op, Generation generation, addr_t virt_range_start,
-	        Number_of_blocks num_blocks, Byte_range_ptr const &buffer)
-	:
-		id(id), op(op), generation(generation), virt_range_start(virt_range_start),
-		num_blocks(num_blocks), buffer(buffer.start, buffer.num_bytes)
-	{ }
-
-	void print(Genode::Output &out) const { Genode::print(out, "id ", id, " op \"", op_to_string(), "\""); }
+	virtual ~Schedule_item() { }
 };
 
 
-class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
+class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_key_files_interface
 {
 	private:
 
@@ -199,8 +159,7 @@ class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
 		Vfs::Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Constructible<Command> _commands[MAX_NUM_COMMANDS] { };
-		Schedule<Command> _command_scheduler;
+		Schedule<Schedule_item> _schedule { };
 		Tresor::Free_tree _free_tree { };
 		Tresor::Virtual_block_device _vbd { };
 		Superblock_control _sb_control { };
@@ -215,21 +174,13 @@ class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
 		Rekey_file_system * _rekey_fs_ptr  { };
 		Rekey_progress_file_system *_rekey_progress_fs_ptr { };
 		Deinitialize_file_system *_deinit_fs_ptr  { };
+		Constructible<Crypto_key> _crypto_keys[2] { };
 
 		/*
 		 * Noncopyable
 		 */
-		Tresor_adapter(Wrapper const &) = delete;
-		Tresor_adapter &operator = (Wrapper const &) = delete;
-
-		bool _ready_to_submit_request() const
-		{
-			for (Constructible<Command> const &cmd : _commands)
-				if (!cmd.constructed())
-					return true;
-
-			return false;
-		}
+		Tresor_adapter(Tresor_adapter const &) = delete;
+		Tresor_adapter &operator = (Tresor_adapter const &) = delete;
 
 		void _snapshots_fs_update_snapshot_registry();
 
@@ -242,6 +193,16 @@ class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
 		void _rekey_progress_fs_trigger_watch_response();
 
 		void _deinit_fs_trigger_watch_response();
+
+		Constructible<Crypto_key> &_crypto_key(Key_id key_id)
+		{
+			for (Constructible<Crypto_key> &key : _crypto_keys)
+				if (key.constructed() && key->key_id == key_id)
+					return key;
+			ASSERT_NEVER_REACHED;
+		}
+
+		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
 
 		/********************************
@@ -299,224 +260,54 @@ class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
 			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
 		{ }
 
-		Virtual_block_address max_vba()
+		addr_t last_byte_of_data_file() const
 		{
-			return _sb_control->max_vba();
+			return (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
 		}
 
-		enum class Add_data_command_result { RETRY_LATER, OK }
-
-		void add_data_command(Command::Operation op, Vfs_handle const &handle, Byte_range_ptr const &buffer, Generation generation)
+		size_t size_of_data_file() const
 		{
-			ASSERT(!_io_handle_ptr);
-			for (unsigned idx = 0; idx < MAX_NUM_COMMANDS; idx++) {
+			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
+		}
 
-				Constructible<Command> &cmd = _commands[idx];
-				if (cmd.constructed())
-					continue;
+		void add_to_schedule(Schedule_item &item)
+		{
+			_schedule.add_tail(item);
+		}
 
-				cmd.construct(idx, op, gen, handle.seek(), 0, data);
-				_command_schedule.add_tail(*cmd);
-				execute();
-				switch (cmd->state) {
-				case Command::INIT:
-				case Command::IN_PROGRESS:
-					pending_fn();
+		bool _execute_schedule_items()
+		{
+			bool progress = false;
+			_schedule.with_head([&] (Schedule_item &head) {
+
+				progress |= head.execute();
+				switch (head.state()) {
+				case Schedule_item::COMPLETE: _schedule.remove_head(); break;
+				case Schedule_item::CAN_YIELD:
+
+					_schedule.try_yield_head([&] (Schedule_item const &item) {
+						return item.can_be_yielded_to(); });
 					break;
-				case Command::COMPLETE:
-					complete_fn(*_io_cmd_ptr);
-					_commands[_io_cmd_id].destruct();
 
-					_io_cmd_ptr    = nullptr;
-					_io_handle_ptr = nullptr;
-					break;
+				case Schedule_item::CANNOT_YIELD: break;
 				}
-				}
-				return Add_data_command_result::OK;
-			}
-			return Add_data_command_result::RETRY_LATER;
-
-		}
-
-		void execute()
-		{
-			while (_execute_commands());
-			_vfs_env.io().commit();
-
-			Tresor::Superblock_info const sb_info {
-				_sb_control->sb_info() };
-
-			using ES = Extending::State;
-			if (_extend_obj.state == ES::UNKNOWN && sb_info.valid) {
-				if (sb_info.extending_ft) {
-
-					_extend_obj.state = ES::IN_PROGRESS;
-					_extend_obj.type  = Extending::Type::FT;
-				} else
-
-				if (sb_info.extending_vbd) {
-
-					_extend_obj.state = ES::IN_PROGRESS;
-					_extend_obj.type  = Extending::Type::VBD;
-				} else {
-
-					_extend_obj.state = ES::IDLE;
-				}
-				_extend_fs_trigger_watch_response();
-			}
-
-			if (_extend_obj.in_progress()) {
-
-				Virtual_block_address const current_nr_of_pbas =
-					_sb_control->resizing_nr_of_pbas();
-
-				/* initial query */
-				if (_extend_obj.resizing_nr_of_pbas == 0)
-					_extend_obj.resizing_nr_of_pbas = current_nr_of_pbas;
-
-				/* update user-facing state */
-				uint64_t const last_percent_done = _extend_obj.percent_done;
-				_extend_obj.percent_done =
-					(_extend_obj.resizing_nr_of_pbas - current_nr_of_pbas)
-					* 100 / _extend_obj.resizing_nr_of_pbas;
-
-				if (last_percent_done != _extend_obj.percent_done)
-					_extend_progress_fs_trigger_watch_response();
-			}
-
-			using RS = Rekeying::State;
-			if (_rekey_obj.state == RS::UNKNOWN && sb_info.valid) {
-				_rekey_obj.state =
-					sb_info.rekeying ? RS::IN_PROGRESS : RS::IDLE;
-
-				_rekey_fs_trigger_watch_response();
-			}
-
-			if (_rekey_obj.in_progress()) {
-				_rekey_obj.rekeying_vba = _sb_control->rekeying_vba();
-
-				/* update user-facing state */
-				uint64_t const last_percent_done = _rekey_obj.percent_done;
-				_rekey_obj.percent_done =
-					_rekey_obj.rekeying_vba * 100 / _rekey_obj.max_vba;
-
-				if (last_percent_done != _rekey_obj.percent_done)
-					_rekey_progress_fs_trigger_watch_response();
-			}
-		}
-
-		bool start_rekeying()
-		{
-			if (!_ready_to_submit_request())
-				return false;
-
-			bool result = _with_first_idle_cmd([&] (Command &cmd) {
-
-				cmd.op = Command::Operation::REKEY;
-
-				_rekey_obj.mark_in_progress(_sb_control->max_vba(),
-				                            _sb_control->rekeying_vba());
-
-				_rekey_fs_trigger_watch_response();
-				_rekey_progress_fs_trigger_watch_response();
 			});
-
-			execute();
-			return result;
+			return progress;
 		}
 
-		Rekeying const rekeying_progress() const {
-			return _rekey_obj; }
-
-		bool start_deinitialize()
+		bool execute()
 		{
-			if (!_ready_to_submit_request())
-				return false;
-
-			bool result = _with_first_idle_cmd([&] (Command &cmd) {
-
-				cmd.op = Command::Operation::DEINITIALIZE;
-
-				_deinit_obj.mark_in_progress();
-				_deinit_fs_trigger_watch_response();
-			});
-
-			execute();
-			return result;
+			bool progress = _execute_schedule_items();
+			_wakeup_back_end_services();
+			return progress;
 		}
-
-		Deinitialize const deinitialize_progress() const {
-			return _deinit_obj; }
-
-		bool start_extending(Extending::Type       type,
-		                     Tresor::Number_of_blocks blocks)
-		{
-			if (!_ready_to_submit_request() || type == Extending::Type::INVALID)
-				return false;
-
-			Command::Operation op = Command::Operation::EXTEND_VBD;
-
-			switch (type) {
-			case Extending::Type::VBD:
-				op = Command::Operation::EXTEND_VBD;
-				break;
-			case Extending::Type::FT:
-				op = Command::Operation::EXTEND_FT;
-				break;
-			case Extending::Type::INVALID:
-				/* never reached */
-				return false;
-			}
-
-			bool result = _with_first_idle_cmd([&] (Command &cmd) {
-
-				cmd.op    = op;
-				cmd.count = blocks;
-
-				_extend_obj.mark_in_progress(type, 0);
-
-				_extend_fs_trigger_watch_response();
-				_extend_progress_fs_trigger_watch_response();
-			});
-
-			execute();
-			return result;
-		}
-
-		Extending const extending_progress() const {
-			return _extend_obj; }
 
 		void snapshots_info(Tresor::Snapshots_info &info)
 		{
-			info = _sb_control->snapshots_info();
+			info = _sb_control.snapshots_info();
 			execute();
 		}
 
-		bool create_snapshot()
-		{
-			if (!_ready_to_submit_request())
-				return false;
-
-			bool result = _with_first_idle_cmd([&] (Command &cmd) {
-				cmd.op = Command::Operation::CREATE_SNAPSHOT; });
-
-			execute();
-			return result;
-		}
-
-		bool discard_snapshot(Generation snap_gen)
-		{
-			if (!_ready_to_submit_request())
-				return false;
-
-			bool result = _with_first_idle_cmd([&] (Command &cmd) {
-				cmd.op  = Command::Operation::DISCARD_SNAPSHOT;
-				cmd.gen = snap_gen;
-			});
-
-			execute();
-			return result;
-		}
 
 		/***********************************************************
 		 ** Manange/Disolve interface needed for FS notifications **
@@ -524,172 +315,75 @@ class Vfs_tresor::Tresor_adapter : public Crypto_key_files_interface
 
 		void manage_snapshots_file_system(Snapshots_file_system &snapshots_fs)
 		{
-			if (_snapshots_fs.valid()) {
-
-				class Already_managing_an_snapshots_file_system { };
-				throw Already_managing_an_snapshots_file_system { };
-			}
-			_snapshots_fs = snapshots_fs;
+			ASSERT(!_snapshots_fs_ptr);
+			_snapshots_fs_ptr = &snapshots_fs;
 		}
 
 		void dissolve_snapshots_file_system(Snapshots_file_system &snapshots_fs)
 		{
-			if (_snapshots_fs.valid()) {
-
-				if (&_snapshots_fs.obj() != &snapshots_fs) {
-
-					class Snapshots_file_system_not_managed { };
-					throw Snapshots_file_system_not_managed { };
-				}
-				_snapshots_fs = Pointer<Snapshots_file_system> { };
-
-			} else {
-
-				class No_snapshots_file_system_managed { };
-				throw No_snapshots_file_system_managed { };
-			}
+			ASSERT(_snapshots_fs_ptr == &snapshots_fs);
+			_snapshots_fs_ptr = nullptr;
 		}
 
 		void manage_extend_file_system(Extend_file_system &extend_fs)
 		{
-			if (_extend_fs.valid()) {
-
-				class Already_managing_an_extend_file_system { };
-				throw Already_managing_an_extend_file_system { };
-			}
-			_extend_fs = extend_fs;
+			ASSERT(!_extend_fs_ptr);
+			_extend_fs_ptr = &extend_fs;
 		}
 
 		void dissolve_extend_file_system(Extend_file_system &extend_fs)
 		{
-			if (_extend_fs.valid()) {
-
-				if (&_extend_fs.obj() != &extend_fs) {
-
-					class Extend_file_system_not_managed { };
-					throw Extend_file_system_not_managed { };
-				}
-				_extend_fs = Pointer<Extend_file_system> { };
-
-			} else {
-
-				class No_extend_file_system_managed { };
-				throw No_extend_file_system_managed { };
-			}
+			ASSERT(_extend_fs_ptr == &extend_fs);
+			_extend_fs_ptr = nullptr;
 		}
 
 		void manage_extend_progress_file_system(Extend_progress_file_system &extend_progress_fs)
 		{
-			if (_extend_progress_fs.valid()) {
-
-				class Already_managing_an_extend_progres_file_system { };
-				throw Already_managing_an_extend_progres_file_system { };
-			}
-			_extend_progress_fs = extend_progress_fs;
+			ASSERT(!_extend_progress_fs_ptr);
+			_extend_progress_fs_ptr = &extend_progress_fs;
 		}
 
 		void dissolve_extend_progress_file_system(Extend_progress_file_system &extend_progress_fs)
 		{
-			if (_extend_progress_fs.valid()) {
-
-				if (&_extend_progress_fs.obj() != &extend_progress_fs) {
-
-					class Extend_file_system_not_managed { };
-					throw Extend_file_system_not_managed { };
-				}
-				_extend_progress_fs = Pointer<Extend_progress_file_system> { };
-
-			} else {
-
-				class No_extend_file_system_managed { };
-				throw No_extend_file_system_managed { };
-			}
+			ASSERT(_extend_progress_fs_ptr == &extend_progress_fs);
+			_extend_progress_fs_ptr = nullptr;
 		}
 
 		void manage_rekey_file_system(Rekey_file_system &rekey_fs)
 		{
-			if (_rekey_fs.valid()) {
-
-				class Already_managing_an_rekey_file_system { };
-				throw Already_managing_an_rekey_file_system { };
-			}
-			_rekey_fs = rekey_fs;
+			ASSERT(!_rekey_fs_ptr);
+			_rekey_fs_ptr = &rekey_fs;
 		}
 
 		void dissolve_rekey_file_system(Rekey_file_system &rekey_fs)
 		{
-			if (_rekey_fs.valid()) {
-
-				if (&_rekey_fs.obj() != &rekey_fs) {
-
-					class Rekey_file_system_not_managed { };
-					throw Rekey_file_system_not_managed { };
-				}
-				_rekey_fs = Pointer<Rekey_file_system> { };
-
-			} else {
-
-				class No_rekey_file_system_managed { };
-				throw No_rekey_file_system_managed { };
-			}
+			ASSERT(_rekey_fs_ptr == &rekey_fs);
+			_rekey_fs_ptr = nullptr;
 		}
 
 		void manage_rekey_progress_file_system(Rekey_progress_file_system &rekey_progress_fs)
 		{
-			if (_rekey_progress_fs.valid()) {
-
-				class Already_managing_an_rekey_progress_file_system { };
-				throw Already_managing_an_rekey_progress_file_system { };
-			}
-			_rekey_progress_fs = rekey_progress_fs;
+			ASSERT(!_rekey_progress_fs_ptr);
+			_rekey_progress_fs_ptr = &rekey_progress_fs;
 		}
 
 		void dissolve_rekey_progress_file_system(Rekey_progress_file_system &rekey_progress_fs)
 		{
-			if (_rekey_progress_fs.valid()) {
-
-				if (&_rekey_progress_fs.obj() != &rekey_progress_fs) {
-
-					class Rekey_progress_file_system_not_managed { };
-					throw Rekey_progress_file_system_not_managed { };
-				}
-				_rekey_progress_fs = Pointer<Rekey_progress_file_system> { };
-
-			} else {
-
-				class No_rekey_progress_file_system_managed { };
-				throw No_rekey_progress_file_system_managed { };
-			}
+			ASSERT(_rekey_progress_fs_ptr == &rekey_progress_fs);
+			_rekey_progress_fs_ptr = nullptr;
 		}
 
 		void manage_deinit_file_system(Deinitialize_file_system &deinit_fs)
 		{
-			if (_deinit_fs.valid()) {
-
-				class Already_managing_an_deinit_file_system { };
-				throw Already_managing_an_deinit_file_system { };
-			}
-			_deinit_fs = deinit_fs;
+			ASSERT(!_deinit_fs_ptr);
+			_deinit_fs_ptr = &deinit_fs;
 		}
 
 		void dissolve_deinit_file_system(Deinitialize_file_system &deinit_fs)
 		{
-			if (_deinit_fs.valid()) {
-
-				if (&_deinit_fs.obj() != &deinit_fs) {
-
-					class Deinitialize_file_system_not_managed { };
-					throw Deinitialize_file_system_not_managed { };
-				}
-				_deinit_fs = Pointer<Deinitialize_file_system> { };
-
-			} else {
-
-				class No_deinit_file_system_managed { };
-				throw No_deinit_file_system_managed { };
-			}
+			ASSERT(_deinit_fs_ptr == &deinit_fs);
+			_deinit_fs_ptr = nullptr;
 		}
-
 };
 
 
@@ -706,88 +400,176 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 	public:
 
-		struct Vfs_handle : Single_vfs_handle
+		class Vfs_handle : Noncopyable, public Single_vfs_handle, Schedule_item
 		{
-			enum State { INIT, READ, WRITE, SYNC };
+			private:
 
-			State _state { INIT };
-			Tresor_adapter &_adapter;
-			Generation const _generation { };
-			Constructible<Splitter::Write> _write { };
-			Constructible<Splitter::Read> _read { };
-			Constructible<Superblock_control::Synchronize> _sync { };
+				enum State { INIT, READ, WRITE, SYNC };
 
-			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-			           Genode::Allocator &alloc, Tresor_adapter &adapter, Generation generation)
-			:
-				Single_vfs_handle(dir_service, file_io_service, alloc, 0),
-				_adapter(adapter), _generation(generation)
-			{ }
+				State _state { INIT };
+				Tresor_adapter &_adapter;
+				Generation const _generation { };
+				Constructible<Splitter::Write> _write { };
+				Constructible<Splitter::Read> _read { };
+				Constructible<Superblock_control::Synchronize> _sync { };
 
-			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
-			{
-				Read_result result = Read_result::READ_ERR_INVALID;
-				out_count = 0;
-				switch (_state) {
-				case INIT:
+				bool _exceeds_file_range(addr_t start, size_t num_bytes) const
+				{
+					addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
+					return last_byte > _adapter.last_byte_of_data_file();
+				}
 
-					_read.construct(handle.seek(), _generation, dst);
-					_adapter.add_request(*this);
-					_state = READ;
-					result = Read_result::READ_QEUED;
-					break;
-
-				case READ:
-
-					while (_adapter.execute_requests()) ;
-					if (_read->complete()) {
+				Sync_result _execute_sync()
+				{
+					Sync_result result;
+					while (_adapter.execute()) ;
+					if (_sync->complete()) {
+						if (_sync->success())
+							result = Sync_result::SYNC_OK;
+						else
+							result = Sync_result::SYNC_ERR_INVALID;
+						_sync.destruct();
 						_state = INIT;
-						if (_read.success()) {
-							result = Read_result::OK;
-							out_count = dst.num_bytes;
-						} else
+					} else
+						result = Sync_result::SYNC_QUEUED;
+					return result;
+				}
+
+				Write_result _execute_write(size_t dst_num_bytes, size_t &out_count)
+				{
+					Write_result result;
+					while (_adapter.execute()) ;
+					if (_write->complete()) {
+						if (_write->success()) {
+							out_count = dst_num_bytes;
+							result = Write_result::WRITE_OK;
+						} else {
+							out_count = 0;
+							result = Write_result::WRITE_ERR_IO;
+						}
+						_write.destruct();
+						_state = INIT;
+					} else {
+						out_count = 0;
+						result = Write_result::WRITE_ERR_WOULD_BLOCK;
+					}
+					return result;
+				}
+
+				Read_result _execute_read(size_t dst_num_bytes, size_t &out_count)
+				{
+					Read_result result;
+					while (_adapter.execute()) ;
+					if (_read->complete()) {
+						if (_read->success()) {
+							out_count = dst_num_bytes;
+							result = Read_result::READ_OK;
+						} else {
+							out_count = 0;
 							result = Read_result::READ_ERR_IO;
+						}
 						_read.destruct();
+						_state = INIT;
+					} else {
+						out_count = 0;
+						result = Read_result::READ_QUEUED;
 					}
-					break;
+					return result;
+				}
 
-				default: break;
-				return result;
-			}
+				/*******************
+				 ** Schedule_item **
+				 *******************/
 
-			Write_result write(Const_byte_range_ptr const &src,
-			                   size_t &out_count) override
-			{
-				Write_result result = Write_result::WRITE_ERR_INVALID;
-				auto result = _adapter.add_data_command(*this,
-				                     Byte_range_ptr(const_cast<char*>(src.start),
-				                                    src.num_bytes),
-				                     Command::WRITE, _generation,
-					[&] { result = WRITE_ERR_WOULD_BLOCK; },
-					[&] (FR fresult, size_t count) {
-						result    = write_result(fresult);
-						out_count = count;
+				bool execute() override { ASSERT_NEVER_REACHED; }
+
+				Schedule_item::State state() const override { ASSERT_NEVER_REACHED; }
+
+				bool can_be_yielded_to() const override { ASSERT_NEVER_REACHED; }
+
+			public:
+
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Genode::Allocator &alloc, Tresor_adapter &adapter, Generation generation)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0),
+					_adapter(adapter), _generation(generation)
+				{ }
+
+				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+				{
+					Read_result result;
+					switch (_state) {
+					case INIT:
+					{
+						if (_exceeds_file_range(seek(), dst.num_bytes)) {
+							out_count = 0;
+							result = Read_result::READ_ERR_IO;
+							break;
+						}
+						_read.construct(Splitter::Read::Attr{seek(), _generation, dst.start, dst.num_bytes});
+						_state = READ;
+						_adapter.add_to_schedule(*this);
+						result = _execute_read(dst.num_bytes, out_count);
+						break;
 					}
-				);
-				return result;
-			}
+					case READ: result = _execute_read(dst.num_bytes, out_count); break;
+					default:
 
-			Sync_result sync() override
-			{
-				Sync_result result = Sync_result::SYNC_ERR_INVALID;
-				_adapter.add_data_command(*this,
-				                     Byte_range_ptr(nullptr, 0),
-				                     Command::SYNC, 0,
-					[&] { result = SYNC_QUEUED; },
-					[&] (FR fresult, size_t) {
-						result = sync_result(fresult);
+						out_count = 0;
+						result = Read_result::READ_QUEUED;
+						break;
 					}
-				);
-				return result;
-			}
+					return result;
+				}
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+				{
+					Write_result result;
+					switch (_state) {
+					case INIT:
+					{
+						if (_exceeds_file_range(seek(), src.num_bytes)) {
+							out_count = 0;
+							result = Write_result::WRITE_ERR_IO;
+							break;
+						}
+						_write.construct(Splitter::Write::Attr{seek(), _generation, src.start, src.num_bytes});
+						_state = WRITE;
+						_adapter.add_to_schedule(*this);
+						result = _execute_write(src.num_bytes, out_count);
+						break;
+					}
+					case WRITE: result = _execute_write(src.num_bytes, out_count); break;
+					default:
+
+						out_count = 0;
+						result = Write_result::WRITE_ERR_WOULD_BLOCK;
+						break;
+					}
+					return result;
+				}
+
+				Sync_result sync() override
+				{
+					Sync_result result;
+					switch (_state) {
+					case INIT:
+					{
+						_sync.construct(Superblock_control::Synchronize::Attr{});
+						_state = SYNC;
+						_adapter.add_to_schedule(*this);
+						result = _execute_sync();
+						break;
+					}
+					case SYNC: result = _execute_sync(); break;
+					default: result = Sync_result::SYNC_QUEUED; break;
+					}
+					return result;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 		Data_file_system(Tresor_adapter &adapter, Generation generation)
@@ -809,9 +591,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-
-			/* max_vba range is from 0 ... N - 1 */
-			out.size = (_adapter.max_vba() + 1) * Tresor::BLOCK_SIZE;
+			out.size = _adapter.size_of_data_file();
 			return result;
 		}
 
@@ -875,68 +655,17 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			           Genode::Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter)
+				Single_vfs_handle(ds, fs, alloc, 0), _adapter(adapter)
 			{ }
 
-			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+			Read_result read(Byte_range_ptr const &, size_t &) override
 			{
-				/* EOF */
-				if (seek() != 0) {
-					out_count = 0;
-					return READ_OK;
-				}
-
-				/*
-				 * For now trigger extending execution via this hook
-				 * like we do in the Data_file_system.
-				 */
-				_adapter.execute();
-
-				Tresor_adapter::Extending const & extending {
-					_adapter.extending_progress() };
-
-				if (extending.in_progress())
-					return READ_QUEUED;
-
-				if (extending.idle()) {
-					Content_string const content {
-						extending.success() ? "successful"
-						                    : "failed" };
-					copy_content(content, dst.start, dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
-
-				return READ_ERR_IO;
+				ASSERT_NEVER_REACHED;
 			}
 
-			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+			Write_result write(Const_byte_range_ptr const &, size_t &) override
 			{
-				using Type = Tresor_adapter::Extending::Type;
-				if (!_adapter.extending_progress().idle()) {
-					return WRITE_ERR_IO;
-				}
-
-				char tree[16];
-				Arg_string::find_arg(src.start, "tree").string(tree, sizeof (tree), "-");
-				Type type = Tresor_adapter::Extending::string_to_type(tree);
-				if (type == Type::INVALID) {
-					return WRITE_ERR_IO;
-				}
-
-				unsigned long blocks = Arg_string::find_arg(src.start, "blocks").ulong_value(0);
-				if (blocks == 0) {
-					return WRITE_ERR_IO;
-				}
-
-				bool const okay = _adapter.start_extending(type, blocks);
-				if (!okay) {
-					return WRITE_ERR_IO;
-				}
-
-				out_count = src.num_bytes;
-				return WRITE_OK;
+				ASSERT_NEVER_REACHED;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -1059,41 +788,10 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 				_adapter(adapter)
 			{ }
 
-			Read_result read(Byte_range_ptr const &dst,
-			                 size_t               &out_count) override
+			Read_result read(Byte_range_ptr const &,
+			                 size_t               &) override
 			{
-				/* EOF */
-				if (seek() != 0) {
-					out_count = 0;
-					return READ_OK;
-				}
-
-				/*
-				 * For now trigger extending execution via this hook
-				 * like we do in the Data_file_system.
-				 */
-				_adapter.execute();
-
-				Tresor_adapter::Extending const & extending {
-					_adapter.extending_progress() };
-
-				if (extending.idle()) {
-					Content_string const content { "idle" };
-					copy_content(content, dst.start, dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
-
-				if (extending.in_progress()) {
-					char const * const type =
-						Tresor_adapter::Extending::type_to_string(extending.type);
-					Content_string const content { type, " at ", extending.percent_done, "%" };
-					copy_content(content, dst.start, dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
-
-				return READ_ERR_IO;
+				ASSERT_NEVER_REACHED;
 			}
 
 			Write_result write(Const_byte_range_ptr const &,
@@ -1224,60 +922,19 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
 				_adapter(adapter),
-				_last_rekeying_vba(_adapter.rekeying_progress().rekeying_vba)
-			{ }
-
-			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+				_last_rekeying_vba(0)
 			{
-				/* EOF */
-				if (seek() != 0) {
-					out_count = 0;
-					return READ_OK;
-				}
-
-				/*
-				 * For now trigger rekeying execution via this hook
-				 * like we do in the Data_file_system.
-				 */
-				_adapter.execute();
-
-				Tresor_adapter::Rekeying const & rekeying {
-					_adapter.rekeying_progress() };
-
-				if (rekeying.in_progress())
-					return READ_QUEUED;
-
-				if (rekeying.idle()) {
-					Content_string const content {
-						rekeying.success() ? "successful"
-						                   : "failed" };
-					copy_content(content, dst.start, dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
-
-				return READ_ERR_IO;
+				ASSERT_NEVER_REACHED;
 			}
 
-			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+			Read_result read(Byte_range_ptr const &, size_t &) override
 			{
-				if (!_adapter.rekeying_progress().idle()) {
-					return WRITE_ERR_IO;
-				}
+				ASSERT_NEVER_REACHED;
+			}
 
-				bool start_rekeying { false };
-				Genode::ascii_to(src.start, start_rekeying);
-
-				if (!start_rekeying) {
-					return WRITE_ERR_IO;
-				}
-
-				if (!_adapter.start_rekeying()) {
-					return WRITE_ERR_IO;
-				}
-
-				out_count = src.num_bytes;
-				return WRITE_OK;
+			Write_result write(Const_byte_range_ptr const &, size_t &) override
+			{
+				ASSERT_NEVER_REACHED;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -1401,39 +1058,10 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 				_adapter(adapter)
 			{ }
 
-			Read_result read(Byte_range_ptr const &dst,
-			                 size_t               &out_count) override
+			Read_result read(Byte_range_ptr const &,
+			                 size_t               &) override
 			{
-				/* EOF */
-				if (seek() != 0) {
-					out_count = 0;
-					return READ_OK;
-				}
-
-				/*
-				 * For now trigger rekeying execution via this hook
-				 * like we do in the Data_file_system.
-				 */
-				_adapter.execute();
-
-				Tresor_adapter::Rekeying const & rekeying {
-					_adapter.rekeying_progress() };
-
-				if (rekeying.idle()) {
-					Content_string const content { "idle" };
-					copy_content(content, dst.start, dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
-
-				if (rekeying.in_progress()) {
-					Content_string const content { "at ", rekeying.percent_done, "%" };
-					copy_content(content, dst.start, dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
-
-				return READ_ERR_IO;
+				ASSERT_NEVER_REACHED;
 			}
 
 			Write_result write(Const_byte_range_ptr const &,
@@ -1541,27 +1169,9 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 		using Content_string = String<32>;
 
-		static Content_string content_string(Tresor_adapter const &adapter)
+		static Content_string content_string(Tresor_adapter const &)
 		{
-			Tresor_adapter::Deinitialize const & deinitialize_progress {
-				adapter.deinitialize_progress() };
-
-			bool const in_progress { deinitialize_progress.in_progress() };
-
-			bool const last_result {
-				!in_progress &&
-				deinitialize_progress.last_result !=
-					Tresor_adapter::Deinitialize::Result::NONE };
-
-			bool const success { deinitialize_progress.success() };
-
-			Content_string const result {
-				Tresor_adapter::Deinitialize::state_to_cstring(deinitialize_progress.state),
-				" last-result:",
-				last_result ? success ? "success" : "failed" : "none",
-				"\n" };
-
-			return result;
+			ASSERT_NEVER_REACHED;
 		}
 
 		struct Vfs_handle : Single_vfs_handle
@@ -1577,46 +1187,14 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 				_adapter(adapter)
 			{ }
 
-			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+			Read_result read(Byte_range_ptr const &, size_t &) override
 			{
-				if (seek() != 0) {
-					out_count = 0;
-					return READ_OK;
-				}
-				_adapter.execute();
-
-				Tresor_adapter::Deinitialize const & deinitialize_progress {
-					_adapter.deinitialize_progress() };
-
-				if (deinitialize_progress.in_progress())
-					return READ_QUEUED;
-
-				Content_string const result { content_string(_adapter) };
-				copy_cstring(dst.start, result.string(), dst.num_bytes);
-				out_count = dst.num_bytes;
-
-				return READ_OK;
+				ASSERT_NEVER_REACHED;
 			}
 
-			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+			Write_result write(Const_byte_range_ptr const &, size_t &) override
 			{
-				if (!_adapter.deinitialize_progress().idle()) {
-					return WRITE_ERR_IO;
-				}
-
-				bool start_deinitialize { false };
-				Genode::ascii_to(src.start, start_deinitialize);
-
-				if (!start_deinitialize) {
-					return WRITE_ERR_IO;
-				}
-
-				if (!_adapter.start_deinitialize()) {
-					return WRITE_ERR_IO;
-				}
-
-				out_count = src.num_bytes;
-				return WRITE_OK;
+				ASSERT_NEVER_REACHED;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -1728,20 +1306,9 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 				return READ_ERR_IO;
 			}
 
-			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+			Write_result write(Const_byte_range_ptr const &, size_t &) override
 			{
-				bool create_snapshot { false };
-				Genode::ascii_to(src.start, create_snapshot);
-				Genode::String<64> str(Genode::Cstring(src.start, src.num_bytes));
-				if (!create_snapshot)
-					return WRITE_ERR_IO;
-
-				if (!_adapter.create_snapshot()) {
-					out_count = 0;
-					return WRITE_OK;
-				}
-				out_count = src.num_bytes;
-				return WRITE_OK;
+				ASSERT_NEVER_REACHED;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -1821,20 +1388,10 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 				return READ_ERR_IO;
 			}
 
-			Write_result write(Const_byte_range_ptr const &src,
-			                   size_t &out_count) override
+			Write_result write(Const_byte_range_ptr const &,
+			                   size_t &) override
 			{
-				out_count = 0;
-				Generation snap_gen { INVALID_GENERATION };
-				Genode::ascii_to(src.start, snap_gen);
-				if (snap_gen == INVALID_GENERATION)
-					return WRITE_ERR_IO;
-
-				if (!_adapter.discard_snapshot(snap_gen)) {
-					out_count = 0;
-					return WRITE_OK;
-				}
-				return WRITE_ERR_IO;
+				ASSERT_NEVER_REACHED;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -2720,42 +2277,42 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 {
 	if (_snapshots_fs_ptr)
-		_snapshots_fs_ptr->.update_snapshot_registry();
+		_snapshots_fs_ptr->update_snapshot_registry();
 }
 
 
 void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 {
 	if (_extend_fs_ptr)
-		_extend_fs_ptr->.trigger_watch_response();
+		_extend_fs_ptr->trigger_watch_response();
 }
 
 
 void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 {
 	if (_extend_progress_fs_ptr)
-		_extend_progress_fs_ptr->.trigger_watch_response();
+		_extend_progress_fs_ptr->trigger_watch_response();
 }
 
 
 void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 {
 	if (_rekey_fs_ptr)
-		_rekey_fs_ptr->.trigger_watch_response();
+		_rekey_fs_ptr->trigger_watch_response();
 }
 
 
 void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 {
-	if (_rekey_progress_fs_ptr) {
-		_rekey_progress_fs_ptr->.trigger_watch_response();
+	if (_rekey_progress_fs_ptr)
+		_rekey_progress_fs_ptr->trigger_watch_response();
 }
 
 
 void Vfs_tresor::Tresor_adapter::_deinit_fs_trigger_watch_response()
 {
 	if (_deinit_fs_ptr)
-		_deinit_fs_ptr->.trigger_watch_response();
+		_deinit_fs_ptr->trigger_watch_response();
 }
 
 

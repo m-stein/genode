@@ -34,9 +34,8 @@ struct Tresor::Splitter : Noncopyable
 				{
 					Request_offset const in_off;
 					Generation const in_gen;
-					Byte_range_ptr const in_buf;
-
-					Attr(Attr const &attr) : in_off(attr.in_off), in_gen(attr.in_gen), in_buf(attr.in_buf.start, attr.in_buf.num_bytes) { }
+					char *const in_buf_start;
+					size_t const in_buf_num_bytes;
 				};
 
 				struct Execute_attr
@@ -88,14 +87,14 @@ struct Tresor::Splitter : Noncopyable
 
 				addr_t _curr_buf_off() const
 				{
-					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf.num_bytes);
+					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf_num_bytes);
 					return _curr_off - _attr.in_off;
 				}
 
 				addr_t _num_remaining_bytes() const
 				{
-					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf.num_bytes);
-					return _attr.in_off + _attr.in_buf.num_bytes - _curr_off;
+					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf_num_bytes);
+					return _attr.in_off + _attr.in_buf_num_bytes - _curr_off;
 				}
 
 				void _advance_curr_off(size_t advance, bool &progress)
@@ -110,7 +109,7 @@ struct Tresor::Splitter : Noncopyable
 						_curr_buf_addr = (addr_t)&_blk;
 						_generate_read(READ_LAST_BLOCK, progress);
 					} else {
-						_curr_buf_addr = (addr_t)_attr.in_buf.start + _curr_buf_off();
+						_curr_buf_addr = (addr_t)_attr.in_buf_start + _curr_buf_off();
 						_generate_read(READ_MIDDLE_BLOCKS, progress);
 					}
 				}
@@ -136,7 +135,7 @@ struct Tresor::Splitter : Noncopyable
 					{
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
-						memcpy(_attr.in_buf.start, (void *)((addr_t)&_blk + num_outside_bytes), num_inside_bytes);
+						memcpy(_attr.in_buf_start, (void *)((addr_t)&_blk + num_outside_bytes), num_inside_bytes);
 						_advance_curr_off(num_inside_bytes, progress);
 						break;
 					}
@@ -149,7 +148,7 @@ struct Tresor::Splitter : Noncopyable
 					case READ_LAST_BLOCK: progress |= _execute_read(READ_LAST_BLOCK_SUCCEEDED, attr); break;
 					case READ_LAST_BLOCK_SUCCEEDED:
 
-						memcpy((void *)((addr_t)_attr.in_buf.start + _curr_buf_off()), &_blk, _num_remaining_bytes());
+						memcpy((void *)((addr_t)_attr.in_buf_start + _curr_buf_off()), &_blk, _num_remaining_bytes());
 						_advance_curr_off(_num_remaining_bytes(), progress);
 						break;
 
@@ -177,9 +176,8 @@ struct Tresor::Splitter : Noncopyable
 				{
 					Request_offset const in_off;
 					Generation const in_gen;
-					Byte_range_ptr const in_buf;
-
-					Attr(Attr const &attr) : in_off(attr.in_off), in_gen(attr.in_gen), in_buf(attr.in_buf.start, attr.in_buf.num_bytes) { }
+					char const *const in_buf_start;
+					size_t const in_buf_num_bytes;
 				};
 
 				struct Execute_attr
@@ -214,14 +212,14 @@ struct Tresor::Splitter : Noncopyable
 
 				addr_t _curr_buf_off() const
 				{
-					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf.num_bytes);
+					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf_num_bytes);
 					return _curr_off - _attr.in_off;
 				}
 
 				addr_t _num_remaining_bytes() const
 				{
-					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf.num_bytes);
-					return _attr.in_off + _attr.in_buf.num_bytes - _curr_off;
+					ASSERT(_curr_off >= _attr.in_off && _curr_off <= _attr.in_off + _attr.in_buf_num_bytes);
+					return _attr.in_off + _attr.in_buf_num_bytes - _curr_off;
 				}
 
 				void _generate_sb_control_request(State target_state, bool &progress)
@@ -253,7 +251,7 @@ struct Tresor::Splitter : Noncopyable
 						_curr_buf_addr = (addr_t)&_blk;
 						_generate_sb_control_request(READ_LAST_BLOCK, progress);
 					} else {
-						_curr_buf_addr = (addr_t)_attr.in_buf.start + _curr_buf_off();
+						_curr_buf_addr = (addr_t)_attr.in_buf_start + _curr_buf_off();
 						_generate_sb_control_request(WRITE_MIDDLE_BLOCKS, progress);
 					}
 				}
@@ -303,7 +301,7 @@ struct Tresor::Splitter : Noncopyable
 					{
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
-						memcpy((void *)((addr_t)&_blk + num_outside_bytes), _attr.in_buf.start, num_inside_bytes);
+						memcpy((void *)((addr_t)&_blk + num_outside_bytes), _attr.in_buf_start, num_inside_bytes);
 						_curr_buf_addr = (addr_t)&_blk;
 						_generate_sb_control_request(WRITE_FIRST_BLOCK, progress);
 						break;
@@ -325,7 +323,7 @@ struct Tresor::Splitter : Noncopyable
 					case READ_LAST_BLOCK: progress |= _execute_read(READ_LAST_BLOCK_SUCCEEDED, attr); break;
 					case READ_LAST_BLOCK_SUCCEEDED:
 
-						memcpy(&_blk, (void *)((addr_t)_attr.in_buf.start + _curr_buf_off()), _num_remaining_bytes());
+						memcpy(&_blk, (void *)((addr_t)_attr.in_buf_start + _curr_buf_off()), _num_remaining_bytes());
 						_curr_buf_addr = (addr_t)&_blk;
 						_generate_sb_control_request(WRITE_LAST_BLOCK, progress);
 						break;
@@ -383,13 +381,13 @@ struct Tresor::Splitter : Noncopyable
 			return progress;
 		}
 
-		Block const &source_buffer(Virtual_block_address vba) override
+		Block const &source_buffer(Virtual_block_address vba)
 		{
 			ASSERT(_write_ptr);
 			return _write_ptr->source_buffer(vba);
 		}
 
-		Block &destination_buffer(Virtual_block_address vba) override
+		Block &destination_buffer(Virtual_block_address vba)
 		{
 			ASSERT(_read_ptr);
 			return _read_ptr->destination_buffer(vba);
