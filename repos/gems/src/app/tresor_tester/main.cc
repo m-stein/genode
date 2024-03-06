@@ -69,6 +69,8 @@ class Tresor_tester::Schedule : Noncopyable
 
 	public:
 
+		using Item = List<T>::Element;
+
 		void add_tail(T &request)
 		{
 			_list.insert(&request, _tail);
@@ -102,7 +104,7 @@ class Tresor_tester::Schedule : Noncopyable
 			if (!head)
 				return;
 
-			T *next = head->List<T>::Element::_next;
+			T *next = head->Item::_next;
 			if (!next || !can_yield_to(*next))
 				return;
 
@@ -243,7 +245,7 @@ struct Tresor_tester::Request_node : Noncopyable
 	{ }
 };
 
-struct Tresor_tester::Command : Avl_node<Command>, List<Command>::Element
+struct Tresor_tester::Command : Avl_node<Command>, Schedule<Command>::Item
 {
 	friend class Schedule<Command>;
 
@@ -524,42 +526,41 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 		}
 
 		template <typename REQUEST>
-		bool _try_complete_command(Command &cmd, REQUEST &req, bool &progress)
+		void _try_complete_command(Command &cmd, REQUEST &req, bool &progress)
 		{
 			if (!req.complete())
-				return false;
+				return;
 
 			_mark_command_complete(cmd, req.success());
 			destroy(_heap, &req);
 			progress = true;
-			return true;
+			return;
 		}
 
 		template <typename REQUEST>
-		bool _try_complete_multi_request_command(Command &cmd, REQUEST &req, bool cmd_finished, bool &progress)
+		void _try_complete_multi_request_command(Command &cmd, REQUEST &req, bool cmd_finished, bool &progress)
 		{
 			if (!req.complete())
-				return false;
+				return;
 
 			if (!req.success()) {
 				_mark_command_complete(cmd, false);
 				destroy(_heap, &req);
 				progress = true;
-				return true;
+				return;
 			}
 			destroy(_heap, &req);
 			if (cmd_finished) {
 				_mark_command_complete(cmd, true);
-				return true;
+				return;
 			}
 			cmd.state = Command::INIT;
 			progress = true;
-			return false;
+			return;
 		}
 
-		bool _execute_command(Command &cmd, bool &cmd_complete)
+		bool _execute_command(Command &cmd)
 		{
-			cmd_complete = false;
 			bool progress = false;
 			switch (cmd.type) {
 			case Command::INIT_TRUST_ANCHOR:
@@ -576,7 +577,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 				{
 					Trust_anchor::Initialize &req = *cmd.init_trust_anchor_ptr;
 					progress |= _trust_anchor.execute(req);
-					cmd_complete = _try_complete_command(cmd, req, progress);
+					_try_complete_command(cmd, req, progress);
 					break;
 				}
 				default: break;
@@ -615,7 +616,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 				{
 					Sb_initializer::Initialize &req = *cmd.init_superblocks_ptr;
 					progress |= _sb_initializer.execute(req, _block_io, _trust_anchor, _vbd_initializer, _ft_initializer);
-					cmd_complete = _try_complete_command(cmd, req, progress);
+					_try_complete_command(cmd, req, progress);
 					break;
 				}
 				default: break;
@@ -639,7 +640,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 				{
 					Superblock_control::Initialize &req = *cmd.init_sb_control_ptr;
 					progress |= _sb_control->execute(req, _block_io, _crypto, _trust_anchor);
-					cmd_complete = _try_complete_command(cmd, req, progress);
+					_try_complete_command(cmd, req, progress);
 					break;
 				}
 				default: break;
@@ -656,7 +657,6 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 					_vbd.destruct();
 					_sb_control.destruct();
 					_mark_command_complete(cmd, true);
-					cmd_complete = true;
 					progress = true;
 					break;
 
@@ -671,7 +671,6 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 
 					_benchmark.construct(_timer, cmd.start_benchmark_node->label);
 					_mark_command_complete(cmd, true);
-					cmd_complete = true;
 					progress = true;
 					break;
 
@@ -686,7 +685,6 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 
 					_benchmark.destruct();
 					_mark_command_complete(cmd, true);
-					cmd_complete = true;
 					progress = true;
 					break;
 
@@ -776,49 +774,49 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 					{
 						Superblock_control::Write &req = *cmd.write_ptr;
 						progress |= _sb_control->execute(req, *_vbd, *this, _block_io, *_free_tree, *_meta_tree, _crypto);
-						cmd_complete = _try_complete_command(cmd, req, progress);
+						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					case Request_node::READ:
 					{
 						Superblock_control::Read &req = *cmd.read_ptr;
 						progress |= _sb_control->execute(req, *_vbd, *this, _block_io, _crypto);
-						cmd_complete = _try_complete_command(cmd, req, progress);
+						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					case Request_node::SYNC:
 					{
 						Superblock_control::Synchronize &req = *cmd.sync_ptr;
 						progress |= _sb_control->execute(req, _block_io, _trust_anchor);
-						cmd_complete = _try_complete_command(cmd, req, progress);
+						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					case Request_node::REKEY:
 					{
 						Superblock_control::Rekey &req = *cmd.rekey_ptr;
 						progress |= _sb_control->execute(req, *_vbd, *_free_tree, *_meta_tree, _block_io, _crypto, _trust_anchor);
-						cmd_complete = _try_complete_multi_request_command(cmd, req, cmd.rekey_finished, progress);
+						_try_complete_multi_request_command(cmd, req, cmd.rekey_finished, progress);
 						break;
 					}
 					case Request_node::EXTEND_VBD:
 					{
 						Superblock_control::Extend_vbd &req = *cmd.extend_vbd_ptr;
 						progress |= _sb_control->execute(req, *_vbd, *_free_tree, *_meta_tree, _block_io, _trust_anchor);
-						cmd_complete = _try_complete_multi_request_command(cmd, req, cmd.extend_vbd_finished, progress);
+						_try_complete_multi_request_command(cmd, req, cmd.extend_vbd_finished, progress);
 						break;
 					}
 					case Request_node::EXTEND_FREE_TREE:
 					{
 						Superblock_control::Extend_free_tree &req = *cmd.extend_free_tree_ptr;
 						progress |= _sb_control->execute(req, *_free_tree, *_meta_tree, _block_io, _trust_anchor);
-						cmd_complete = _try_complete_multi_request_command(cmd, req, cmd.extend_free_tree_finished, progress);
+						_try_complete_multi_request_command(cmd, req, cmd.extend_free_tree_finished, progress);
 						break;
 					}
 					case Request_node::DEINITIALIZE:
 					{
 						Superblock_control::Deinitialize &req = *cmd.deinit_sb_control_ptr;
 						progress |= _sb_control->execute(req, _block_io, _crypto, _trust_anchor);
-						cmd_complete = _try_complete_command(cmd, req, progress);
+						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					case Request_node::CREATE_SNAPSHOT:
@@ -827,7 +825,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 						progress |= _sb_control->execute(req, _block_io, _trust_anchor);
 						if (req.complete() && req.success())
 							_snap_refs.insert(new (_heap) Snapshot_reference { cmd.request_node->snap_id, cmd.generation });
-						cmd_complete = _try_complete_command(cmd, req, progress);
+						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					case Request_node::DISCARD_SNAPSHOT:
@@ -836,7 +834,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 						progress |= _sb_control->execute(req, _block_io, _trust_anchor);
 						if (req.complete() && req.success())
 							_remove_snap_refs_with_same_gen(node.snap_id);
-						cmd_complete = _try_complete_command(cmd, req, progress);
+						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					default: ASSERT_NEVER_REACHED;
@@ -854,7 +852,6 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 
 					log("\n", cmd.log_node->string, "\n");
 					_mark_command_complete(cmd, true);
-					cmd_complete = true;
 					progress = true;
 					break;
 
@@ -875,7 +872,7 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 				{
 					Sb_check::Check &req = *cmd.check_superblocks_ptr;
 					progress |= _sb_check.execute(req, _vbd_check, _ft_check, _block_io);
-					cmd_complete = _try_complete_command(cmd, req, progress);
+					_try_complete_command(cmd, req, progress);
 					break;
 				}
 				default: break;
@@ -889,11 +886,10 @@ class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public
 
 		bool _execute_commands()
 		{
-			bool cmd_complete;
 			bool progress = false;
 			_command_schedule.with_head([&] (Command &head) {
 
-				progress |= _execute_command(head, cmd_complete);
+				progress |= _execute_command(head);
 				if (head.state == Command::COMPLETE) {
 					_command_schedule.remove_head();
 					return;
