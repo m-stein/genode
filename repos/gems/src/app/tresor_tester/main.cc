@@ -55,7 +55,6 @@ namespace Tresor_tester {
 	class Snapshot_reference;
 	class Snapshot_reference_tree;
 	class Request_node;
-	class Crypto_key;
 	class Main;
 }
 
@@ -403,16 +402,16 @@ struct Tresor_tester::Snapshot_reference_tree : public Avl_tree<Snapshot_referen
 	}
 };
 
-struct Tresor_tester::Crypto_key
-{
-	Key_id const key_id;
-	Vfs::Vfs_handle &encrypt_file;
-	Vfs::Vfs_handle &decrypt_file;
-};
-
-class Tresor_tester::Main : Vfs::Env::User, public Client_data_interface, public Crypto_key_files_interface
+class Tresor_tester::Main : Vfs::Env::User, Client_data_interface, Crypto_key_files_interface
 {
 	private:
+
+		struct Crypto_key
+		{
+			Key_id const key_id;
+			Vfs::Vfs_handle &encrypt_file;
+			Vfs::Vfs_handle &decrypt_file;
+		};
 
 		Genode::Env &_env;
 		Attached_rom_dataspace _config_rom { _env, "config" };
