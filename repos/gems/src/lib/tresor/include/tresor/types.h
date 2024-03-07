@@ -1108,6 +1108,19 @@ struct Tresor::Snapshots_info
 		for (Generation &gen : generations)
 			gen = INVALID_GENERATION;
 	}
+
+	void print(Output &out) const
+	{
+		bool first { true };
+		for (unsigned idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+
+			if (!generations[idx])
+				continue;
+
+			Genode::print(out, "snapshot ", first ? "" : "\n", idx, ": ", generations[idx]);
+			first = false;
+		}
+	}
 };
 
 
