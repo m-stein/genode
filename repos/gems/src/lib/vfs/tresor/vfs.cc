@@ -59,6 +59,7 @@ namespace Vfs_tresor {
 	class File_system;
 	class Tresor_adapter;
 	class Crypto_key;
+	class Initialized_tresor_adapter_interface;
 }
 
 struct Vfs_tresor::Crypto_key
@@ -128,11 +129,24 @@ struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
 	friend class Schedule<Schedule_item>;
 	friend class List<Schedule_item>;
 
-	enum State { COMPLETE, CAN_YIELD, CANNOT_YIELD };
+	struct Execute_attr
+	{
+		Splitter &splitter;
+		Superblock_control &sb_control;
+		Client_data_interface &client_data;
+		Virtual_block_device &vbd;
+		Free_tree &free_tree;
+		Meta_tree &meta_tree;
+		Block_io &block_io;
+		Crypto &crypto;
+		Trust_anchor &trust_anchor;
+	};
 
-	virtual bool execute() = 0;
+	enum Scheduling_state { COMPLETE, CAN_YIELD, CANNOT_YIELD };
 
-	virtual State state() const = 0;
+	virtual bool execute(Execute_attr const &attr) = 0;
+
+	virtual Scheduling_state scheduling_state() const = 0;
 
 	virtual bool can_be_yielded_to() const = 0;
 
@@ -140,7 +154,23 @@ struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
 };
 
 
-class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface
+struct Vfs_tresor::Initialized_tresor_adapter_interface
+{
+	virtual bool exceeds_data_file_range(addr_t, size_t) const = 0;
+
+	virtual size_t data_file_size() const = 0;
+
+	virtual void add_to_schedule(Schedule_item &) = 0;
+
+	virtual void snapshots_info(Snapshots_info &) = 0;
+
+	virtual bool execute() = 0;
+
+	virtual ~Initialized_tresor_adapter_interface() = 0;
+};
+
+
+class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface, Initialized_tresor_adapter_interface
 {
 	private:
 
@@ -176,6 +206,8 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Rekey_progress_file_system *_rekey_progress_fs_ptr { };
 		Deinitialize_file_system *_deinit_fs_ptr  { };
 		Constructible<Crypto_key> _crypto_keys[2] { };
+		Superblock_control::Initialize *_init_sb_control_ptr { };
+		Superblock::State _sb_state { Superblock::INVALID };
 
 		/*
 		 * Noncopyable
@@ -205,6 +237,26 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
+		bool _execute_schedule_items()
+		{
+			bool progress = false;
+			_schedule.with_head([&] (Schedule_item &head) {
+
+				progress |= head.execute({_splitter, _sb_control, *this, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor});
+				switch (head.scheduling_state()) {
+				case Schedule_item::COMPLETE: _schedule.remove_head(); break;
+				case Schedule_item::CAN_YIELD:
+
+					_schedule.try_yield_head([&] (Schedule_item const &item) {
+						return item.can_be_yielded_to(); });
+					break;
+
+				case Schedule_item::CANNOT_YIELD: break;
+				}
+			});
+			return progress;
+		}
+
 		/********************************
 		 ** Crypto_key_files_interface **
 		 ********************************/
@@ -233,7 +285,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Vfs::Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
 		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
 
-
 		/***************************
 		 ** Client_data_interface **
 		 ***************************/
@@ -248,6 +299,40 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_splitter.destination_buffer(attr.in_vba) = attr.in_blk;
 		}
 
+		/******************************************
+		 ** Initialized_tresor_adapter_interface **
+		 ******************************************/
+
+		bool exceeds_data_file_range(addr_t start, size_t num_bytes) const override
+		{
+			addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
+			addr_t last_file_byte = (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
+			return last_byte > last_file_byte;
+		}
+
+		size_t data_file_size() const override
+		{
+			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
+		}
+
+		void add_to_schedule(Schedule_item &item) override
+		{
+			_schedule.add_tail(item);
+		}
+
+		void snapshots_info(Snapshots_info &info) override
+		{
+			info = _sb_control.snapshots_info();
+			execute();
+		}
+
+		bool execute() override
+		{
+			bool progress = _execute_schedule_items();
+			_wakeup_back_end_services();
+			return progress;
+		}
+
 	public:
 
 		Tresor_adapter(Vfs::Env &vfs_env, Xml_node const &config)
@@ -259,58 +344,25 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_block_io_path(config.attribute_value("block", Tresor::Path())),
 			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
 		{
-log(__func__," ",__LINE__);
+			_init_sb_control_ptr = new (_vfs_env.alloc()) Superblock_control::Initialize({_sb_state});
 		}
 
-		addr_t last_byte_of_data_file() const
+		template <typename FUNC>
+		void with_initialized_interface(FUNC && func)
 		{
-			return (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
-		}
+			if (_init_sb_control_ptr) {
 
-		size_t size_of_data_file() const
-		{
-			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
-		}
+				while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
+				if (_init_sb_control_ptr->complete()) {
 
-		void add_to_schedule(Schedule_item &item)
-		{
-			_schedule.add_tail(item);
-		}
-
-		bool _execute_schedule_items()
-		{
-			bool progress = false;
-			_schedule.with_head([&] (Schedule_item &head) {
-
-log(__func__," ",__LINE__);
-				progress |= head.execute();
-				switch (head.state()) {
-				case Schedule_item::COMPLETE: _schedule.remove_head(); break;
-				case Schedule_item::CAN_YIELD:
-
-					_schedule.try_yield_head([&] (Schedule_item const &item) {
-						return item.can_be_yielded_to(); });
-					break;
-
-				case Schedule_item::CANNOT_YIELD: break;
-				}
-			});
-			return progress;
-		}
-
-		bool execute()
-		{
-log(__func__," ",__LINE__);
-			bool progress = _execute_schedule_items();
-			_wakeup_back_end_services();
-			return progress;
-		}
-
-		void snapshots_info(Tresor::Snapshots_info &info)
-		{
-			info = _sb_control.snapshots_info();
-log(__func__," ",__LINE__);
-			execute();
+					ASSERT(_init_sb_control_ptr->success());
+					destroy(_vfs_env.alloc(), _init_sb_control_ptr);
+					_init_sb_control_ptr = nullptr;
+					func(*this);
+				} else
+					_wakeup_back_end_services();
+			} else
+				func(*this);
 		}
 
 
@@ -399,10 +451,6 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		Tresor_adapter &_adapter;
 		Generation const _generation;
 
-		using Vfs::File_io_service::Read_result;
-		using Vfs::File_io_service::Sync_result;
-		using Vfs::File_io_service::Write_result;
-
 	public:
 
 		class Vfs_handle : Noncopyable, public Single_vfs_handle, Schedule_item
@@ -418,69 +466,57 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Constructible<Splitter::Read> _read { };
 				Constructible<Superblock_control::Synchronize> _sync { };
 
-				bool _exceeds_file_range(addr_t start, size_t num_bytes) const
-				{
-					addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
-					return last_byte > _adapter.last_byte_of_data_file();
-				}
-
-				Sync_result _execute_sync()
+				Sync_result _try_complete_sync()
 				{
 					Sync_result result;
-log(__func__," ",__LINE__);
-					while (_adapter.execute()) ;
 					if (_sync->complete()) {
 						if (_sync->success())
-							result = Sync_result::SYNC_OK;
+							result = SYNC_OK;
 						else
-							result = Sync_result::SYNC_ERR_INVALID;
+							result = SYNC_ERR_INVALID;
 						_sync.destruct();
 						_state = INIT;
 					} else
-						result = Sync_result::SYNC_QUEUED;
+						result = SYNC_QUEUED;
 					return result;
 				}
 
-				Write_result _execute_write(size_t dst_num_bytes, size_t &out_count)
+				Write_result _try_complete_write(size_t dst_num_bytes, size_t &out_count)
 				{
 					Write_result result;
-log(__func__," ",__LINE__);
-					while (_adapter.execute()) ;
 					if (_write->complete()) {
 						if (_write->success()) {
 							out_count = dst_num_bytes;
-							result = Write_result::WRITE_OK;
+							result = WRITE_OK;
 						} else {
 							out_count = 0;
-							result = Write_result::WRITE_ERR_IO;
+							result = WRITE_ERR_IO;
 						}
 						_write.destruct();
 						_state = INIT;
 					} else {
 						out_count = 0;
-						result = Write_result::WRITE_ERR_WOULD_BLOCK;
+						result = WRITE_ERR_WOULD_BLOCK;
 					}
 					return result;
 				}
 
-				Read_result _execute_read(size_t dst_num_bytes, size_t &out_count)
+				Read_result _try_complete_read(size_t dst_num_bytes, size_t &out_count)
 				{
 					Read_result result;
-log(__func__," ",__LINE__);
-					while (_adapter.execute()) ;
 					if (_read->complete()) {
 						if (_read->success()) {
 							out_count = dst_num_bytes;
-							result = Read_result::READ_OK;
+							result = READ_OK;
 						} else {
 							out_count = 0;
-							result = Read_result::READ_ERR_IO;
+							result = READ_ERR_IO;
 						}
 						_read.destruct();
 						_state = INIT;
 					} else {
 						out_count = 0;
-						result = Read_result::READ_QUEUED;
+						result = READ_QUEUED;
 					}
 					return result;
 				}
@@ -489,95 +525,133 @@ log(__func__," ",__LINE__);
 				 ** Schedule_item **
 				 *******************/
 
-				bool execute() override { ASSERT_NEVER_REACHED; }
+				bool execute(Execute_attr const &attr) override
+				{
+					bool progress = false;
+					switch (_state) {
+					case WRITE:
+						progress |= attr.splitter.execute(
+							*_write, {attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto});
+						break;
+					case READ:
+						progress |= attr.splitter.execute(
+							*_read, {attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto});
+						break;
+					case SYNC:
+						progress |= attr.sb_control.execute(*_sync, attr.block_io, attr.trust_anchor);
+						break;
+					case INIT: ASSERT_NEVER_REACHED;
+					}
+					return progress;
+				}
 
-				Schedule_item::State state() const override { ASSERT_NEVER_REACHED; }
+				Scheduling_state scheduling_state() const override
+				{
+					switch (_state) {
+					case WRITE: return _write->complete() ? COMPLETE : CANNOT_YIELD;
+					case READ: return _read->complete() ? COMPLETE : CANNOT_YIELD;
+					case SYNC: return _sync->complete() ? COMPLETE : CANNOT_YIELD;
+					case INIT: break;
+					}
+					ASSERT_NEVER_REACHED;
+				}
 
 				bool can_be_yielded_to() const override { ASSERT_NEVER_REACHED; }
 
 			public:
 
 				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-				           Genode::Allocator &alloc, Tresor_adapter &adapter, Generation generation)
+				           Allocator &alloc, Tresor_adapter &adapter, Generation generation)
 				:
 					Single_vfs_handle(dir_service, file_io_service, alloc, 0),
 					_adapter(adapter), _generation(generation)
-				{
-log(__func__," ",__LINE__);
-}
+				{ }
 
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
-log(__func__," ",__LINE__);
-					Read_result result;
-					switch (_state) {
-					case INIT:
-					{
-						if (_exceeds_file_range(seek(), dst.num_bytes)) {
-							out_count = 0;
-							result = Read_result::READ_ERR_IO;
+					Read_result result = READ_QUEUED;
+					out_count = 0;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+						switch (_state) {
+						case INIT:
+						{
+							if (adapter.exceeds_data_file_range(seek(), dst.num_bytes)) {
+								result = READ_ERR_IO;
+								break;
+							}
+							_read.construct(Splitter::Read::Attr{seek(), _generation, dst.start, dst.num_bytes});
+							_state = READ;
+							adapter.add_to_schedule(*this);
+							while (adapter.execute()) ;
+							result = _try_complete_read(dst.num_bytes, out_count);
 							break;
 						}
-						_read.construct(Splitter::Read::Attr{seek(), _generation, dst.start, dst.num_bytes});
-						_state = READ;
-						_adapter.add_to_schedule(*this);
-						result = _execute_read(dst.num_bytes, out_count);
-						break;
-					}
-					case READ: result = _execute_read(dst.num_bytes, out_count); break;
-					default:
+						case READ:
 
-						out_count = 0;
-						result = Read_result::READ_QUEUED;
-						break;
-					}
+							while (adapter.execute()) ;
+							result = _try_complete_read(dst.num_bytes, out_count);
+							break;
+
+						default: break;
+						}
+					});
 					return result;
 				}
 
 				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 				{
-log(__func__," ",__LINE__);
-					Write_result result;
-					switch (_state) {
-					case INIT:
-					{
-						if (_exceeds_file_range(seek(), src.num_bytes)) {
-							out_count = 0;
-							result = Write_result::WRITE_ERR_IO;
+					Write_result result = WRITE_ERR_WOULD_BLOCK;
+					out_count = 0;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+						switch (_state) {
+						case INIT:
+						{
+							if (adapter.exceeds_data_file_range(seek(), src.num_bytes)) {
+								result = WRITE_ERR_IO;
+								break;
+							}
+							_write.construct(Splitter::Write::Attr{seek(), _generation, src.start, src.num_bytes});
+							_state = WRITE;
+							adapter.add_to_schedule(*this);
+							while (adapter.execute()) ;
+							result = _try_complete_write(src.num_bytes, out_count);
 							break;
 						}
-						_write.construct(Splitter::Write::Attr{seek(), _generation, src.start, src.num_bytes});
-						_state = WRITE;
-						_adapter.add_to_schedule(*this);
-						result = _execute_write(src.num_bytes, out_count);
-						break;
-					}
-					case WRITE: result = _execute_write(src.num_bytes, out_count); break;
-					default:
+						case WRITE:
 
-						out_count = 0;
-						result = Write_result::WRITE_ERR_WOULD_BLOCK;
-						break;
-					}
+							while (adapter.execute()) ;
+							result = _try_complete_write(src.num_bytes, out_count);
+							break;
+
+						default: break;
+						}
+					});
 					return result;
 				}
 
 				Sync_result sync() override
 				{
-log(__func__," ",__LINE__);
-					Sync_result result;
-					switch (_state) {
-					case INIT:
-					{
-						_sync.construct(Superblock_control::Synchronize::Attr{});
-						_state = SYNC;
-						_adapter.add_to_schedule(*this);
-						result = _execute_sync();
-						break;
-					}
-					case SYNC: result = _execute_sync(); break;
-					default: result = Sync_result::SYNC_QUEUED; break;
-					}
+					Sync_result result = SYNC_QUEUED;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+						switch (_state) {
+						case INIT:
+						{
+							_sync.construct(Superblock_control::Synchronize::Attr{});
+							_state = SYNC;
+							adapter.add_to_schedule(*this);
+							while (adapter.execute()) ;
+							result = _try_complete_sync();
+							break;
+						}
+						case SYNC:
+
+							while (adapter.execute()) ;
+							result = _try_complete_sync();
+							break;
+
+						default: break;
+						}
+					});
 					return result;
 				}
 
@@ -589,13 +663,10 @@ log(__func__," ",__LINE__);
 		:
 			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")),
 			_adapter(adapter), _generation(generation)
-		{
-log(__func__," ",__LINE__);
-}
+		{ }
 
 		~Data_file_system()
 		{
-log(__func__," ",__LINE__);
 			/* XXX sync on close */
 			/* XXX invalidate any still pending request */
 		}
@@ -606,9 +677,11 @@ log(__func__," ",__LINE__);
 
 		Stat_result stat(char const *path, Stat &out) override
 		{
-log(__func__," ",__LINE__);
-			Stat_result result = Single_file_system::stat(path, out);
-			out.size = _adapter.size_of_data_file();
+			Stat_result result = STAT_ERR_NO_ENTRY;
+			_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+				result = Single_file_system::stat(path, out);
+				out.size = adapter.data_file_size();
+			});
 			return result;
 		}
 
@@ -616,25 +689,20 @@ log(__func__," ",__LINE__);
 		 ** File I/O service interface **
 		 ********************************/
 
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
-log(__func__," ",__LINE__);
-			return FTRUNCATE_OK; }
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
 
 		/***************************
 		 ** File-system interface **
 		 ***************************/
 
-		Open_result open(char const  *path, unsigned,
+		Open_result open(char const *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Allocator   &alloc) override
+		                 Allocator &alloc) override
 		{
-log(__func__," ",__LINE__);
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
-			*out_handle =
-				new (alloc) Vfs_handle(*this, *this, alloc, _adapter, _generation);
-
+			*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _adapter, _generation);
 			return OPEN_OK;
 		}
 
@@ -670,8 +738,8 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           File_io_service &fs,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0), _adapter(adapter)
@@ -742,7 +810,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -752,8 +820,8 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -799,8 +867,8 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           File_io_service &fs,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
@@ -874,7 +942,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -884,8 +952,8 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -935,8 +1003,8 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			Virtual_block_address _last_rekeying_vba;
 
 			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           File_io_service &fs,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
@@ -1011,7 +1079,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -1021,8 +1089,8 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -1069,8 +1137,8 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           File_io_service &fs,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
@@ -1144,7 +1212,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -1154,8 +1222,8 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -1198,8 +1266,8 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 			Tresor_adapter &_adapter;
 
 			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           File_io_service &fs,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
@@ -1271,7 +1339,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -1281,8 +1349,8 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -1313,7 +1381,7 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
@@ -1354,7 +1422,7 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator   &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -1364,8 +1432,8 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -1395,7 +1463,7 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 
 			Vfs_handle(Directory_service &ds,
 			           File_io_service   &fs,
-			           Genode::Allocator &alloc,
+			           Allocator &alloc,
 			           Tresor_adapter &adapter)
 			:
 				Single_vfs_handle(ds, fs, alloc, 0),
@@ -1437,7 +1505,7 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
-		                 Genode::Allocator   &alloc) override
+		                 Allocator   &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -1447,8 +1515,8 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
-			catch (Genode::Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Genode::Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
+			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
 		Stat_result stat(char const *path, Stat &out) override
@@ -1545,18 +1613,18 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 		struct Snapshot_registry
 		{
-			Genode::Allocator                                          &_alloc;
+			Allocator                                          &_alloc;
 			Tresor_adapter                                             &_adapter;
 			Snapshots_file_system                                      &_snapshots_fs;
 			uint32_t                                                    _number_of_snapshots { 0 };
-			Genode::Registry<Genode::Registered<Snapshot_file_system>>  _registry            { };
+			Registry<Registered<Snapshot_file_system>>  _registry            { };
 
-			struct Invalid_index : Genode::Exception { };
-			struct Invalid_path  : Genode::Exception { };
+			struct Invalid_index : Exception { };
+			struct Invalid_path  : Exception { };
 
 
 
-			Snapshot_registry(Genode::Allocator     &alloc,
+			Snapshot_registry(Allocator     &alloc,
 			                  Tresor_adapter               &adapter,
 			                  Snapshots_file_system &snapshots_fs)
 			:
@@ -1608,7 +1676,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 					path++;
 
 				Generation snap_gen { INVALID_GENERATION };
-				Genode::ascii_to(path, snap_gen);
+				ascii_to(path, snap_gen);
 				return _by_gen(snap_gen);
 			}
 		};
@@ -1684,10 +1752,10 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 				try {
 					Snapshot_file_system const &fs = _snap_reg.by_index(index);
-					Genode::String<32> name { fs.snap_gen() };
+					String<32> name { fs.snap_gen() };
 
 					out = {
-						.fileno = (Genode::addr_t)this | index,
+						.fileno = (addr_t)this | index,
 						.type   = Dirent_type::DIRECTORY,
 						.rwx    = Node_rwx::rx(),
 						.name   = { name.string() },
@@ -1705,7 +1773,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 			{
 				if (index == 0) {
 					out = {
-						.fileno = (Genode::addr_t)this,
+						.fileno = (addr_t)this,
 						.type   = Dirent_type::DIRECTORY,
 						.rwx    = Node_rwx::rx(),
 						.name   = { "snapshots" }
@@ -1720,7 +1788,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 			Dir_vfs_handle(Directory_service &ds,
 			               File_io_service   &fs,
-			               Genode::Allocator &alloc,
+			               Allocator &alloc,
 			               Snapshot_registry const &snap_reg,
 			               bool root_dir)
 			:
@@ -1764,7 +1832,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 			Dir_snap_vfs_handle(Directory_service &ds,
 			                    File_io_service   &fs,
-			                    Genode::Allocator &alloc,
+			                    Allocator &alloc,
 			                    Vfs::Vfs_handle   &vfs_handle)
 			: Vfs_handle(ds, fs, alloc, 0), vfs_handle(vfs_handle) { }
 
@@ -1784,7 +1852,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 				path++;
 			}
 
-			Genode::size_t const name_len = strlen(type_name());
+			size_t const name_len = strlen(type_name());
 			if (strcmp(path, type_name(), name_len) != 0) {
 				return nullptr;
 			}
@@ -1805,7 +1873,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 
 		Snapshots_file_system(Vfs::Env         &vfs_env,
-		                      Genode::Xml_node  /* node */,
+		                      Xml_node  /* node */,
 		                      Tresor_adapter          &adapter)
 		:
 			_vfs_env(vfs_env), _snap_reg(vfs_env.alloc(), adapter, *this), _adapter(adapter)
@@ -1824,7 +1892,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 		Dataspace_capability dataspace(char const * /* path */) override
 		{
-			return Genode::Dataspace_capability();
+			return Dataspace_capability();
 		}
 
 		void release(char const * /* path */, Dataspace_capability) override
@@ -1909,7 +1977,7 @@ class Vfs_tresor::Snapshots_file_system : public Vfs::File_system
 
 				out_stat.type   = Node_type::DIRECTORY;
 				out_stat.inode  = 1;
-				out_stat.device = (Genode::addr_t)this;
+				out_stat.device = (addr_t)this;
 				return STAT_OK;
 			}
 
@@ -2152,7 +2220,7 @@ class Vfs_tresor::Control_file_system : private Control_local_factory,
 	public:
 
 		Control_file_system(Vfs::Env         &vfs_env,
-		                    Genode::Xml_node  node,
+		                    Xml_node  node,
 		                    Tresor_adapter          &tresor)
 		:
 			Control_local_factory(vfs_env, node, tresor),
@@ -2239,7 +2307,7 @@ class Vfs_tresor::File_system : private Local_factory,
 
 	public:
 
-		File_system(Vfs::Env &vfs_env, Genode::Xml_node node,
+		File_system(Vfs::Env &vfs_env, Xml_node node,
 		            Tresor_adapter &adapter)
 		:
 			Local_factory(vfs_env, node, adapter),
@@ -2247,7 +2315,7 @@ class Vfs_tresor::File_system : private Local_factory,
 			                     *this),
 			_adapter(adapter)
 		{
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 }
 
 		~File_system()
@@ -2270,16 +2338,16 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 {
 	struct Factory : Vfs::File_system_factory
 	{
-		Genode::Allocator *_alloc_ptr { };
+		Allocator *_alloc_ptr { };
 		Vfs_tresor::Tresor_adapter *_adapter_ptr { };
 
 		Vfs::File_system *create(Vfs::Env &env, Xml_node node) override
 		{
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 			try {
 				if (!_adapter_ptr)
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 					_alloc_ptr = &env.alloc();
 					_adapter_ptr = new (*_alloc_ptr) Vfs_tresor::Tresor_adapter { env, node };
 }
@@ -2310,7 +2378,7 @@ log(__func__," ",__LINE__);
 
 void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 	if (_snapshots_fs_ptr)
 		_snapshots_fs_ptr->update_snapshot_registry();
 }
@@ -2318,7 +2386,7 @@ log(__func__," ",__LINE__);
 
 void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 	if (_extend_fs_ptr)
 		_extend_fs_ptr->trigger_watch_response();
 }
@@ -2326,7 +2394,7 @@ log(__func__," ",__LINE__);
 
 void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 	if (_extend_progress_fs_ptr)
 		_extend_progress_fs_ptr->trigger_watch_response();
 }
@@ -2334,7 +2402,7 @@ log(__func__," ",__LINE__);
 
 void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 	if (_rekey_fs_ptr)
 		_rekey_fs_ptr->trigger_watch_response();
 }
@@ -2342,7 +2410,7 @@ log(__func__," ",__LINE__);
 
 void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 	if (_rekey_progress_fs_ptr)
 		_rekey_progress_fs_ptr->trigger_watch_response();
 }
@@ -2350,7 +2418,7 @@ log(__func__," ",__LINE__);
 
 void Vfs_tresor::Tresor_adapter::_deinit_fs_trigger_watch_response()
 {
-log(__func__," ",__LINE__);
+// log(__func__," ",__LINE__);
 	if (_deinit_fs_ptr)
 		_deinit_fs_ptr->trigger_watch_response();
 }
@@ -2363,7 +2431,9 @@ log(__func__," ",__LINE__);
 void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_env)
 {
 	Tresor::Snapshots_info snap_info { };
-	_adapter.snapshots_info(snap_info);
+	_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+		adapter.snapshots_info(snap_info);
+	});
 	bool trigger_watch_response { false };
 
 	/* alloc new */
@@ -2382,7 +2452,7 @@ void Vfs_tresor::Snapshots_file_system::Snapshot_registry::update(Vfs::Env &vfs_
 		if (!is_old) {
 
 			new (_alloc)
-				Genode::Registered<Snapshot_file_system> {
+				Registered<Snapshot_file_system> {
 					_registry, vfs_env, _adapter, snap_gen, true };
 
 			++_number_of_snapshots;
