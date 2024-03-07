@@ -40,7 +40,7 @@ namespace Vfs_tresor {
 	enum { VERBOSE = 1 };
 
 	template <typename> class Schedule;
-	class Schedule_item;
+	class Request_interface;
 	class Data_file_system;
 	class Extend_file_system;
 	class Extend_progress_file_system;
@@ -62,29 +62,25 @@ namespace Vfs_tresor {
 	class Initialized_tresor_adapter_interface;
 }
 
-struct Vfs_tresor::Crypto_key
-{
-	Key_id const key_id;
-	Vfs::Vfs_handle &encrypt_file;
-	Vfs::Vfs_handle &decrypt_file;
-};
-
 template <typename T>
 class Vfs_tresor::Schedule : Noncopyable
 {
+	public:
+
+		using Item = List_element<T>;
+
 	private:
 
-		T *_tail { };
-		List<T> _list { };
+		Item *_tail_ptr { };
+		List<Item> _list { };
 
 	public:
 
-		using Item = List<T>::Element;
 
-		void add_tail(T &request)
+		void add_tail(Item &item)
 		{
-			_list.insert(&request, _tail);
-			_tail = &request;
+			_list.insert(&item, _tail_ptr);
+			_tail_ptr = &item;
 		}
 
 		bool empty() const { return !_list.first(); }
@@ -93,42 +89,38 @@ class Vfs_tresor::Schedule : Noncopyable
 		void with_head(FN && fn)
 		{
 			if (_list.first())
-				fn(*_list.first());
+				fn(*_list.first()->object());
 		}
 
 		void remove_head()
 		{
-			T *head = _list.first();
-			if (!head)
+			Item *head_ptr = _list.first();
+			if (!head_ptr)
 				return;
 
-			_list.remove(head);
-			if (_tail == head)
-				_tail = _list.first();
+			_list.remove(head_ptr);
+			if (_tail_ptr == head_ptr)
+				_tail_ptr = _list.first();
 		}
 
 		template <typename CAN_YIELD_TO_FN>
 		void try_yield_head(CAN_YIELD_TO_FN && can_yield_to)
 		{
-			T *head = _list.first();
-			if (!head)
+			Item *head_ptr = _list.first();
+			if (!head_ptr)
 				return;
 
-			T *next = head->Item::_next;
-			if (!next || !can_yield_to(*next))
+			Item *next_ptr = head_ptr->List<Item>::Element::next();
+			if (!next_ptr || !can_yield_to(*next_ptr->object()))
 				return;
 
 			remove_head();
-			_list.insert(head, next);
+			_list.insert(head_ptr, next_ptr);
 		}
 };
 
-
-struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
+struct Vfs_tresor::Request_interface
 {
-	friend class Schedule<Schedule_item>;
-	friend class List<Schedule_item>;
-
 	struct Execute_attr
 	{
 		Splitter &splitter;
@@ -150,9 +142,8 @@ struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
 
 	virtual bool can_be_yielded_to() const = 0;
 
-	virtual ~Schedule_item() { }
+	virtual ~Request_interface() { }
 };
-
 
 struct Vfs_tresor::Initialized_tresor_adapter_interface
 {
@@ -160,7 +151,7 @@ struct Vfs_tresor::Initialized_tresor_adapter_interface
 
 	virtual size_t data_file_size() const = 0;
 
-	virtual void add_to_schedule(Schedule_item &) = 0;
+	virtual void add_to_schedule(Schedule<Request_interface>::Item &) = 0;
 
 	virtual void snapshots_info(Snapshots_info &) = 0;
 
@@ -169,12 +160,18 @@ struct Vfs_tresor::Initialized_tresor_adapter_interface
 	virtual ~Initialized_tresor_adapter_interface() = 0;
 };
 
-
 class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface, Initialized_tresor_adapter_interface
 {
 	private:
 
 		enum { MAX_NUM_COMMANDS = 16 };
+
+		struct Crypto_key
+		{
+			Key_id const key_id;
+			Vfs::Vfs_handle &encrypt_file;
+			Vfs::Vfs_handle &decrypt_file;
+		};
 
 		Vfs::Env &_vfs_env;
 		bool const _verbose;
@@ -190,7 +187,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Vfs::Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
 		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Schedule<Schedule_item> _schedule { };
+		Schedule<Request_interface> _schedule { };
 		Tresor::Free_tree _free_tree { };
 		Tresor::Virtual_block_device _vbd { };
 		Superblock_control _sb_control { };
@@ -240,18 +237,18 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		bool _execute_schedule_items()
 		{
 			bool progress = false;
-			_schedule.with_head([&] (Schedule_item &head) {
+			_schedule.with_head([&] (Request_interface &head) {
 
 				progress |= head.execute({_splitter, _sb_control, *this, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor});
 				switch (head.scheduling_state()) {
-				case Schedule_item::COMPLETE: _schedule.remove_head(); break;
-				case Schedule_item::CAN_YIELD:
+				case Request_interface::COMPLETE: _schedule.remove_head(); break;
+				case Request_interface::CAN_YIELD:
 
-					_schedule.try_yield_head([&] (Schedule_item const &item) {
-						return item.can_be_yielded_to(); });
+					_schedule.try_yield_head([&] (Request_interface const &to_req) {
+						return to_req.can_be_yielded_to(); });
 					break;
 
-				case Schedule_item::CANNOT_YIELD: break;
+				case Request_interface::CANNOT_YIELD: break;
 				}
 			});
 			return progress;
@@ -315,7 +312,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
 		}
 
-		void add_to_schedule(Schedule_item &item) override
+		void add_to_schedule(Schedule<Request_interface>::Item &item) override
 		{
 			_schedule.add_tail(item);
 		}
@@ -453,7 +450,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 	public:
 
-		class Vfs_handle : Noncopyable, public Single_vfs_handle, Schedule_item
+		class Vfs_handle : Noncopyable, Request_interface, public Single_vfs_handle
 		{
 			private:
 
@@ -462,6 +459,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				State _state { INIT };
 				Tresor_adapter &_adapter;
 				Generation const _generation { };
+				Schedule<Request_interface>::Item _schedule_item { this };
 				Constructible<Splitter::Write> _write { };
 				Constructible<Splitter::Read> _read { };
 				Constructible<Superblock_control::Synchronize> _sync { };
@@ -470,9 +468,10 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				{
 					Sync_result result;
 					if (_sync->complete()) {
-						if (_sync->success())
+						if (_sync->success()) {
 							result = SYNC_OK;
-						else
+							log("sync succeeded");
+						} else
 							result = SYNC_ERR_INVALID;
 						_sync.destruct();
 						_state = INIT;
@@ -488,6 +487,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 						if (_write->success()) {
 							out_count = dst_num_bytes;
 							result = WRITE_OK;
+							log("write (start ", seek(), " size ", dst_num_bytes, ") succeeded");
 						} else {
 							out_count = 0;
 							result = WRITE_ERR_IO;
@@ -501,13 +501,14 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					return result;
 				}
 
-				Read_result _try_complete_read(size_t dst_num_bytes, size_t &out_count)
+				Read_result _try_complete_read(size_t src_num_bytes, size_t &out_count)
 				{
 					Read_result result;
 					if (_read->complete()) {
 						if (_read->success()) {
-							out_count = dst_num_bytes;
+							out_count = src_num_bytes;
 							result = READ_OK;
+							log("read (start ", seek(), " size ", src_num_bytes, ") succeeded");
 						} else {
 							out_count = 0;
 							result = READ_ERR_IO;
@@ -521,9 +522,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					return result;
 				}
 
-				/*******************
-				 ** Schedule_item **
-				 *******************/
+				/***********************
+				 ** Request_interface **
+				 ***********************/
 
 				bool execute(Execute_attr const &attr) override
 				{
@@ -581,7 +582,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 							}
 							_read.construct(Splitter::Read::Attr{seek(), _generation, dst.start, dst.num_bytes});
 							_state = READ;
-							adapter.add_to_schedule(*this);
+							adapter.add_to_schedule(_schedule_item);
 							while (adapter.execute()) ;
 							result = _try_complete_read(dst.num_bytes, out_count);
 							break;
@@ -612,7 +613,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 							}
 							_write.construct(Splitter::Write::Attr{seek(), _generation, src.start, src.num_bytes});
 							_state = WRITE;
-							adapter.add_to_schedule(*this);
+							adapter.add_to_schedule(_schedule_item);
 							while (adapter.execute()) ;
 							result = _try_complete_write(src.num_bytes, out_count);
 							break;
@@ -638,7 +639,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 						{
 							_sync.construct(Superblock_control::Synchronize::Attr{});
 							_state = SYNC;
-							adapter.add_to_schedule(*this);
+							adapter.add_to_schedule(_schedule_item);
 							while (adapter.execute()) ;
 							result = _try_complete_sync();
 							break;
