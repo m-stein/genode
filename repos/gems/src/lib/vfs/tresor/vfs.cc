@@ -126,6 +126,7 @@ class Vfs_tresor::Schedule : Noncopyable
 struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
 {
 	friend class Schedule<Schedule_item>;
+	friend class List<Schedule_item>;
 
 	enum State { COMPLETE, CAN_YIELD, CANNOT_YIELD };
 

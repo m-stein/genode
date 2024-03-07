@@ -68,7 +68,7 @@ struct Tresor::Splitter : Noncopyable
 					Number_of_blocks num_blocks =
 						target_state == READ_MIDDLE_BLOCKS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
 
-					_read.construct(_curr_vba(), 0, num_blocks, 0, _gen);
+					_read.construct(Superblock_control::Read::Attr{{_curr_vba() * BLOCK_SIZE, num_blocks * BLOCK_SIZE}, 0, 0});
 					_helper.state = target_state;
 					progress = true;
 				}
@@ -229,10 +229,10 @@ struct Tresor::Splitter : Noncopyable
 
 					switch (target_state) {
 					case READ_FIRST_BLOCK:
-					case READ_LAST_BLOCK: _read.construct(_curr_vba(), 0, num_blocks, 0, _gen); break;
+					case READ_LAST_BLOCK: _read.construct(Superblock_control::Read::Attr{{_curr_vba() * BLOCK_SIZE, num_blocks * BLOCK_SIZE}, 0, 0}); break;
 					case WRITE_FIRST_BLOCK:
 					case WRITE_MIDDLE_BLOCKS:
-					case WRITE_LAST_BLOCK: _write.construct(_curr_vba(), 0, num_blocks, 0, _gen); break; 
+					case WRITE_LAST_BLOCK: _write.construct(Superblock_control::Write::Attr{{_curr_vba() * BLOCK_SIZE, num_blocks * BLOCK_SIZE}, 0, 0}); break;
 					default: ASSERT_NEVER_REACHED;
 					}
 					_helper.state = target_state;
@@ -392,6 +392,8 @@ struct Tresor::Splitter : Noncopyable
 			ASSERT(_read_ptr);
 			return _read_ptr->destination_buffer(vba);
 		}
+
+		static constexpr char const *name() { return "sb_control"; }
 };
 
 #endif /* _TRESOR__IO_SPLITTER_H_ */
