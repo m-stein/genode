@@ -31,13 +31,13 @@
 
 #include "splitter.h"
 
+using namespace Genode;
+using namespace Vfs;
+using namespace Tresor;
+
 namespace Vfs_tresor {
 
 	enum { VERBOSE = 1 };
-
-	using namespace Vfs;
-	using namespace Genode;
-	using namespace Tresor;
 
 	template <typename> class Schedule;
 	class Schedule_item;
@@ -140,7 +140,7 @@ struct Vfs_tresor::Schedule_item : private Schedule<Schedule_item>::Item
 };
 
 
-class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_key_files_interface
+class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface
 {
 	private:
 
@@ -205,7 +205,6 @@ class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_k
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
-
 		/********************************
 		 ** Crypto_key_files_interface **
 		 ********************************/
@@ -259,7 +258,9 @@ class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_k
 			_crypto_path(config.attribute_value("crypto", Tresor::Path())),
 			_block_io_path(config.attribute_value("block", Tresor::Path())),
 			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
-		{ }
+		{
+log(__func__," ",__LINE__);
+		}
 
 		addr_t last_byte_of_data_file() const
 		{
@@ -281,6 +282,7 @@ class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_k
 			bool progress = false;
 			_schedule.with_head([&] (Schedule_item &head) {
 
+log(__func__," ",__LINE__);
 				progress |= head.execute();
 				switch (head.state()) {
 				case Schedule_item::COMPLETE: _schedule.remove_head(); break;
@@ -298,6 +300,7 @@ class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_k
 
 		bool execute()
 		{
+log(__func__," ",__LINE__);
 			bool progress = _execute_schedule_items();
 			_wakeup_back_end_services();
 			return progress;
@@ -306,6 +309,7 @@ class Vfs_tresor::Tresor_adapter : public Client_data_interface, public Crypto_k
 		void snapshots_info(Tresor::Snapshots_info &info)
 		{
 			info = _sb_control.snapshots_info();
+log(__func__," ",__LINE__);
 			execute();
 		}
 
@@ -395,9 +399,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		Tresor_adapter &_adapter;
 		Generation const _generation;
 
-		using Read_result = Vfs::File_io_service::Read_result;
-		using Sync_result = Vfs::File_io_service::Sync_result;
-		using Write_result = Vfs::File_io_service::Write_result;
+		using Vfs::File_io_service::Read_result;
+		using Vfs::File_io_service::Sync_result;
+		using Vfs::File_io_service::Write_result;
 
 	public:
 
@@ -423,6 +427,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Sync_result _execute_sync()
 				{
 					Sync_result result;
+log(__func__," ",__LINE__);
 					while (_adapter.execute()) ;
 					if (_sync->complete()) {
 						if (_sync->success())
@@ -439,6 +444,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Write_result _execute_write(size_t dst_num_bytes, size_t &out_count)
 				{
 					Write_result result;
+log(__func__," ",__LINE__);
 					while (_adapter.execute()) ;
 					if (_write->complete()) {
 						if (_write->success()) {
@@ -460,6 +466,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Read_result _execute_read(size_t dst_num_bytes, size_t &out_count)
 				{
 					Read_result result;
+log(__func__," ",__LINE__);
 					while (_adapter.execute()) ;
 					if (_read->complete()) {
 						if (_read->success()) {
@@ -495,10 +502,13 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				:
 					Single_vfs_handle(dir_service, file_io_service, alloc, 0),
 					_adapter(adapter), _generation(generation)
-				{ }
+				{
+log(__func__," ",__LINE__);
+}
 
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
+log(__func__," ",__LINE__);
 					Read_result result;
 					switch (_state) {
 					case INIT:
@@ -526,6 +536,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 				{
+log(__func__," ",__LINE__);
 					Write_result result;
 					switch (_state) {
 					case INIT:
@@ -553,6 +564,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 				Sync_result sync() override
 				{
+log(__func__," ",__LINE__);
 					Sync_result result;
 					switch (_state) {
 					case INIT:
@@ -577,10 +589,13 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		:
 			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")),
 			_adapter(adapter), _generation(generation)
-		{ }
+		{
+log(__func__," ",__LINE__);
+}
 
 		~Data_file_system()
 		{
+log(__func__," ",__LINE__);
 			/* XXX sync on close */
 			/* XXX invalidate any still pending request */
 		}
@@ -591,6 +606,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 		Stat_result stat(char const *path, Stat &out) override
 		{
+log(__func__," ",__LINE__);
 			Stat_result result = Single_file_system::stat(path, out);
 			out.size = _adapter.size_of_data_file();
 			return result;
@@ -601,6 +617,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		 ********************************/
 
 		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
+log(__func__," ",__LINE__);
 			return FTRUNCATE_OK; }
 
 		/***************************
@@ -611,6 +628,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		                 Vfs::Vfs_handle **out_handle,
 		                 Allocator   &alloc) override
 		{
+log(__func__," ",__LINE__);
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
@@ -2228,7 +2246,9 @@ class Vfs_tresor::File_system : private Local_factory,
 			Vfs::Dir_file_system(vfs_env, Xml_node(_config(node).string()),
 			                     *this),
 			_adapter(adapter)
-		{ }
+		{
+log(__func__," ",__LINE__);
+}
 
 		~File_system()
 		{
@@ -2250,33 +2270,47 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 {
 	struct Factory : Vfs::File_system_factory
 	{
-		Vfs::File_system *create(Vfs::Env &vfs_env,
-		                         Genode::Xml_node node) override
+		Genode::Allocator *_alloc_ptr { };
+		Vfs_tresor::Tresor_adapter *_adapter_ptr { };
+
+		Vfs::File_system *create(Vfs::Env &env, Xml_node node) override
 		{
+log(__func__," ",__LINE__);
 			try {
-				/* XXX adapter is not managed and will leak */
-				Vfs_tresor::Tresor_adapter *adapter =
-					new (vfs_env.alloc()) Vfs_tresor::Tresor_adapter { vfs_env, node };
-				return new (vfs_env.alloc())
-					Vfs_tresor::File_system(vfs_env, node, *adapter);
+				if (!_adapter_ptr)
+{
+log(__func__," ",__LINE__);
+					_alloc_ptr = &env.alloc();
+					_adapter_ptr = new (*_alloc_ptr) Vfs_tresor::Tresor_adapter { env, node };
+}
+
+				return new (env.alloc()) Vfs_tresor::File_system(env, node, *_adapter_ptr);
+
 			} catch (...) {
-				Genode::error("could not create 'tresor_fs' ");
+				error("could not create 'tresor_fs' ");
 			}
 			return nullptr;
 		}
+
+		~Factory()
+		{
+			if (_adapter_ptr)
+				destroy(_alloc_ptr, _adapter_ptr);
+		}
 	};
 
-	static Factory factory;
+	static Factory factory { };
 	return &factory;
 }
 
 
-/**********************
+/********************************
  ** Vfs_tresor::Tresor_adapter **
- **********************/
+ ********************************/
 
 void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 {
+log(__func__," ",__LINE__);
 	if (_snapshots_fs_ptr)
 		_snapshots_fs_ptr->update_snapshot_registry();
 }
@@ -2284,6 +2318,7 @@ void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 
 void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 {
+log(__func__," ",__LINE__);
 	if (_extend_fs_ptr)
 		_extend_fs_ptr->trigger_watch_response();
 }
@@ -2291,6 +2326,7 @@ void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 {
+log(__func__," ",__LINE__);
 	if (_extend_progress_fs_ptr)
 		_extend_progress_fs_ptr->trigger_watch_response();
 }
@@ -2298,6 +2334,7 @@ void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 {
+log(__func__," ",__LINE__);
 	if (_rekey_fs_ptr)
 		_rekey_fs_ptr->trigger_watch_response();
 }
@@ -2305,6 +2342,7 @@ void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 {
+log(__func__," ",__LINE__);
 	if (_rekey_progress_fs_ptr)
 		_rekey_progress_fs_ptr->trigger_watch_response();
 }
@@ -2312,6 +2350,7 @@ void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_deinit_fs_trigger_watch_response()
 {
+log(__func__," ",__LINE__);
 	if (_deinit_fs_ptr)
 		_deinit_fs_ptr->trigger_watch_response();
 }
