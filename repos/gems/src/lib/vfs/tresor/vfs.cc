@@ -925,6 +925,7 @@ class Vfs_tresor::Wrapper
 		void snapshots_info(Tresor::Snapshots_info &info)
 		{
 			info = _sb_control->snapshots_info();
+log(__func__," ",__LINE__, " info: ", info);
 			execute();
 		}
 
