@@ -44,6 +44,7 @@ namespace Vfs_tresor {
 	class Data_file_system;
 	class Extend_file_system;
 	class Extend_progress_file_system;
+	class Rekeying;
 	class Rekey_file_system;
 	class Rekey_progress_file_system;
 	class Deinitialize_file_system;
@@ -134,7 +135,7 @@ struct Vfs_tresor::Request_interface
 		Trust_anchor &trust_anchor;
 	};
 
-	enum Scheduling_state { COMPLETE, CAN_YIELD, CANNOT_YIELD };
+	enum Scheduling_state { REMOVE_FROM_SCHEDULE, CAN_YIELD, CANNOT_YIELD };
 
 	virtual bool execute(Execute_attr const &attr) = 0;
 
@@ -142,7 +143,7 @@ struct Vfs_tresor::Request_interface
 
 	virtual bool can_be_yielded_to() const = 0;
 
-	virtual ~Request_interface() = 0;
+	virtual ~Request_interface() { };
 };
 
 struct Vfs_tresor::Initialized_tresor_adapter_interface
@@ -157,7 +158,103 @@ struct Vfs_tresor::Initialized_tresor_adapter_interface
 
 	virtual bool execute() = 0;
 
-	virtual ~Initialized_tresor_adapter_interface() = 0;
+	virtual ~Initialized_tresor_adapter_interface() { };
+};
+
+class Vfs_tresor::Rekeying : Noncopyable, Request_interface
+{
+	public:
+
+		enum Result { NONE, SUCCEEDED, FAILED, QUEUED };
+
+	private:
+
+		enum State { INIT, REKEY, REKEY_SUCCEEDED, COMPLETE };
+
+		State _state { INIT };
+		Result _last_result { NONE };
+		bool _rekeying_finished { };
+		Constructible<Superblock_control::Rekey> _rekey { };
+		Schedule<Request_interface>::Item _schedule_item { this };
+
+		/***********************
+		 ** Request_interface **
+		 ***********************/
+
+		bool execute(Execute_attr const &attr) override
+		{
+			bool progress = false;
+			switch (_state) {
+			case REKEY:
+
+				progress = attr.sb_control.execute(
+					*_rekey, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.crypto, attr.trust_anchor);
+
+				if (_rekey->complete()) {
+					if (_rekey->success()) {
+						if (_rekeying_finished) {
+							_last_result = SUCCEEDED;
+							_state = COMPLETE;
+						} else
+							_state = REKEY_SUCCEEDED;
+					} else {
+						_last_result = FAILED;
+						_state = COMPLETE;
+					}
+					_rekey.destruct();
+					progress = true;
+				}
+				break;
+
+			case REKEY_SUCCEEDED:
+
+				_rekey.construct(Superblock_control::Rekey::Attr{_rekeying_finished});
+				_state = REKEY;
+				progress = true;
+				break;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+			return progress;
+		}
+
+		Scheduling_state scheduling_state() const override
+		{
+			switch (_state) {
+			case REKEY: return CANNOT_YIELD;
+			case REKEY_SUCCEEDED: return CAN_YIELD;
+			case COMPLETE: return REMOVE_FROM_SCHEDULE;
+			default: break;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		bool can_be_yielded_to() const override { return false; };
+
+	public:
+
+		bool try_start(Initialized_tresor_adapter_interface &adapter)
+		{
+			switch (_state) {
+			case INIT:
+			case COMPLETE:
+
+				_last_result = QUEUED;
+				_rekeying_finished = false;
+				_rekey.construct(Superblock_control::Rekey::Attr{_rekeying_finished});
+				_state = REKEY;
+				adapter.add_to_schedule(_schedule_item);
+				if (VERBOSE)
+					log("rekeying started");
+
+				return true;
+
+			default: break;
+			}
+			return false;
+		}
+
+		Result last_result() { return _last_result; }
 };
 
 class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface, Initialized_tresor_adapter_interface
@@ -172,65 +269,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			Vfs::Vfs_handle &encrypt_file;
 			Vfs::Vfs_handle &decrypt_file;
 		};
-
-		struct Rekeying_control : private Request_interface
-		{
-			private:
-
-				enum State { INIT, REKEY, REKEY_SUCCEEDED, COMPLETE };
-
-				State state { INIT };
-				bool success { };
-				bool rekey_finished { };
-				Constructible<Superblock_control::Rekey> rekey { };
-				Schedule<Request_interface>::Item schedule_item { this };
-
-				/***********************
-				 ** Request_interface **
-				 ***********************/
-
-				bool execute(Execute_attr const &attr) override
-				{
-					bool progress = false;
-					switch (state) {
-					case REKEY:
-
-						progress = attr.sb_control.execute(
-							*rekey, {attr.block_io, attr.crypto, attr.trust_anchor, attr.client_data,
-							attr.free_tree, attr.meta_tree, attr.vbd});
-				}
-
-				Scheduling_state scheduling_state() const
-				{
-					ASSERT(rekey.constructed());
-					return rekey_
-				}
-
-				bool can_be_yielded_to() const = 0;
-
-			public:
-
-				enum Rekeying_result { NONE, SUCCEEDED, FAILED, PENDING };
-
-				bool try_start_rekeying(Initialized_tresor_adapter_interface &adapter)
-				{
-					switch (state) {
-					case INIT:
-					case COMPLETE:
-
-						rekey_finished = false;
-						rekey.construct(Superblock_ctl::Rekey::Attr{rkg_ctl.rekey_finished});
-						adapter.add_to_schedule(rkg_ctl.schedule_item);
-						if (VERBOSE)
-							log("rekeying started");
-
-						return true;
-
-					default: break;
-					}
-					return false;
-				}
-		}
 
 		Vfs::Env &_vfs_env;
 		bool const _verbose;
@@ -264,6 +302,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Constructible<Crypto_key> _crypto_keys[2] { };
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
+		Rekeying _rekeying { };
 
 		/*
 		 * Noncopyable
@@ -300,7 +339,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 				progress |= head.execute({_splitter, _sb_control, *this, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor});
 				switch (head.scheduling_state()) {
-				case Request_interface::COMPLETE: _schedule.remove_head(); break;
+				case Request_interface::REMOVE_FROM_SCHEDULE: _schedule.remove_head(); break;
 				case Request_interface::CAN_YIELD:
 
 					_schedule.try_yield_head([&] (Request_interface const &to_req) {
@@ -428,10 +467,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		}
 
 		template <typename FUNC>
-		void with_rekeying_control(FUNC && func)
+		void with_rekeying(FUNC && func)
 		{
 			if (_try_complete_init_sb_control())
-				func(*this, _rekeying_control);
+				func(*this, _rekeying);
 		}
 
 		/***********************************************************
@@ -623,9 +662,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Scheduling_state scheduling_state() const override
 				{
 					switch (_state) {
-					case WRITE: return _write->complete() ? COMPLETE : CANNOT_YIELD;
-					case READ: return _read->complete() ? COMPLETE : CANNOT_YIELD;
-					case SYNC: return _sync->complete() ? COMPLETE : CANNOT_YIELD;
+					case WRITE: return _write->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
+					case READ: return _read->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
+					case SYNC: return _sync->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
 					case INIT: break;
 					}
 					ASSERT_NEVER_REACHED;
@@ -1095,27 +1134,28 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			{
 				out_count = 0;
 				Read_result result = READ_QUEUED;
-				_adapter.with_rekeying_control([&] (Initialized_tresor_adapter_interface &, Rekeying_control &rkg_ctl) {
+				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
 
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
 						result = READ_ERR_IO;
 						return;
 					}
 					while (adapter.execute()) ;
-					switch (rkg_ctl.last_rekeying_result()) {
-					case Rekeying_control::NONE: result = _read_ok("none", dst, out_count); break;
-					case Rekeying_control::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-					case Rekeying_control::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Rekeying_control::PENDING: break;
+					switch (rekeying.last_result()) {
+					case Rekeying::NONE: result = _read_ok("none", dst, out_count); break;
+					case Rekeying::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+					case Rekeying::FAILED: result = _read_ok("failed", dst, out_count); break;
+					case Rekeying::QUEUED: break;
 					}
 				});
+				return result;
 			}
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
 				out_count = 0;
 				Write_result result = WRITE_ERR_WOULD_BLOCK;
-				_adapter.with_rekeying_control([&] (Initialized_tresor_adapter_interface &adapter, Rekeying_control &rkg_ctl) {
+				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
 
 					bool value { false };
 					Genode::ascii_to(src.start, value);
@@ -1124,14 +1164,14 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 						return;
 					}
 					while (adapter.execute()) ;
-					if (!rkg_ctl.try_start_rekeying(adapter) {
+					if (!rekeying.try_start(adapter)) {
 						result = WRITE_ERR_IO;
 						return;
 					}
 					out_count = src.num_bytes;
 					result = WRITE_OK;
-					}
 				});
+				return result;
 			}
 
 			bool read_ready()  const override { return true; }
