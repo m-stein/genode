@@ -42,6 +42,7 @@ namespace Vfs_tresor {
 	template <typename> class Schedule;
 	class Request_interface;
 	class Data_file_system;
+	class Extend_request;
 	class Extend_file_system;
 	class Extend_progress_file_system;
 	class Rekeying;
@@ -195,11 +196,16 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 						if (_rekeying_finished) {
 							_last_result = SUCCEEDED;
 							_state = COMPLETE;
-						} else
+							if (VERBOSE)
+								log("rekeying succeeded");
+						} else {
 							_state = REKEY_SUCCEEDED;
+						}
 					} else {
 						_last_result = FAILED;
 						_state = COMPLETE;
+						if (VERBOSE)
+							log("rekeying failed");
 					}
 					_rekey.destruct();
 					progress = true;
@@ -257,6 +263,167 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 		Result last_result() { return _last_result; }
 };
 
+class Vfs_tresor::Extend_request : Noncopyable, Request_interface
+{
+	public:
+
+		enum Result { NONE, SUCCEEDED, FAILED, QUEUED };
+
+	private:
+
+		enum State { INIT, EXTEND_FT, EXTEND_FT_SUCCEEDED, EXTEND_VBD, EXTEND_VBD_SUCCEEDED, COMPLETE };
+
+		State _state { INIT };
+		Result _last_result { NONE };
+		bool _complete { };
+		Number_of_blocks _num_blocks { };
+		Constructible<Superblock_control::Extend_free_tree> _extend_ft { };
+		Constructible<Superblock_control::Extend_vbd> _extend_vbd { };
+		Schedule<Request_interface>::Item _schedule_item { this };
+
+		/***********************
+		 ** Request_interface **
+		 ***********************/
+
+		bool execute(Execute_attr const &attr) override
+		{
+			bool progress = false;
+			switch (_state) {
+			case EXTEND_FT:
+
+				progress = attr.sb_control.execute(
+					*_extend_ft, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor);
+
+				if (_extend_ft->complete()) {
+					if (_extend_ft->success()) {
+						if (_complete) {
+							_last_result = SUCCEEDED;
+							_state = COMPLETE;
+							if (VERBOSE)
+								log("free-tree extension succeeded");
+						} else {
+							_state = EXTEND_FT_SUCCEEDED;
+						}
+					} else {
+						_last_result = FAILED;
+						_state = COMPLETE;
+						if (VERBOSE)
+							log("free-tree extension failed");
+					}
+					_extend_ft.destruct();
+					progress = true;
+				}
+				break;
+
+			case EXTEND_FT_SUCCEEDED:
+
+				_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
+				_state = EXTEND_FT;
+				progress = true;
+				break;
+
+			case EXTEND_VBD:
+
+				progress = attr.sb_control.execute(
+					*_extend_vbd, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor);
+
+				if (_extend_vbd->complete()) {
+					if (_extend_vbd->success()) {
+						if (_complete) {
+							_last_result = SUCCEEDED;
+							_state = COMPLETE;
+							if (VERBOSE)
+								log("VBD extension succeeded");
+						} else {
+							_state = EXTEND_VBD_SUCCEEDED;
+						}
+					} else {
+						_last_result = FAILED;
+						_state = COMPLETE;
+						if (VERBOSE)
+							log("VBD extension failed");
+					}
+					_extend_vbd.destruct();
+					progress = true;
+				}
+				break;
+
+			case EXTEND_VBD_SUCCEEDED:
+
+				_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
+				_state = EXTEND_VBD;
+				progress = true;
+				break;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+			return progress;
+		}
+
+		Scheduling_state scheduling_state() const override
+		{
+			switch (_state) {
+			case EXTEND_FT: return CANNOT_YIELD;
+			case EXTEND_FT_SUCCEEDED: return CAN_YIELD;
+			case EXTEND_VBD: return CANNOT_YIELD;
+			case EXTEND_VBD_SUCCEEDED: return CAN_YIELD;
+			case COMPLETE: return REMOVE_FROM_SCHEDULE;
+			default: break;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		bool can_be_yielded_to() const override { return false; };
+
+	public:
+
+		bool try_start_extending_free_tree(Initialized_tresor_adapter_interface &adapter, Number_of_blocks num_blocks)
+		{
+			switch (_state) {
+			case INIT:
+			case COMPLETE:
+
+				_num_blocks = num_blocks;
+				_last_result = QUEUED;
+				_complete = false;
+				_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
+				_state = EXTEND_FT;
+				adapter.add_to_schedule(_schedule_item);
+				if (VERBOSE)
+					log("free-tree extension started");
+
+				return true;
+
+			default: break;
+			}
+			return false;
+		}
+
+		bool try_start_extending_vbd(Initialized_tresor_adapter_interface &adapter, Number_of_blocks num_blocks)
+		{
+			switch (_state) {
+			case INIT:
+			case COMPLETE:
+
+				_num_blocks = num_blocks;
+				_last_result = QUEUED;
+				_complete = false;
+				_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
+				_state = EXTEND_VBD;
+				adapter.add_to_schedule(_schedule_item);
+				if (VERBOSE)
+					log("VBD extension started");
+
+				return true;
+
+			default: break;
+			}
+			return false;
+		}
+
+		Result last_result() { return _last_result; }
+};
+
 class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface, Initialized_tresor_adapter_interface
 {
 	private:
@@ -303,6 +470,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
 		Rekeying _rekeying { };
+		Extend_request _extend_request { };
 
 		/*
 		 * Noncopyable
@@ -354,18 +522,18 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		bool _try_complete_init_sb_control()
 		{
-			if (_init_sb_control_ptr) {
+			if (!_init_sb_control_ptr)
+				return true;
 
-				while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
-				if (_init_sb_control_ptr->complete()) {
+			while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
+			if (_init_sb_control_ptr->complete()) {
 
-					ASSERT(_init_sb_control_ptr->success());
-					destroy(_vfs_env.alloc(), _init_sb_control_ptr);
-					_init_sb_control_ptr = nullptr;
-					return true;
-				}
-				_wakeup_back_end_services();
+				ASSERT(_init_sb_control_ptr->success());
+				destroy(_vfs_env.alloc(), _init_sb_control_ptr);
+				_init_sb_control_ptr = nullptr;
+				return true;
 			}
+			_wakeup_back_end_services();
 			return false;
 		}
 
@@ -471,6 +639,13 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		{
 			if (_try_complete_init_sb_control())
 				func(*this, _rekeying);
+		}
+
+		template <typename FUNC>
+		void with_extend_request(FUNC && func)
+		{
+			if (_try_complete_init_sb_control())
+				func(*this, _extend_request);
 		}
 
 		/***********************************************************
@@ -582,12 +757,16 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 							result = SYNC_OK;
 							if (VERBOSE)
 								log("sync succeeded");
-						} else
+						} else {
 							result = SYNC_ERR_INVALID;
+							if (VERBOSE)
+								log("sync failed");
+						}
 						_sync.destruct();
 						_state = INIT;
 					} else
 						result = SYNC_QUEUED;
+
 					return result;
 				}
 
@@ -603,6 +782,8 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 						} else {
 							out_count = 0;
 							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("write (seek ", seek(), " size ", src_num_bytes, ") failed");
 						}
 						_write.destruct();
 						_state = INIT;
@@ -625,6 +806,8 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 						} else {
 							out_count = 0;
 							result = READ_ERR_IO;
+							if (VERBOSE)
+								log("read (seek ", seek(), " size ", dst_num_bytes, ") failed");
 						}
 						_read.destruct();
 						_state = INIT;
@@ -670,7 +853,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					ASSERT_NEVER_REACHED;
 				}
 
-				bool can_be_yielded_to() const override { ASSERT_NEVER_REACHED; }
+				bool can_be_yielded_to() const override { return true; }
 
 			public:
 
@@ -691,6 +874,8 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 						{
 							if (adapter.exceeds_data_file_range(seek(), dst.num_bytes)) {
 								result = READ_ERR_IO;
+								if (VERBOSE)
+									log("read (seek ", seek(), " size ", dst.num_bytes, ") exceeds file");
 								break;
 							}
 							_read.construct(Splitter::Read::Attr{seek(), _generation, dst.start, dst.num_bytes});
@@ -725,6 +910,8 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 						{
 							if (adapter.exceeds_data_file_range(seek(), src.num_bytes)) {
 								result = WRITE_ERR_IO;
+								if (VERBOSE)
+									log("write (seek ", seek(), " size ", src.num_bytes, ") exceeds file");
 								break;
 							}
 							_write.construct(Splitter::Write::Attr{seek(), _generation, src.start, src.num_bytes});
@@ -845,37 +1032,102 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 		Tresor_adapter &_adapter;
 
-		using Content_string = String<32>;
+		using Content_string = String<11>;
 
-		static file_size copy_content(Content_string const &content,
-		                              char *dst, size_t const count)
+		class Vfs_handle : public Single_vfs_handle
 		{
-			copy_cstring(dst, content.string(), count);
-			size_t const length_without_nul = content.length() - 1;
-			return count > length_without_nul - 1 ? length_without_nul
-			                                      : count;
-		}
+			private:
 
-		struct Vfs_handle : Single_vfs_handle
-		{
-			Tresor_adapter &_adapter;
+				enum Tree { VBD, FREE_TREE };
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
+				Tresor_adapter &_adapter;
+
+				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
+				{
+					copy_cstring(dst.start, content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
+
+			public:
+
+			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+			           Allocator &alloc, Tresor_adapter &adapter)
 			:
-				Single_vfs_handle(ds, fs, alloc, 0), _adapter(adapter)
+				Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
 			{ }
 
-			Read_result read(Byte_range_ptr const &, size_t &) override
+			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
-				ASSERT_NEVER_REACHED;
+				out_count = 0;
+				Read_result result = READ_QUEUED;
+				_adapter.with_extend_request([&] (Initialized_tresor_adapter_interface &adapter, Extend_request &extend_request) {
+
+					if (seek() == dst.num_bytes) {
+						result = READ_OK;
+						return;
+					}
+					if (seek() || dst.num_bytes < Content_string::capacity()) {
+						result = READ_ERR_IO;
+						if (VERBOSE)
+							log("malformed read request at extend file");
+						return;
+					}
+					while (adapter.execute()) ;
+					switch (extend_request.last_result()) {
+					case Extend_request::NONE: result = _read_ok("none", dst, out_count); break;
+					case Extend_request::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+					case Extend_request::FAILED: result = _read_ok("failed", dst, out_count); break;
+					case Extend_request::QUEUED: break;
+					}
+				});
+				return result;
 			}
 
-			Write_result write(Const_byte_range_ptr const &, size_t &) override
+			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				ASSERT_NEVER_REACHED;
+				out_count = 0;
+				Write_result result = WRITE_ERR_WOULD_BLOCK;
+				_adapter.with_extend_request([&] (Initialized_tresor_adapter_interface &adapter, Extend_request &extend_request) {
+
+					char tree_arg[16];
+					Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
+					unsigned long blocks_arg = Arg_string::find_arg(src.start, "blocks").ulong_value(0);
+					if (seek() || !blocks_arg) {
+						result = WRITE_ERR_IO;
+						if (VERBOSE)
+							log("malformed write request at extend file");
+					}
+					while (adapter.execute()) ;
+					if (!strcmp("ft", tree_arg, 2)) {
+
+						if (!extend_request.try_start_extending_free_tree(adapter, blocks_arg)) {
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("failed to start extending free tree");
+							return;
+						}
+
+					} else if (!strcmp("vbd", tree_arg, 3)) {
+
+						if (!extend_request.try_start_extending_vbd(adapter, blocks_arg)) {
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("failed to start extending free tree");
+							return;
+						}
+
+					} else {
+
+						result = WRITE_ERR_IO;
+						if (VERBOSE)
+							log("malformed tree argument while writing extend file");
+						return;
+					}
+					out_count = src.num_bytes;
+					result = WRITE_OK;
+				});
+				return result;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -1136,8 +1388,14 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 				Read_result result = READ_QUEUED;
 				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
 
+					if (seek() == dst.num_bytes) {
+						result = READ_OK;
+						return;
+					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
 						result = READ_ERR_IO;
+						if (VERBOSE)
+							log("malformed read request at rekey file");
 						return;
 					}
 					while (adapter.execute()) ;
@@ -1157,15 +1415,19 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 				Write_result result = WRITE_ERR_WOULD_BLOCK;
 				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
 
-					bool value { false };
-					Genode::ascii_to(src.start, value);
-					if (seek() || !value) {
+					bool start_rekeying_arg { false };
+					Genode::ascii_to(src.start, start_rekeying_arg);
+					if (seek() || !start_rekeying_arg) {
 						result = WRITE_ERR_IO;
+						if (VERBOSE)
+							log("malformed write request at rekey file");
 						return;
 					}
 					while (adapter.execute()) ;
 					if (!rekeying.try_start(adapter)) {
 						result = WRITE_ERR_IO;
+						if (VERBOSE)
+							log("failed to start rekeying");
 						return;
 					}
 					out_count = src.num_bytes;

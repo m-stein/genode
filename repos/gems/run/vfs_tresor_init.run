@@ -4,7 +4,7 @@ proc tresor_image_file { } {
 	return "vfs_tresor_block.img"
 }
 
-set image_size 32
+set image_size 4
 
 proc tresor_image_size_mb { } {
 	global image_size
