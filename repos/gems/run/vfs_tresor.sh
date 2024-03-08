@@ -221,6 +221,8 @@ main() {
 	test_write_1 "$data_file" "419"
 	echo "read..."
 	test_read_compare_1 "$data_file" "419"
+	echo "rekey..."
+	test_rekey_start "$tresor_dir"
 	echo "done!"
 }
 

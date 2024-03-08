@@ -142,7 +142,7 @@ struct Vfs_tresor::Request_interface
 
 	virtual bool can_be_yielded_to() const = 0;
 
-	virtual ~Request_interface() { }
+	virtual ~Request_interface() = 0;
 };
 
 struct Vfs_tresor::Initialized_tresor_adapter_interface
@@ -172,6 +172,65 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			Vfs::Vfs_handle &encrypt_file;
 			Vfs::Vfs_handle &decrypt_file;
 		};
+
+		struct Rekeying_control : private Request_interface
+		{
+			private:
+
+				enum State { INIT, REKEY, REKEY_SUCCEEDED, COMPLETE };
+
+				State state { INIT };
+				bool success { };
+				bool rekey_finished { };
+				Constructible<Superblock_control::Rekey> rekey { };
+				Schedule<Request_interface>::Item schedule_item { this };
+
+				/***********************
+				 ** Request_interface **
+				 ***********************/
+
+				bool execute(Execute_attr const &attr) override
+				{
+					bool progress = false;
+					switch (state) {
+					case REKEY:
+
+						progress = attr.sb_control.execute(
+							*rekey, {attr.block_io, attr.crypto, attr.trust_anchor, attr.client_data,
+							attr.free_tree, attr.meta_tree, attr.vbd});
+				}
+
+				Scheduling_state scheduling_state() const
+				{
+					ASSERT(rekey.constructed());
+					return rekey_
+				}
+
+				bool can_be_yielded_to() const = 0;
+
+			public:
+
+				enum Rekeying_result { NONE, SUCCEEDED, FAILED, PENDING };
+
+				bool try_start_rekeying(Initialized_tresor_adapter_interface &adapter)
+				{
+					switch (state) {
+					case INIT:
+					case COMPLETE:
+
+						rekey_finished = false;
+						rekey.construct(Superblock_ctl::Rekey::Attr{rkg_ctl.rekey_finished});
+						adapter.add_to_schedule(rkg_ctl.schedule_item);
+						if (VERBOSE)
+							log("rekeying started");
+
+						return true;
+
+					default: break;
+					}
+					return false;
+				}
+		}
 
 		Vfs::Env &_vfs_env;
 		bool const _verbose;
@@ -252,6 +311,23 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 				}
 			});
 			return progress;
+		}
+
+		bool _try_complete_init_sb_control()
+		{
+			if (_init_sb_control_ptr) {
+
+				while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
+				if (_init_sb_control_ptr->complete()) {
+
+					ASSERT(_init_sb_control_ptr->success());
+					destroy(_vfs_env.alloc(), _init_sb_control_ptr);
+					_init_sb_control_ptr = nullptr;
+					return true;
+				}
+				_wakeup_back_end_services();
+			}
+			return false;
 		}
 
 		/********************************
@@ -347,21 +423,16 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		template <typename FUNC>
 		void with_initialized_interface(FUNC && func)
 		{
-			if (_init_sb_control_ptr) {
-
-				while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
-				if (_init_sb_control_ptr->complete()) {
-
-					ASSERT(_init_sb_control_ptr->success());
-					destroy(_vfs_env.alloc(), _init_sb_control_ptr);
-					_init_sb_control_ptr = nullptr;
-					func(*this);
-				} else
-					_wakeup_back_end_services();
-			} else
+			if (_try_complete_init_sb_control())
 				func(*this);
 		}
 
+		template <typename FUNC>
+		void with_rekeying_control(FUNC && func)
+		{
+			if (_try_complete_init_sb_control())
+				func(*this, _rekeying_control);
+		}
 
 		/***********************************************************
 		 ** Manange/Disolve interface needed for FS notifications **
@@ -470,7 +541,8 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					if (_sync->complete()) {
 						if (_sync->success()) {
 							result = SYNC_OK;
-							log("sync succeeded");
+							if (VERBOSE)
+								log("sync succeeded");
 						} else
 							result = SYNC_ERR_INVALID;
 						_sync.destruct();
@@ -480,14 +552,15 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					return result;
 				}
 
-				Write_result _try_complete_write(size_t dst_num_bytes, size_t &out_count)
+				Write_result _try_complete_write(size_t src_num_bytes, size_t &out_count)
 				{
 					Write_result result;
 					if (_write->complete()) {
 						if (_write->success()) {
-							out_count = dst_num_bytes;
+							out_count = src_num_bytes;
 							result = WRITE_OK;
-							log("write (start ", seek(), " size ", dst_num_bytes, ") succeeded");
+							if (VERBOSE)
+								log("write (seek ", seek(), " size ", src_num_bytes, ") succeeded");
 						} else {
 							out_count = 0;
 							result = WRITE_ERR_IO;
@@ -501,14 +574,15 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					return result;
 				}
 
-				Read_result _try_complete_read(size_t src_num_bytes, size_t &out_count)
+				Read_result _try_complete_read(size_t dst_num_bytes, size_t &out_count)
 				{
 					Read_result result;
 					if (_read->complete()) {
 						if (_read->success()) {
-							out_count = src_num_bytes;
+							out_count = dst_num_bytes;
 							result = READ_OK;
-							log("read (start ", seek(), " size ", src_num_bytes, ") succeeded");
+							if (VERBOSE)
+								log("read (seek ", seek(), " size ", dst_num_bytes, ") succeeded");
 						} else {
 							out_count = 0;
 							result = READ_ERR_IO;
@@ -583,6 +657,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 							_read.construct(Splitter::Read::Attr{seek(), _generation, dst.start, dst.num_bytes});
 							_state = READ;
 							adapter.add_to_schedule(_schedule_item);
+							if (VERBOSE)
+								log("read (seek ", seek(), " size ", dst.num_bytes, ") started");
+
 							while (adapter.execute()) ;
 							result = _try_complete_read(dst.num_bytes, out_count);
 							break;
@@ -614,6 +691,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 							_write.construct(Splitter::Write::Attr{seek(), _generation, src.start, src.num_bytes});
 							_state = WRITE;
 							adapter.add_to_schedule(_schedule_item);
+							if (VERBOSE)
+								log("write (seek ", seek(), " size ", src.num_bytes, ") started");
+
 							while (adapter.execute()) ;
 							result = _try_complete_write(src.num_bytes, out_count);
 							break;
@@ -640,6 +720,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 							_sync.construct(Superblock_control::Synchronize::Attr{});
 							_state = SYNC;
 							adapter.add_to_schedule(_schedule_item);
+							if (VERBOSE)
+								log("sync started");
+
 							while (adapter.execute()) ;
 							result = _try_complete_sync();
 							break;
@@ -985,44 +1068,70 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 		Tresor_adapter &_adapter;
 
-		using Content_string = String<32>;
+		using Content_string = String<11>;
 
-		static file_size copy_content(Content_string const &content,
-		                              char *dst, size_t const count)
+		class Vfs_handle : public Single_vfs_handle
 		{
-			copy_cstring(dst, content.string(), count);
-			size_t const length_without_nul = content.length() - 1;
-			return count > length_without_nul - 1 ? length_without_nul
-			                                      : count;
-		}
+			private:
 
-		struct Vfs_handle : Single_vfs_handle
-		{
-			Tresor_adapter &_adapter;
+				Tresor_adapter &_adapter;
 
-			/* store VBA in case the handle is kept open */
-			Virtual_block_address _last_rekeying_vba;
+				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
+				{
+					copy_cstring(dst.start, content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
+			public:
+
+			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+			           Allocator &alloc, Tresor_adapter &adapter)
 			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter),
-				_last_rekeying_vba(0)
+				Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+			{ }
+
+			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
-				ASSERT_NEVER_REACHED;
+				out_count = 0;
+				Read_result result = READ_QUEUED;
+				_adapter.with_rekeying_control([&] (Initialized_tresor_adapter_interface &, Rekeying_control &rkg_ctl) {
+
+					if (seek() || dst.num_bytes < Content_string::capacity()) {
+						result = READ_ERR_IO;
+						return;
+					}
+					while (adapter.execute()) ;
+					switch (rkg_ctl.last_rekeying_result()) {
+					case Rekeying_control::NONE: result = _read_ok("none", dst, out_count); break;
+					case Rekeying_control::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+					case Rekeying_control::FAILED: result = _read_ok("failed", dst, out_count); break;
+					case Rekeying_control::PENDING: break;
+					}
+				});
 			}
 
-			Read_result read(Byte_range_ptr const &, size_t &) override
+			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				ASSERT_NEVER_REACHED;
-			}
+				out_count = 0;
+				Write_result result = WRITE_ERR_WOULD_BLOCK;
+				_adapter.with_rekeying_control([&] (Initialized_tresor_adapter_interface &adapter, Rekeying_control &rkg_ctl) {
 
-			Write_result write(Const_byte_range_ptr const &, size_t &) override
-			{
-				ASSERT_NEVER_REACHED;
+					bool value { false };
+					Genode::ascii_to(src.start, value);
+					if (seek() || !value) {
+						result = WRITE_ERR_IO;
+						return;
+					}
+					while (adapter.execute()) ;
+					if (!rkg_ctl.try_start_rekeying(adapter) {
+						result = WRITE_ERR_IO;
+						return;
+					}
+					out_count = src.num_bytes;
+					result = WRITE_OK;
+					}
+				});
 			}
 
 			bool read_ready()  const override { return true; }
@@ -2315,9 +2424,7 @@ class Vfs_tresor::File_system : private Local_factory,
 			Vfs::Dir_file_system(vfs_env, Xml_node(_config(node).string()),
 			                     *this),
 			_adapter(adapter)
-		{
-// log(__func__," ",__LINE__);
-}
+		{ }
 
 		~File_system()
 		{
@@ -2344,15 +2451,11 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 
 		Vfs::File_system *create(Vfs::Env &env, Xml_node node) override
 		{
-// log(__func__," ",__LINE__);
 			try {
-				if (!_adapter_ptr)
-{
-// log(__func__," ",__LINE__);
+				if (!_adapter_ptr) {
 					_alloc_ptr = &env.alloc();
 					_adapter_ptr = new (*_alloc_ptr) Vfs_tresor::Tresor_adapter { env, node };
-}
-
+				}
 				return new (env.alloc()) Vfs_tresor::File_system(env, node, *_adapter_ptr);
 
 			} catch (...) {
@@ -2379,7 +2482,6 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 
 void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 {
-// log(__func__," ",__LINE__);
 	if (_snapshots_fs_ptr)
 		_snapshots_fs_ptr->update_snapshot_registry();
 }
@@ -2387,7 +2489,6 @@ void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
 
 void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 {
-// log(__func__," ",__LINE__);
 	if (_extend_fs_ptr)
 		_extend_fs_ptr->trigger_watch_response();
 }
@@ -2395,7 +2496,6 @@ void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 {
-// log(__func__," ",__LINE__);
 	if (_extend_progress_fs_ptr)
 		_extend_progress_fs_ptr->trigger_watch_response();
 }
@@ -2403,7 +2503,6 @@ void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 {
-// log(__func__," ",__LINE__);
 	if (_rekey_fs_ptr)
 		_rekey_fs_ptr->trigger_watch_response();
 }
@@ -2411,7 +2510,6 @@ void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 {
-// log(__func__," ",__LINE__);
 	if (_rekey_progress_fs_ptr)
 		_rekey_progress_fs_ptr->trigger_watch_response();
 }
@@ -2419,7 +2517,6 @@ void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
 
 void Vfs_tresor::Tresor_adapter::_deinit_fs_trigger_watch_response()
 {
-// log(__func__," ",__LINE__);
 	if (_deinit_fs_ptr)
 		_deinit_fs_ptr->trigger_watch_response();
 }
