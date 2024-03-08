@@ -161,16 +161,14 @@ wait_for_vbd_extension() {
 	echo "Wait for VBD extension to finish..."
 	while : ; do
 		local done=0
-		local file_content="$(< $tresor_dir/control/extend_progress)"
+		local file_content="$(< $tresor_dir/control/extend)"
 		# XXX remove later
 		echo "file_content: ${file_content}"
 		case "$file_content" in
-		*at*)
-			if [ "$verbose" = "yes" ]; then
-				echo "Extending VBD: $file_content"
-			fi
+		*failed*)
+			done=1;
 			;;
-		*idle*)
+		*successful*)
 			done=1;
 			;;
 		esac
@@ -187,16 +185,14 @@ wait_for_ft_extension() {
 	echo "Wait for FT extension to finish..."
 	while : ; do
 		local done=0
-		local file_content="$(< $tresor_dir/control/extend_progress)"
+		local file_content="$(< $tresor_dir/control/extend)"
 		# XXX remove later
 		echo "file_content: ${file_content}"
 		case "$file_content" in
-		*at*)
-			if [ "$verbose" = "yes" ]; then
-				echo "Extending FT: $file_content"
-			fi
+		*failed*)
+			done=1;
 			;;
-		*idle*)
+		*successful*)
 			done=1;
 			;;
 		esac
@@ -219,10 +215,21 @@ main() {
 	test_write_1 "$data_file" "20"
 	echo "read..."
 	test_read_compare_1 "$data_file" "20"
+	echo "read..."
+	echo "extend VBD..."
+	test_vbd_extension "$tresor_dir" "200"
+	test_write_1 "$data_file" "2"
+	test_read_compare_1 "$data_file" "2"
+	wait_for_vbd_extension "$tresor_dir"
+	echo "extend FT..."
+	test_ft_extension "$tresor_dir" "200"
+	test_write_1 "$data_file" "2"
+	test_read_compare_1 "$data_file" "2"
+	wait_for_ft_extension "$tresor_dir"
 	echo "rekey..."
 	test_rekey_start "$tresor_dir"
-	test_write_1 "$data_file" "10"
-	test_read_compare_1 "$data_file" "10"
+	test_write_1 "$data_file" "2"
+	test_read_compare_1 "$data_file" "2"
 	wait_for_rekeying "$tresor_dir" "no"
 	echo "done!"
 }

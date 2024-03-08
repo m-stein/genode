@@ -42,7 +42,7 @@ namespace Vfs_tresor {
 	template <typename> class Schedule;
 	class Request_interface;
 	class Data_file_system;
-	class Extend_request;
+	class Extending;
 	class Extend_file_system;
 	class Extend_progress_file_system;
 	class Rekeying;
@@ -198,9 +198,8 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 							_state = COMPLETE;
 							if (VERBOSE)
 								log("rekeying succeeded");
-						} else {
+						} else
 							_state = REKEY_SUCCEEDED;
-						}
 					} else {
 						_last_result = FAILED;
 						_state = COMPLETE;
@@ -263,7 +262,7 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 		Result last_result() { return _last_result; }
 };
 
-class Vfs_tresor::Extend_request : Noncopyable, Request_interface
+class Vfs_tresor::Extending : Noncopyable, Request_interface
 {
 	public:
 
@@ -301,9 +300,8 @@ class Vfs_tresor::Extend_request : Noncopyable, Request_interface
 							_state = COMPLETE;
 							if (VERBOSE)
 								log("free-tree extension succeeded");
-						} else {
+						} else
 							_state = EXTEND_FT_SUCCEEDED;
-						}
 					} else {
 						_last_result = FAILED;
 						_state = COMPLETE;
@@ -334,9 +332,8 @@ class Vfs_tresor::Extend_request : Noncopyable, Request_interface
 							_state = COMPLETE;
 							if (VERBOSE)
 								log("VBD extension succeeded");
-						} else {
+						} else
 							_state = EXTEND_VBD_SUCCEEDED;
-						}
 					} else {
 						_last_result = FAILED;
 						_state = COMPLETE;
@@ -470,7 +467,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
 		Rekeying _rekeying { };
-		Extend_request _extend_request { };
+		Extending _extending { };
 
 		/*
 		 * Noncopyable
@@ -642,10 +639,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		}
 
 		template <typename FUNC>
-		void with_extend_request(FUNC && func)
+		void with_extending(FUNC && func)
 		{
 			if (_try_complete_init_sb_control())
-				func(*this, _extend_request);
+				func(*this, _extending);
 		}
 
 		/***********************************************************
@@ -1061,7 +1058,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			{
 				out_count = 0;
 				Read_result result = READ_QUEUED;
-				_adapter.with_extend_request([&] (Initialized_tresor_adapter_interface &adapter, Extend_request &extend_request) {
+				_adapter.with_extending([&] (Initialized_tresor_adapter_interface &adapter, Extending &extending) {
 
 					if (seek() == dst.num_bytes) {
 						result = READ_OK;
@@ -1074,11 +1071,11 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						return;
 					}
 					while (adapter.execute()) ;
-					switch (extend_request.last_result()) {
-					case Extend_request::NONE: result = _read_ok("none", dst, out_count); break;
-					case Extend_request::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-					case Extend_request::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Extend_request::QUEUED: break;
+					switch (extending.last_result()) {
+					case Extending::NONE: result = _read_ok("none", dst, out_count); break;
+					case Extending::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+					case Extending::FAILED: result = _read_ok("failed", dst, out_count); break;
+					case Extending::QUEUED: break;
 					}
 				});
 				return result;
@@ -1088,7 +1085,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			{
 				out_count = 0;
 				Write_result result = WRITE_ERR_WOULD_BLOCK;
-				_adapter.with_extend_request([&] (Initialized_tresor_adapter_interface &adapter, Extend_request &extend_request) {
+				_adapter.with_extending([&] (Initialized_tresor_adapter_interface &adapter, Extending &extending) {
 
 					char tree_arg[16];
 					Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
@@ -1101,7 +1098,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 					while (adapter.execute()) ;
 					if (!strcmp("ft", tree_arg, 2)) {
 
-						if (!extend_request.try_start_extending_free_tree(adapter, blocks_arg)) {
+						if (!extending.try_start_extending_free_tree(adapter, blocks_arg)) {
 							result = WRITE_ERR_IO;
 							if (VERBOSE)
 								log("failed to start extending free tree");
@@ -1110,10 +1107,10 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 					} else if (!strcmp("vbd", tree_arg, 3)) {
 
-						if (!extend_request.try_start_extending_vbd(adapter, blocks_arg)) {
+						if (!extending.try_start_extending_vbd(adapter, blocks_arg)) {
 							result = WRITE_ERR_IO;
 							if (VERBOSE)
-								log("failed to start extending free tree");
+								log("failed to start extending VBD");
 							return;
 						}
 
