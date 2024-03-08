@@ -137,16 +137,14 @@ wait_for_rekeying() {
 	echo "Wait for rekeying to finish..."
 	while : ; do
 		local done=0
-		local file_content="$(< $tresor_dir/control/rekey_progress)"
+		local file_content="$(< $tresor_dir/control/rekey)"
 		# XXX remove later
 		echo "file_content: ${file_content}"
 		case "$file_content" in
-		*at*)
-			if [ "$verbose" = "yes" ]; then
-				echo "Rekeying: $file_content"
-			fi
+		*failed*)
+			done=1;
 			;;
-		*idle*)
+		*successful*)
 			done=1;
 			;;
 		esac
@@ -218,11 +216,14 @@ main() {
 	local pattern_file="/tmp/pattern"
 	produce_pattern "1" "4096" > $pattern_file
 	echo "write..."
-	test_write_1 "$data_file" "419"
+	test_write_1 "$data_file" "20"
 	echo "read..."
-	test_read_compare_1 "$data_file" "419"
+	test_read_compare_1 "$data_file" "20"
 	echo "rekey..."
 	test_rekey_start "$tresor_dir"
+	test_write_1 "$data_file" "10"
+	test_read_compare_1 "$data_file" "10"
+	wait_for_rekeying "$tresor_dir" "no"
 	echo "done!"
 }
 
