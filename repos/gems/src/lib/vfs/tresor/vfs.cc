@@ -1784,31 +1784,112 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 
 		Tresor_adapter &_adapter;
 
-		struct Vfs_handle : Single_vfs_handle
+		class Vfs_handle : Noncopyable, public Single_vfs_handle, Request_interface
 		{
-			Tresor_adapter &_adapter;
+			private:
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
-			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter)
-			{ }
+				enum State { INIT, WRITE };
 
-			Read_result read(Byte_range_ptr const &, size_t &) override
-			{
-				return READ_ERR_IO;
-			}
+				State _state { INIT };
+				Tresor_adapter &_adapter;
+				Schedule<Request_interface>::Item _schedule_item { this };
+				Constructible<Superblock_control::Create_snapshot> _create_snap { };
+				Generation _generation { };
 
-			Write_result write(Const_byte_range_ptr const &, size_t &) override
-			{
-				ASSERT_NEVER_REACHED;
-			}
+				Write_result _try_complete_write(size_t src_num_bytes, size_t &out_count)
+				{
+					Write_result result;
+					if (_create_snap->complete()) {
+						if (_create_snap->success()) {
+							out_count = src_num_bytes;
+							result = WRITE_OK;
+							if (VERBOSE)
+								log("create snapshot succeeded");
+						} else {
+							out_count = 0;
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("create snapshot failed");
+						}
+						_create_snap.destruct();
+						_state = INIT;
+					} else {
+						out_count = 0;
+						result = WRITE_ERR_WOULD_BLOCK;
+					}
+					return result;
+				}
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				/***********************
+				 ** Request_interface **
+				 ***********************/
+
+				bool execute(Execute_attr const &attr) override
+				{
+					ASSERT(_state == WRITE);
+					return attr.sb_control.execute(*_create_snap, attr.block_io, attr.trust_anchor);
+				}
+
+				Scheduling_state scheduling_state() const override
+				{
+					ASSERT(_state == WRITE);
+					return _create_snap->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
+				}
+
+				bool can_be_yielded_to() const override { return true; }
+
+			public:
+
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Tresor_adapter &adapter)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+				{ }
+
+				Read_result read(Byte_range_ptr const &, size_t &) override
+				{
+					return READ_ERR_IO;
+				}
+
+				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+				{
+					Write_result result = WRITE_ERR_WOULD_BLOCK;
+					out_count = 0;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+						switch (_state) {
+						case INIT:
+						{
+							bool create_snapshot { false };
+							Genode::ascii_to(src.start, create_snapshot);
+							if (seek() || !create_snapshot) {
+								result = WRITE_ERR_IO;
+								if (VERBOSE)
+									log("malformed write request at create-snapshot file");
+							}
+							_create_snap.construct(Superblock_control::Create_snapshot::Attr{_generation});
+							_state = WRITE;
+							adapter.add_to_schedule(_schedule_item);
+							if (VERBOSE)
+								log("create snapshot started");
+
+							while (adapter.execute()) ;
+							result = _try_complete_write(src.num_bytes, out_count);
+							break;
+						}
+						case WRITE:
+
+							while (adapter.execute()) ;
+							result = _try_complete_write(src.num_bytes, out_count);
+							break;
+
+						default: break;
+						}
+					});
+					return result;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 	public:
@@ -1837,8 +1918,7 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
