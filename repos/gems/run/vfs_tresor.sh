@@ -15,10 +15,11 @@ produce_pattern() {
 	dd if=$tmp_file count=1 bs=$size 2>/dev/null
 }
 
-test_create_snap() {
-	local create_snap_file="$1"
+test_write_1() {
+	local data_file="$1"
 	local offset=$2
 
+	local pattern_file="/tmp/pattern"
 	dd bs=4096 count=1 if=$pattern_file of=$data_file seek=$offset 2>/dev/null || exit 1
 }
 
@@ -58,6 +59,7 @@ test_create_snapshot() {
 	local tresor_dir="$1"
 
 	echo "Create snapshot"
+	local state="$(< $tresor_dir/control/create_snapshot)"
 	echo true > $tresor_dir/control/create_snapshot
 }
 
@@ -80,7 +82,8 @@ test_rekey_start() {
 	local tresor_dir="$1"
 
 	echo "Start rekeying"
-	echo on > $tresor_dir/control/rekey
+	local state="$(< $tresor_dir/control/rekey)"
+	echo true > $tresor_dir/control/rekey
 	echo "Reykeying started"
 }
 
