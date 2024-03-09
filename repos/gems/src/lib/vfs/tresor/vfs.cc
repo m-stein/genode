@@ -166,7 +166,7 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 {
 	public:
 
-		enum Result { NONE, SUCCEEDED, FAILED, QUEUED };
+		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
 
 	private:
 
@@ -244,7 +244,7 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 			case INIT:
 			case COMPLETE:
 
-				_last_result = QUEUED;
+				_last_result = PENDING;
 				_rekeying_finished = false;
 				_rekey.construct(Superblock_control::Rekey::Attr{_rekeying_finished});
 				_state = REKEY;
@@ -266,7 +266,7 @@ class Vfs_tresor::Extending : Noncopyable, Request_interface
 {
 	public:
 
-		enum Result { NONE, SUCCEEDED, FAILED, QUEUED };
+		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
 
 	private:
 
@@ -381,7 +381,7 @@ class Vfs_tresor::Extending : Noncopyable, Request_interface
 			case COMPLETE:
 
 				_num_blocks = num_blocks;
-				_last_result = QUEUED;
+				_last_result = PENDING;
 				_complete = false;
 				_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
 				_state = EXTEND_FT;
@@ -403,7 +403,7 @@ class Vfs_tresor::Extending : Noncopyable, Request_interface
 			case COMPLETE:
 
 				_num_blocks = num_blocks;
-				_last_result = QUEUED;
+				_last_result = PENDING;
 				_complete = false;
 				_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
 				_state = EXTEND_VBD;
@@ -1075,7 +1075,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 					case Extending::NONE: result = _read_ok("none", dst, out_count); break;
 					case Extending::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
 					case Extending::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Extending::QUEUED: break;
+					case Extending::PENDING: break;
 					}
 				});
 				return result;
@@ -1400,7 +1400,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 					case Rekeying::NONE: result = _read_ok("none", dst, out_count); break;
 					case Rekeying::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
 					case Rekeying::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Rekeying::QUEUED: break;
+					case Rekeying::PENDING: break;
 					}
 				});
 				return result;
@@ -1409,7 +1409,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
 				out_count = 0;
-				Write_result result = WRITE_ERR_WOULD_BLOCK;
+				Write_result result = WRITE_ERR_IO;
 				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
 
 					bool start_rekeying_arg { false };
@@ -1428,7 +1428,6 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 						return;
 					}
 					out_count = src.num_bytes;
-					result = WRITE_OK;
 				});
 				return result;
 			}
@@ -1788,13 +1787,25 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 		{
 			private:
 
-				enum State { INIT, WRITE };
+				using Content_string = String<11>;
+
+				enum State { INIT, CREATE_SNAP, COMPLETE };
+
+				enum Result { NONE, SUCCEEDED, FAILED, PENDING };
 
 				State _state { INIT };
 				Tresor_adapter &_adapter;
 				Schedule<Request_interface>::Item _schedule_item { this };
 				Constructible<Superblock_control::Create_snapshot> _create_snap { };
 				Generation _generation { };
+				Result _last_result { NONE };
+
+				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
+				{
+					copy_cstring(dst.start, content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
 
 				Write_result _try_complete_write(size_t src_num_bytes, size_t &out_count)
 				{
@@ -1820,23 +1831,63 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 					return result;
 				}
 
+				bool _try_start(Initialized_tresor_adapter_interface &adapter)
+				{
+					switch (_state) {
+					case INIT:
+					case COMPLETE:
+
+						_last_result = PENDING;
+						_create_snap.construct(Superblock_control::Create_snapshot::Attr{_generation});
+						_state = CREATE_SNAP;
+						adapter.add_to_schedule(_schedule_item);
+						if (VERBOSE)
+							log("creating snapshot started");
+
+						return true;
+
+					default: break;
+					}
+					return false;
+				}
+
 				/***********************
 				 ** Request_interface **
 				 ***********************/
 
 				bool execute(Execute_attr const &attr) override
 				{
-					ASSERT(_state == WRITE);
-					return attr.sb_control.execute(*_create_snap, attr.block_io, attr.trust_anchor);
+					ASSERT(_state == CREATE_SNAP);
+					bool progress = attr.sb_control.execute(*_create_snap, attr.block_io, attr.trust_anchor);
+					if (_create_snap->complete()) {
+						if (_create_snap->success()) {
+							_last_result = SUCCEEDED;
+							_state = COMPLETE;
+							if (VERBOSE)
+								log("creating snapshot succeeded");
+						} else {
+							_last_result = FAILED;
+							_state = COMPLETE;
+							if (VERBOSE)
+								log("creating snapshot failed");
+						}
+						_create_snap.destruct();
+						progress = true;
+					}
+					return progress;
 				}
 
 				Scheduling_state scheduling_state() const override
 				{
-					ASSERT(_state == WRITE);
-					return _create_snap->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
+					switch (_state) {
+					case CREATE_SNAP: return CANNOT_YIELD;
+					case COMPLETE: return REMOVE_FROM_SCHEDULE;
+					default: break;
+					}
+					ASSERT_NEVER_REACHED;
 				}
 
-				bool can_be_yielded_to() const override { return true; }
+				bool can_be_yielded_to() const override { return false; }
 
 			public:
 
@@ -1846,44 +1897,55 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
 				{ }
 
-				Read_result read(Byte_range_ptr const &, size_t &) override
+				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
-					return READ_ERR_IO;
+					out_count = 0;
+					Read_result result = READ_QUEUED;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+
+						if (seek() == dst.num_bytes) {
+							result = READ_OK;
+							return;
+						}
+						if (seek() || dst.num_bytes < Content_string::capacity()) {
+							result = READ_ERR_IO;
+							if (VERBOSE)
+								log("malformed read request at create-snapshot file");
+							return;
+						}
+						while (adapter.execute()) ;
+						switch (_last_result) {
+						case NONE: result = _read_ok("none", dst, out_count); break;
+						case SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case FAILED: result = _read_ok("failed", dst, out_count); break;
+						case PENDING: break;
+						}
+					});
+					return result;
 				}
 
 				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 				{
-					Write_result result = WRITE_ERR_WOULD_BLOCK;
 					out_count = 0;
+					Write_result result = WRITE_ERR_IO;
 					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
-						switch (_state) {
-						case INIT:
-						{
-							bool create_snapshot { false };
-							Genode::ascii_to(src.start, create_snapshot);
-							if (seek() || !create_snapshot) {
-								result = WRITE_ERR_IO;
-								if (VERBOSE)
-									log("malformed write request at create-snapshot file");
-							}
-							_create_snap.construct(Superblock_control::Create_snapshot::Attr{_generation});
-							_state = WRITE;
-							adapter.add_to_schedule(_schedule_item);
+
+						bool start_arg { false };
+						Genode::ascii_to(src.start, start_arg);
+						if (seek() || !start_arg) {
+							result = WRITE_ERR_IO;
 							if (VERBOSE)
-								log("create snapshot started");
-
-							while (adapter.execute()) ;
-							result = _try_complete_write(src.num_bytes, out_count);
-							break;
+								log("malformed write request at create-snapshot file");
+							return;
 						}
-						case WRITE:
-
-							while (adapter.execute()) ;
-							result = _try_complete_write(src.num_bytes, out_count);
-							break;
-
-						default: break;
+						while (adapter.execute()) ;
+						if (!_try_start(adapter)) {
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("failed to start creating snapshot");
+							return;
 						}
+						out_count = src.num_bytes;
 					});
 					return result;
 				}
