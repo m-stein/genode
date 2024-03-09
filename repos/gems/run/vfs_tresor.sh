@@ -15,11 +15,10 @@ produce_pattern() {
 	dd if=$tmp_file count=1 bs=$size 2>/dev/null
 }
 
-test_write_1() {
-	local data_file="$1"
+test_create_snap() {
+	local create_snap_file="$1"
 	local offset=$2
 
-	local pattern_file="/tmp/pattern"
 	dd bs=4096 count=1 if=$pattern_file of=$data_file seek=$offset 2>/dev/null || exit 1
 }
 
@@ -215,7 +214,9 @@ main() {
 	test_write_1 "$data_file" "20"
 	echo "read..."
 	test_read_compare_1 "$data_file" "20"
-	echo "read..."
+	echo "create snapshot..."
+	test_create_snapshot "$tresor_dir"
+	test_write_1 "$data_file" "20"
 	echo "extend VBD..."
 	test_vbd_extension "$tresor_dir" "200"
 	test_write_1 "$data_file" "2"
