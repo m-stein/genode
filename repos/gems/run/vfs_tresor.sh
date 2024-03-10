@@ -220,6 +220,7 @@ main() {
 	echo "create snapshot..."
 	test_create_snapshot "$tresor_dir"
 	test_write_1 "$data_file" "20"
+	test_discard_snapshot "$tresor_dir" "2"
 	echo "extend VBD..."
 	test_vbd_extension "$tresor_dir" "200"
 	test_write_1 "$data_file" "2"
