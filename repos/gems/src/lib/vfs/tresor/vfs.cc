@@ -125,6 +125,7 @@ struct Vfs_tresor::Request_interface
 {
 	struct Execute_attr
 	{
+		Initialized_tresor_adapter_interface &adapter;
 		Splitter &splitter;
 		Superblock_control &sb_control;
 		Client_data_interface &client_data;
@@ -158,6 +159,18 @@ struct Vfs_tresor::Initialized_tresor_adapter_interface
 	virtual void snapshots_info(Snapshots_info &) = 0;
 
 	virtual bool execute() = 0;
+
+	virtual void snapshots_fs_update_snapshot_registry() = 0;
+
+	virtual void extend_fs_trigger_watch_response() = 0;
+
+	virtual void extend_progress_fs_trigger_watch_response() = 0;
+
+	virtual void rekey_fs_trigger_watch_response() = 0;
+
+	virtual void rekey_progress_fs_trigger_watch_response() = 0;
+
+	virtual void deinit_fs_trigger_watch_response() = 0;
 
 	virtual ~Initialized_tresor_adapter_interface() { };
 };
@@ -207,6 +220,7 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 							log("rekeying failed");
 					}
 					_rekey.destruct();
+					attr.adapter.rekey_fs_trigger_watch_response();
 					progress = true;
 				}
 				break;
@@ -309,6 +323,7 @@ class Vfs_tresor::Extending : Noncopyable, Request_interface
 							log("free-tree extension failed");
 					}
 					_extend_ft.destruct();
+					attr.adapter.extend_fs_trigger_watch_response();
 					progress = true;
 				}
 				break;
@@ -475,18 +490,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Tresor_adapter(Tresor_adapter const &) = delete;
 		Tresor_adapter &operator = (Tresor_adapter const &) = delete;
 
-		void _snapshots_fs_update_snapshot_registry();
-
-		void _extend_fs_trigger_watch_response();
-
-		void _extend_progress_fs_trigger_watch_response();
-
-		void _rekey_fs_trigger_watch_response();
-
-		void _rekey_progress_fs_trigger_watch_response();
-
-		void _deinit_fs_trigger_watch_response();
-
 		Constructible<Crypto_key> &_crypto_key(Key_id key_id)
 		{
 			for (Constructible<Crypto_key> &key : _crypto_keys)
@@ -502,7 +505,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			bool progress = false;
 			_schedule.with_head([&] (Request_interface &head) {
 
-				progress |= head.execute({_splitter, _sb_control, *this, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor});
+				progress |= head.execute({*this, _splitter, _sb_control, *this, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor});
 				switch (head.scheduling_state()) {
 				case Request_interface::REMOVE_FROM_SCHEDULE: _schedule.remove_head(); break;
 				case Request_interface::CAN_YIELD:
@@ -600,7 +603,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		void snapshots_info(Snapshots_info &info) override
 		{
 			info = _sb_control.snapshots_info();
-			execute();
 		}
 
 		bool execute() override
@@ -609,6 +611,18 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_wakeup_back_end_services();
 			return progress;
 		}
+
+		void snapshots_fs_update_snapshot_registry() override;
+
+		void extend_fs_trigger_watch_response() override;
+
+		void extend_progress_fs_trigger_watch_response() override;
+
+		void rekey_fs_trigger_watch_response() override;
+
+		void rekey_progress_fs_trigger_watch_response() override;
+
+		void deinit_fs_trigger_watch_response() override;
 
 	public:
 
@@ -1789,16 +1803,13 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 
 				using Content_string = String<11>;
 
-				enum State { INIT, CREATE_SNAP, COMPLETE };
-
-				enum Result { NONE, SUCCEEDED, FAILED, PENDING };
+				enum State { INIT, CREATE_SNAP, CREATE_SNAP_SUCCEEDED, CREATE_SNAP_FAILED };
 
 				State _state { INIT };
 				Tresor_adapter &_adapter;
 				Schedule<Request_interface>::Item _schedule_item { this };
 				Constructible<Superblock_control::Create_snapshot> _create_snap { };
 				Generation _generation { };
-				Result _last_result { NONE };
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
 				{
@@ -1807,37 +1818,13 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 					return READ_OK;
 				}
 
-				Write_result _try_complete_write(size_t src_num_bytes, size_t &out_count)
-				{
-					Write_result result;
-					if (_create_snap->complete()) {
-						if (_create_snap->success()) {
-							out_count = src_num_bytes;
-							result = WRITE_OK;
-							if (VERBOSE)
-								log("create snapshot succeeded");
-						} else {
-							out_count = 0;
-							result = WRITE_ERR_IO;
-							if (VERBOSE)
-								log("create snapshot failed");
-						}
-						_create_snap.destruct();
-						_state = INIT;
-					} else {
-						out_count = 0;
-						result = WRITE_ERR_WOULD_BLOCK;
-					}
-					return result;
-				}
-
 				bool _try_start(Initialized_tresor_adapter_interface &adapter)
 				{
 					switch (_state) {
 					case INIT:
-					case COMPLETE:
+					case CREATE_SNAP_FAILED:
+					case CREATE_SNAP_SUCCEEDED:
 
-						_last_result = PENDING;
 						_create_snap.construct(Superblock_control::Create_snapshot::Attr{_generation});
 						_state = CREATE_SNAP;
 						adapter.add_to_schedule(_schedule_item);
@@ -1861,13 +1848,12 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 					bool progress = attr.sb_control.execute(*_create_snap, attr.block_io, attr.trust_anchor);
 					if (_create_snap->complete()) {
 						if (_create_snap->success()) {
-							_last_result = SUCCEEDED;
-							_state = COMPLETE;
+							_state = CREATE_SNAP_SUCCEEDED;
+							attr.adapter.snapshots_fs_update_snapshot_registry();
 							if (VERBOSE)
-								log("creating snapshot succeeded");
+								log("creating snapshot succeeded, generation ", _generation);
 						} else {
-							_last_result = FAILED;
-							_state = COMPLETE;
+							_state = CREATE_SNAP_FAILED;
 							if (VERBOSE)
 								log("creating snapshot failed");
 						}
@@ -1881,7 +1867,8 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 				{
 					switch (_state) {
 					case CREATE_SNAP: return CANNOT_YIELD;
-					case COMPLETE: return REMOVE_FROM_SCHEDULE;
+					case CREATE_SNAP_SUCCEEDED:
+					case CREATE_SNAP_FAILED: return REMOVE_FROM_SCHEDULE;
 					default: break;
 					}
 					ASSERT_NEVER_REACHED;
@@ -1914,11 +1901,11 @@ class Vfs_tresor::Create_snapshot_file_system : public Vfs::Single_file_system
 							return;
 						}
 						while (adapter.execute()) ;
-						switch (_last_result) {
-						case NONE: result = _read_ok("none", dst, out_count); break;
-						case SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-						case FAILED: result = _read_ok("failed", dst, out_count); break;
-						case PENDING: break;
+						switch (_state) {
+						case INIT: result = _read_ok("none", dst, out_count); break;
+						case CREATE_SNAP: break;
+						case CREATE_SNAP_SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case CREATE_SNAP_FAILED: result = _read_ok("failed", dst, out_count); break;
 						}
 					});
 					return result;
@@ -2008,32 +1995,146 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 
 		Tresor_adapter &_adapter;
 
-		struct Vfs_handle : Single_vfs_handle
+		class Vfs_handle : Noncopyable, public Single_vfs_handle, Request_interface
 		{
-			Tresor_adapter &_adapter;
+			private:
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service   &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
-			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter)
-			{ }
+				using Content_string = String<11>;
 
-			Read_result read(Byte_range_ptr const &, size_t &) override
-			{
-				return READ_ERR_IO;
-			}
+				enum State { INIT, DISCARD_SNAP, DISCARD_SNAP_SUCCEEDED, DISCARD_SNAP_FAILED };
 
-			Write_result write(Const_byte_range_ptr const &,
-			                   size_t &) override
-			{
-				ASSERT_NEVER_REACHED;
-			}
+				State _state { INIT };
+				Tresor_adapter &_adapter;
+				Schedule<Request_interface>::Item _schedule_item { this };
+				Constructible<Superblock_control::Discard_snapshot> _discard_snap { };
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
+				{
+					copy_cstring(dst.start, content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
+
+				bool _try_start(Initialized_tresor_adapter_interface &adapter, Generation generation)
+				{
+					switch (_state) {
+					case INIT:
+					case DISCARD_SNAP_FAILED:
+					case DISCARD_SNAP_SUCCEEDED:
+
+						_discard_snap.construct(Superblock_control::Discard_snapshot::Attr{generation});
+						_state = DISCARD_SNAP;
+						adapter.add_to_schedule(_schedule_item);
+						if (VERBOSE)
+							log("discarding snapshot started");
+
+						return true;
+
+					default: break;
+					}
+					return false;
+				}
+
+				/***********************
+				 ** Request_interface **
+				 ***********************/
+
+				bool execute(Execute_attr const &attr) override
+				{
+					ASSERT(_state == DISCARD_SNAP);
+					bool progress = attr.sb_control.execute(*_discard_snap, attr.block_io, attr.trust_anchor);
+					if (_discard_snap->complete()) {
+						if (_discard_snap->success()) {
+							_state = DISCARD_SNAP_SUCCEEDED;
+							attr.adapter.snapshots_fs_update_snapshot_registry();
+							if (VERBOSE)
+								log("discarding snapshot succeeded");
+						} else {
+							_state = DISCARD_SNAP_FAILED;
+							if (VERBOSE)
+								log("discarding snapshot failed");
+						}
+						_discard_snap.destruct();
+						progress = true;
+					}
+					return progress;
+				}
+
+				Scheduling_state scheduling_state() const override
+				{
+					switch (_state) {
+					case DISCARD_SNAP: return CANNOT_YIELD;
+					case DISCARD_SNAP_SUCCEEDED:
+					case DISCARD_SNAP_FAILED: return REMOVE_FROM_SCHEDULE;
+					default: break;
+					}
+					ASSERT_NEVER_REACHED;
+				}
+
+				bool can_be_yielded_to() const override { return false; }
+
+			public:
+
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Tresor_adapter &adapter)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+				{ }
+
+				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+				{
+					out_count = 0;
+					Read_result result = READ_QUEUED;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+
+						if (seek() == dst.num_bytes) {
+							result = READ_OK;
+							return;
+						}
+						if (seek() || dst.num_bytes < Content_string::capacity()) {
+							result = READ_ERR_IO;
+							if (VERBOSE)
+								log("malformed read request at discard-snapshot file");
+							return;
+						}
+						while (adapter.execute()) ;
+						switch (_state) {
+						case INIT: result = _read_ok("none", dst, out_count); break;
+						case DISCARD_SNAP: break;
+						case DISCARD_SNAP_SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case DISCARD_SNAP_FAILED: result = _read_ok("failed", dst, out_count); break;
+						}
+					});
+					return result;
+				}
+
+				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+				{
+					out_count = 0;
+					Write_result result = WRITE_ERR_IO;
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+						Generation generation_arg { INVALID_GENERATION };
+						Genode::ascii_to(src.start, generation_arg);
+						if (seek() || generation_arg == INVALID_GENERATION) {
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("malformed write request at discard-snapshot file");
+							return;
+						}
+						while (adapter.execute()) ;
+						if (!_try_start(adapter, generation_arg)) {
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("failed to start discarding snapshot");
+							return;
+						}
+						out_count = src.num_bytes;
+					});
+					return result;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 	public:
@@ -2921,42 +3022,42 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
  ** Vfs_tresor::Tresor_adapter **
  ********************************/
 
-void Vfs_tresor::Tresor_adapter::_snapshots_fs_update_snapshot_registry()
+void Vfs_tresor::Tresor_adapter::snapshots_fs_update_snapshot_registry()
 {
 	if (_snapshots_fs_ptr)
 		_snapshots_fs_ptr->update_snapshot_registry();
 }
 
 
-void Vfs_tresor::Tresor_adapter::_extend_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::extend_fs_trigger_watch_response()
 {
 	if (_extend_fs_ptr)
 		_extend_fs_ptr->trigger_watch_response();
 }
 
 
-void Vfs_tresor::Tresor_adapter::_extend_progress_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::extend_progress_fs_trigger_watch_response()
 {
 	if (_extend_progress_fs_ptr)
 		_extend_progress_fs_ptr->trigger_watch_response();
 }
 
 
-void Vfs_tresor::Tresor_adapter::_rekey_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::rekey_fs_trigger_watch_response()
 {
 	if (_rekey_fs_ptr)
 		_rekey_fs_ptr->trigger_watch_response();
 }
 
 
-void Vfs_tresor::Tresor_adapter::_rekey_progress_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::rekey_progress_fs_trigger_watch_response()
 {
 	if (_rekey_progress_fs_ptr)
 		_rekey_progress_fs_ptr->trigger_watch_response();
 }
 
 
-void Vfs_tresor::Tresor_adapter::_deinit_fs_trigger_watch_response()
+void Vfs_tresor::Tresor_adapter::deinit_fs_trigger_watch_response()
 {
 	if (_deinit_fs_ptr)
 		_deinit_fs_ptr->trigger_watch_response();
