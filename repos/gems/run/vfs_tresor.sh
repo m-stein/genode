@@ -68,29 +68,6 @@ wait_for_deinitialize() {
 	local state="$(< $tresor_dir/control/deinitialize)"
 }
 
-test_create_snapshot() {
-	local tresor_dir="$1"
-
-	echo "Create snapshot"
-	local state="$(< $tresor_dir/control/create_snapshot)"
-	echo true > $tresor_dir/control/create_snapshot
-}
-
-test_list_snapshots() {
-	local tresor_dir="$1"
-
-	echo "List content of '$tresor_dir'"
-	ls -l $tresor_dir/snapshots
-}
-
-test_discard_snapshot() {
-	local tresor_dir="$1"
-	local snap_id=$2
-
-	echo "Discard snapshot with id: $snap_id"
-	echo $snap_id > $tresor_dir/control/discard_snapshot
-}
-
 test_rekey_start() {
 	local tresor_dir="$1"
 
@@ -230,10 +207,7 @@ main() {
 	test_write_1 "$data_file" "20"
 	echo "read..."
 	test_read_compare_1 "$data_file" "20"
-	echo "create snapshot..."
-	test_create_snapshot "$tresor_dir"
 	test_write_1 "$data_file" "20"
-	test_discard_snapshot "$tresor_dir" "2"
 	echo "extend VBD..."
 	test_vbd_extension "$tresor_dir" "200"
 	test_write_1 "$data_file" "2"
