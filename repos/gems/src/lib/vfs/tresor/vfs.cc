@@ -42,7 +42,6 @@ namespace Vfs_tresor {
 
 	template <typename> class Schedule;
 	class Request_interface;
-	class Data_operation;
 	class Data_file_system;
 	class Extending;
 	class Extend_file_system;
@@ -59,7 +58,6 @@ namespace Vfs_tresor {
 	class Local_factory;
 	class File_system;
 	class Tresor_adapter;
-	class Crypto_key;
 	class Initialized_tresor_adapter_interface;
 }
 
@@ -76,7 +74,6 @@ class Vfs_tresor::Schedule : Noncopyable
 		List<Item> _list { };
 
 	public:
-
 
 		void add_tail(Item &item)
 		{
@@ -149,13 +146,13 @@ struct Vfs_tresor::Request_interface
 
 struct Vfs_tresor::Initialized_tresor_adapter_interface
 {
-	virtual bool exceeds_data_file_range(addr_t, size_t) const = 0;
+	enum Result { PENDING, SUCCEEDED, FAILED };
 
 	virtual size_t data_file_size() const = 0;
 
 	virtual void add_to_schedule(Schedule<Request_interface>::Item &) = 0;
 
-	virtual bool execute() = 0;
+	virtual void execute() = 0;
 
 	virtual void extend_fs_trigger_watch_response() = 0;
 
@@ -167,131 +164,13 @@ struct Vfs_tresor::Initialized_tresor_adapter_interface
 
 	virtual void deinit_fs_trigger_watch_response() = 0;
 
+	virtual Result write(addr_t, Const_byte_range_ptr const &) = 0;
+
+	virtual Result read(addr_t, Byte_range_ptr const &) = 0;
+
+	virtual Result sync() = 0;
+
 	virtual ~Initialized_tresor_adapter_interface() { };
-};
-
-class Vfs_tresor::Data_operation : Noncopyable, Request_interface
-{
-	public:
-
-		enum Result { PENDING, SUCCEEDED, FAILED };
-
-	private:
-
-		enum State { INIT, READ, WRITE, SYNC };
-
-		State _state { INIT };
-		Tresor_adapter &_adapter;
-		Generation _generation { };
-		Schedule<Request_interface>::Item _schedule_item { this };
-		Constructible<Splitter::Write> _write { };
-		Constructible<Splitter::Read> _read { };
-		Constructible<Superblock_control::Synchronize> _sync { };
-
-		Result _try_complete_read()
-		{
-			Result result = PENDING;
-			if (_read->complete()) {
-				if (_read->success()) {
-					result = SUCCEEDED;
-					if (VERBOSE)
-						log("read succeeded");
-				} else {
-					result = FAILED;
-					if (VERBOSE)
-						log("read failed");
-				}
-				_read.destruct();
-				_state = INIT;
-			}
-			return result;
-		}
-
-		Result _try_complete_write()
-		{
-			Result result = PENDING;
-			if (_write->complete()) {
-				if (_write->success()) {
-					result = SUCCEEDED;
-					if (VERBOSE)
-						log("write succeeded");
-				} else {
-					result = FAILED;
-					if (VERBOSE)
-						log("write failed");
-				}
-				_write.destruct();
-				_state = INIT;
-			}
-			return result;
-		}
-
-		Result _try_complete_sync()
-		{
-			Result result = PENDING;
-			if (_sync->complete()) {
-				if (_sync->success()) {
-					result = SUCCEEDED;
-					if (VERBOSE)
-						log("sync succeeded");
-				} else {
-					result = FAILED;
-					if (VERBOSE)
-						log("sync failed");
-				}
-				_sync.destruct();
-				_state = INIT;
-			}
-			return result;
-		}
-
-		/***********************
-		 ** Request_interface **
-		 ***********************/
-
-		bool execute(Execute_attr const &attr) override
-		{
-			bool progress = false;
-			switch (_state) {
-			case WRITE:
-				progress |= attr.splitter.execute(
-					*_write, {attr.sb_control, attr.vbd, attr.client_data, attr.block_io,
-					          attr.free_tree, attr.meta_tree, attr.crypto});
-				break;
-			case READ:
-				progress |= attr.splitter.execute(
-					*_read, {attr.sb_control, attr.vbd, attr.client_data, attr.block_io, attr.crypto});
-				break;
-			case SYNC:
-				progress |= attr.sb_control.execute(*_sync, attr.block_io, attr.trust_anchor);
-				break;
-			case INIT: ASSERT_NEVER_REACHED;
-			}
-			return progress;
-		}
-
-		Scheduling_state scheduling_state() const override
-		{
-			switch (_state) {
-			case WRITE: return _write->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
-			case READ: return _read->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
-			case SYNC: return _sync->complete() ? REMOVE_FROM_SCHEDULE : CANNOT_YIELD;
-			case INIT: break;
-			}
-			ASSERT_NEVER_REACHED;
-		}
-
-		bool can_be_yielded_to() const override { return true; }
-
-	public:
-
-		Data_operation(Tresor_adapter &adapter) : _adapter(adapter) { }
-
-		Result try_start_write(addr_t, Const_byte_range_ptr const &);
-
-		Result try_start_read(addr_t, Byte_range_ptr const &);
-
-		Result try_start_sync();
 };
 
 class Vfs_tresor::Rekeying : Noncopyable, Request_interface
@@ -661,7 +540,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 {
 	private:
 
-		enum { MAX_NUM_COMMANDS = 16 };
+		enum State { INIT, READ, WRITE, SYNC };
 
 		struct Crypto_key
 		{
@@ -670,9 +549,8 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			Vfs::Vfs_handle &decrypt_file;
 		};
 
+		State _state { INIT };
 		Vfs::Env &_vfs_env;
-		bool const _verbose;
-		bool const _debug;
 		Tresor::Path const _crypto_path;
 		Tresor::Path const _block_io_path;
 		Tresor::Path const _trust_anchor_path;
@@ -701,7 +579,11 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Constructible<Crypto_key> _crypto_keys[2] { };
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
-		Data_operation _data_operation { *this };
+		Generation _generation { };
+		Constructible<Splitter::Write> _write { };
+		Constructible<Splitter::Read> _read { };
+		Constructible<Superblock_control::Synchronize> _sync { };
+		Result _data_operation_result { SUCCEEDED };
 		Rekeying _rekeying { };
 		Extending _extending { };
 		Deinitialize _deinitialize { };
@@ -711,6 +593,78 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		 */
 		Tresor_adapter(Tresor_adapter const &) = delete;
 		Tresor_adapter &operator = (Tresor_adapter const &) = delete;
+
+		void _try_complete_write()
+		{
+			if (_write->complete()) {
+				if (_write->success()) {
+					_data_operation_result = SUCCEEDED;
+					if (VERBOSE)
+						log("write succeeded");
+				} else {
+					_data_operation_result = FAILED;
+					if (VERBOSE)
+						log("write failed");
+				}
+				_write.destruct();
+				_state = INIT;
+			}
+		}
+
+		void _try_complete_read()
+		{
+			if (_read->complete()) {
+				if (_read->success()) {
+					_data_operation_result = SUCCEEDED;
+					if (VERBOSE)
+						log("read succeeded");
+				} else {
+					_data_operation_result = FAILED;
+					if (VERBOSE)
+						log("read failed");
+				}
+				_read.destruct();
+				_state = INIT;
+			}
+		}
+
+		void _try_complete_sync()
+		{
+			if (_sync->complete()) {
+				if (_sync->success()) {
+					_data_operation_result = SUCCEEDED;
+					if (VERBOSE)
+						log("sync succeeded");
+				} else {
+					_data_operation_result = FAILED;
+					if (VERBOSE)
+						log("sync failed");
+				}
+				_sync.destruct();
+				_state = INIT;
+			}
+		}
+
+		bool _execute_tresor()
+		{
+			bool progress = false;
+			switch (_state) {
+			case WRITE:
+				progress |= _splitter.execute(*_write, {_sb_control, _vbd, *this, _block_io, _free_tree, _meta_tree, _crypto});
+				_try_complete_write();
+				break;
+			case READ:
+				progress |= _splitter.execute(*_read, {_sb_control, _vbd, *this, _block_io, _crypto});
+				_try_complete_read();
+				break;
+			case SYNC:
+				progress |= _sb_control.execute(*_sync, _block_io, _trust_anchor);
+				_try_complete_sync();
+				break;
+			case INIT: break;
+			}
+			return progress;
+		}
 
 		Constructible<Crypto_key> &_crypto_key(Key_id key_id)
 		{
@@ -759,6 +713,13 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			return false;
 		}
 
+		bool _exceeds_data_file_range(addr_t start, size_t num_bytes) const
+		{
+			addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
+			addr_t last_file_byte = (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
+			return last_byte > last_file_byte;
+		}
+
 		/********************************
 		 ** Crypto_key_files_interface **
 		 ********************************/
@@ -805,13 +766,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		 ** Initialized_tresor_adapter_interface **
 		 ******************************************/
 
-		bool exceeds_data_file_range(addr_t start, size_t num_bytes) const override
-		{
-			addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
-			addr_t last_file_byte = (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
-			return last_byte > last_file_byte;
-		}
-
 		size_t data_file_size() const override
 		{
 			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
@@ -822,11 +776,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_schedule.add_tail(item);
 		}
 
-		bool execute() override
+		void execute() override
 		{
-			bool progress = _execute_schedule_items();
+			 while(_execute_tresor());
 			_wakeup_back_end_services();
-			return progress;
 		}
 
 		void extend_fs_trigger_watch_response() override;
@@ -839,13 +792,93 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		void deinit_fs_trigger_watch_response() override;
 
+		Result write(addr_t seek, Const_byte_range_ptr const &src) override
+		{
+			switch (_state) {
+			case INIT:
+
+				if (_exceeds_data_file_range(seek, src.num_bytes)) {
+					if (VERBOSE)
+						log("write exceeds file (seek ", seek, " size ", src.num_bytes, ")");
+					return FAILED;
+				}
+				_write.construct(Splitter::Write::Attr{seek, _generation, src.start, src.num_bytes});
+				_state = WRITE;
+				_data_operation_result = PENDING;
+				if (VERBOSE)
+					log("write started (seek ", seek, " size ", src.num_bytes, ")");
+
+				execute();
+				return _data_operation_result;
+
+			case WRITE:
+
+				execute();
+				return _data_operation_result;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+			return PENDING;
+		}
+
+		Result read(addr_t seek, Byte_range_ptr const &dst) override
+		{
+			switch (_state) {
+			case INIT:
+
+				if (_exceeds_data_file_range(seek, dst.num_bytes)) {
+					if (VERBOSE)
+						log("read exceeds file (seek ", seek, " size ", dst.num_bytes, ")");
+					return FAILED;
+				}
+				_read.construct(Splitter::Read::Attr{seek, _generation, dst.start, dst.num_bytes});
+				_state = READ;
+				_data_operation_result = PENDING;
+				if (VERBOSE)
+					log("read started (seek ", seek, " size ", dst.num_bytes, ")");
+
+				execute();
+				return _data_operation_result;
+
+			case READ:
+
+				execute();
+				return _data_operation_result;
+
+			default: break;
+			}
+			return PENDING;
+		}
+
+		Result sync() override
+		{
+			switch (_state) {
+			case INIT:
+
+				_sync.construct(Superblock_control::Synchronize::Attr{});
+				_state = SYNC;
+				_data_operation_result = PENDING;
+				if (VERBOSE)
+					log("sync started");
+
+				execute();
+				return _data_operation_result;
+
+			case SYNC:
+
+				execute();
+				return _data_operation_result;
+
+			default: break;
+			}
+			return PENDING;
+		}
+
 	public:
 
 		Tresor_adapter(Vfs::Env &vfs_env, Xml_node const &config)
 		:
 			_vfs_env(vfs_env),
-			_verbose(config.attribute_value("verbose", _verbose)),
-			_debug(config.attribute_value("debug", _debug)),
 			_crypto_path(config.attribute_value("crypto", Tresor::Path())),
 			_block_io_path(config.attribute_value("block", Tresor::Path())),
 			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
@@ -858,12 +891,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		{
 			if (_try_complete_init_sb_control())
 				func(*this);
-		}
-
-		template <typename FUNC>
-		void with_data_operation(FUNC && func)
-		{
-			func(_data_operation);
 		}
 
 		template <typename FUNC>
@@ -979,17 +1006,17 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				{
 					out_count = 0;
 					Read_result result = READ_QUEUED;
-					_adapter.with_data_operation([&] (Data_operation &data_operation) {
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
 
-						switch (data_operation.try_start_read(seek(), dst)) {
-						case Data_operation::PENDING: break;
-						case Data_operation::SUCCEEDED:
+						switch (adapter.read(seek(), dst)) {
+						case Initialized_tresor_adapter_interface::PENDING: break;
+						case Initialized_tresor_adapter_interface::SUCCEEDED:
 
 							out_count = dst.num_bytes;
 							result = READ_OK;
 							break;
 
-						case Data_operation::FAILED: result = READ_ERR_IO; break;
+						case Initialized_tresor_adapter_interface::FAILED: result = READ_ERR_IO; break;
 						};
 					});
 					return result;
@@ -999,17 +1026,17 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				{
 					out_count = 0;
 					Write_result result = WRITE_ERR_WOULD_BLOCK;
-					_adapter.with_data_operation([&] (Data_operation &data_operation) {
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
 
-						switch (data_operation.try_start_write(seek(), src)) {
-						case Data_operation::PENDING: break;
-						case Data_operation::SUCCEEDED:
+						switch (adapter.write(seek(), src)) {
+						case Initialized_tresor_adapter_interface::PENDING: break;
+						case Initialized_tresor_adapter_interface::SUCCEEDED:
 
 							out_count = src.num_bytes;
 							result = WRITE_OK;
 							break;
 
-						case Data_operation::FAILED: result = WRITE_ERR_IO; break;
+						case Initialized_tresor_adapter_interface::FAILED: result = WRITE_ERR_IO; break;
 						};
 					});
 					return result;
@@ -1018,16 +1045,16 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Sync_result sync() override
 				{
 					Sync_result result = SYNC_QUEUED;
-					_adapter.with_data_operation([&] (Data_operation &data_operation) {
+					_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
 
-						switch (data_operation.try_start_sync()) {
-						case Data_operation::PENDING: break;
-						case Data_operation::SUCCEEDED:
+						switch (adapter.sync()) {
+						case Initialized_tresor_adapter_interface::PENDING: break;
+						case Initialized_tresor_adapter_interface::SUCCEEDED:
 
 							result = SYNC_OK;
 							break;
 
-						case Data_operation::FAILED: result = SYNC_ERR_INVALID; break;
+						case Initialized_tresor_adapter_interface::FAILED: result = SYNC_ERR_INVALID; break;
 						};
 					});
 					return result;
@@ -1123,7 +1150,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 							log("malformed read request at extend file");
 						return;
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					switch (extending.last_result()) {
 					case Extending::NONE: result = _read_ok("none", dst, out_count); break;
 					case Extending::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
@@ -1148,7 +1175,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						if (VERBOSE)
 							log("malformed write request at extend file");
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					if (!strcmp("ft", tree_arg, 2)) {
 
 						if (!extending.try_start_extending_free_tree(adapter, blocks_arg)) {
@@ -1448,7 +1475,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 							log("malformed read request at rekey file");
 						return;
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					switch (rekeying.last_result()) {
 					case Rekeying::NONE: result = _read_ok("none", dst, out_count); break;
 					case Rekeying::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
@@ -1473,7 +1500,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 							log("malformed write request at rekey file");
 						return;
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					if (!rekeying.try_start(adapter)) {
 						result = WRITE_ERR_IO;
 						if (VERBOSE)
@@ -1751,7 +1778,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 								log("malformed read request at deinitialize file");
 							return;
 						}
-						while (adapter.execute()) ;
+						adapter.execute();
 						switch (deinitialize.last_result()) {
 						case Deinitialize::NONE: result = _read_ok("none", dst, out_count); break;
 						case Deinitialize::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
@@ -1775,7 +1802,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 								log("malformed write request at deinitialize file");
 							return;
 						}
-						while (adapter.execute()) ;
+						adapter.execute();
 						if (!deinitialize.try_start(adapter)) {
 							if (VERBOSE)
 								log("failed to start deinitialize");
@@ -2150,106 +2177,4 @@ void Vfs_tresor::Tresor_adapter::deinit_fs_trigger_watch_response()
 {
 	if (_deinit_fs_ptr)
 		_deinit_fs_ptr->trigger_watch_response();
-}
-
-
-Vfs_tresor::Data_operation::Result Vfs_tresor::Data_operation::try_start_write(addr_t seek, Const_byte_range_ptr const &src)
-{
-	Result result = PENDING;
-	_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
-		switch (_state) {
-		case INIT:
-		{
-			if (adapter.exceeds_data_file_range(seek, src.num_bytes)) {
-				result = FAILED;
-				if (VERBOSE)
-					log("write exceeds file (seek ", seek, " size ", src.num_bytes, ")");
-				break;
-			}
-			_write.construct(Splitter::Write::Attr{seek, _generation, src.start, src.num_bytes});
-			_state = WRITE;
-			adapter.add_to_schedule(_schedule_item);
-			if (VERBOSE)
-				log("write started (seek ", seek, " size ", src.num_bytes, ")");
-
-			while (adapter.execute()) ;
-			result = _try_complete_write();
-			break;
-		}
-		case WRITE:
-
-			while (adapter.execute()) ;
-			result = _try_complete_write();
-			break;
-
-		default: ASSERT_NEVER_REACHED;
-		}
-	});
-	return result;
-}
-
-
-Vfs_tresor::Data_operation::Result Vfs_tresor::Data_operation::try_start_read(addr_t seek, Byte_range_ptr const &dst)
-{
-	Result result = PENDING;
-	_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
-		switch (_state) {
-		case INIT:
-		{
-			if (adapter.exceeds_data_file_range(seek, dst.num_bytes)) {
-				result = FAILED;
-				if (VERBOSE)
-					log("read exceeds file (seek ", seek, " size ", dst.num_bytes, ")");
-				break;
-			}
-			_read.construct(Splitter::Read::Attr{seek, _generation, dst.start, dst.num_bytes});
-			_state = READ;
-			adapter.add_to_schedule(_schedule_item);
-			if (VERBOSE)
-				log("read started (seek ", seek, " size ", dst.num_bytes, ")");
-
-			while (adapter.execute()) ;
-			result = _try_complete_read();
-			break;
-		}
-		case READ:
-
-			while (adapter.execute()) ;
-			result = _try_complete_read();
-			break;
-
-		default: ASSERT_NEVER_REACHED;
-		}
-	});
-	return result;
-}
-
-
-Vfs_tresor::Data_operation::Result Vfs_tresor::Data_operation::try_start_sync()
-{
-	Result result = PENDING;
-	_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
-		switch (_state) {
-		case INIT:
-		{
-			_sync.construct(Superblock_control::Synchronize::Attr{});
-			_state = SYNC;
-			adapter.add_to_schedule(_schedule_item);
-			if (VERBOSE)
-				log("sync started");
-
-			while (adapter.execute()) ;
-			result = _try_complete_sync();
-			break;
-		}
-		case SYNC:
-
-			while (adapter.execute()) ;
-			result = _try_complete_sync();
-			break;
-
-		default: ASSERT_NEVER_REACHED;
-		}
-	});
-	return result;
 }
