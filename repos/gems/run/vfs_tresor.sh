@@ -55,6 +55,19 @@ test_read_compare_1() {
 	fi
 }
 
+test_deinitialize() {
+	local tresor_dir="$1"
+	echo "Deinitialize"
+	local state="$(< $tresor_dir/control/deinitialize)"
+	echo true > $tresor_dir/control/deinitialize
+}
+
+wait_for_deinitialize() {
+	local tresor_dir="$1"
+	echo "Wait for deinitialize"
+	local state="$(< $tresor_dir/control/deinitialize)"
+}
+
 test_create_snapshot() {
 	local tresor_dir="$1"
 
@@ -235,7 +248,9 @@ main() {
 	test_rekey_start "$tresor_dir"
 	test_write_1 "$data_file" "2"
 	test_read_compare_1 "$data_file" "2"
+	test_deinitialize "$tresor_dir"
 	wait_for_rekeying "$tresor_dir" "no"
+	wait_for_deinitialize "$tresor_dir"
 	echo "done!"
 }
 

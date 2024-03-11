@@ -48,6 +48,7 @@ namespace Vfs_tresor {
 	class Rekeying;
 	class Rekey_file_system;
 	class Rekey_progress_file_system;
+	class Deinitialize;
 	class Deinitialize_file_system;
 	class Create_snapshot_file_system;
 	class Discard_snapshot_file_system;
@@ -276,6 +277,108 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 		Result last_result() { return _last_result; }
 };
 
+class Vfs_tresor::Deinitialize : Noncopyable, Request_interface
+{
+	public:
+
+		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
+
+	private:
+
+		enum State { INIT, DEINIT_SB_CONTROL, DEINIT_SB_CONTROL_SUCCEEDED, DEINIT_SB_CONTROL_FAILED };
+
+		State _state { INIT };
+		Constructible<Superblock_control::Deinitialize> _deinit_sb_control { };
+		Schedule<Request_interface>::Item _schedule_item { this };
+
+		/***********************
+		 ** Request_interface **
+		 ***********************/
+
+		bool execute(Execute_attr const &attr) override
+		{
+			bool progress = false;
+			switch (_state) {
+			case DEINIT_SB_CONTROL:
+
+				progress = attr.sb_control.execute(
+					*_deinit_sb_control, attr.block_io, attr.crypto, attr.trust_anchor);
+
+				if (_deinit_sb_control->complete()) {
+					if (_deinit_sb_control->success()) {
+						_state = DEINIT_SB_CONTROL_SUCCEEDED;
+						if (VERBOSE)
+							log("deinitialize succeeded");
+					} else {
+						_state = DEINIT_SB_CONTROL_FAILED;
+						if (VERBOSE)
+							log("deinitialize failed");
+					}
+					_deinit_sb_control.destruct();
+					attr.adapter.rekey_fs_trigger_watch_response();
+					progress = true;
+				}
+				break;
+
+			case DEINIT_SB_CONTROL_SUCCEEDED:
+
+				_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
+				_state = DEINIT_SB_CONTROL;
+				progress = true;
+				break;
+
+			default: ASSERT_NEVER_REACHED;
+			}
+			return progress;
+		}
+
+		Scheduling_state scheduling_state() const override
+		{
+			switch (_state) {
+			case DEINIT_SB_CONTROL: return CANNOT_YIELD;
+			case DEINIT_SB_CONTROL_SUCCEEDED:
+			case DEINIT_SB_CONTROL_FAILED: return REMOVE_FROM_SCHEDULE;
+			default: break;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		bool can_be_yielded_to() const override { return false; };
+
+	public:
+
+		bool try_start(Initialized_tresor_adapter_interface &adapter)
+		{
+			switch (_state) {
+			case INIT:
+			case DEINIT_SB_CONTROL_FAILED:
+			case DEINIT_SB_CONTROL_SUCCEEDED:
+
+				_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
+				_state = DEINIT_SB_CONTROL;
+				adapter.add_to_schedule(_schedule_item);
+				if (VERBOSE)
+					log("deinitialize started");
+
+				return true;
+
+			default: break;
+			}
+			return false;
+		}
+
+		Result last_result()
+		{
+			switch (_state) {
+			case INIT: return NONE;
+			case DEINIT_SB_CONTROL: return PENDING;
+			case DEINIT_SB_CONTROL_FAILED: return FAILED;
+			case DEINIT_SB_CONTROL_SUCCEEDED: return SUCCEEDED;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+};
+
 class Vfs_tresor::Extending : Noncopyable, Request_interface
 {
 	public:
@@ -482,6 +585,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
 		Rekeying _rekeying { };
+		Deinitialize _deinitialize { };
 		Extending _extending { };
 
 		/*
@@ -657,6 +761,13 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		{
 			if (_try_complete_init_sb_control())
 				func(*this, _extending);
+		}
+
+		template <typename FUNC>
+		void with_deinitialize(FUNC && func)
+		{
+			if (_try_complete_init_sb_control())
+				func(*this, _deinitialize);
 		}
 
 		/***********************************************************
@@ -1036,14 +1147,12 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		typedef Registered<Vfs_watch_handle>      Registered_watch_handle;
-		typedef Registry<Registered_watch_handle> Watch_handle_registry;
+		using Registered_watch_handle = Registered<Vfs_watch_handle>;
+		using Watch_handle_registry = Registry<Registered_watch_handle>;
+		using Content_string = String<11>;
 
 		Watch_handle_registry _handle_registry { };
-
 		Tresor_adapter &_adapter;
-
-		using Content_string = String<11>;
 
 		class Vfs_handle : public Single_vfs_handle
 		{
@@ -1669,41 +1778,84 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		typedef Registered<Vfs_watch_handle>      Registered_watch_handle;
-		typedef Registry<Registered_watch_handle> Watch_handle_registry;
+		using Registered_watch_handle = Registered<Vfs_watch_handle>;
+		using Watch_handle_registry = Registry<Registered_watch_handle>;
+		using Content_string = String<11>;
 
 		Watch_handle_registry _handle_registry { };
-
 		Tresor_adapter &_adapter;
 
-		using Content_string = String<32>;
-
-		static Content_string content_string(Tresor_adapter const &)
+		class Vfs_handle : public Single_vfs_handle
 		{
-			ASSERT_NEVER_REACHED;
-		}
+			private:
 
-		struct Vfs_handle : Single_vfs_handle
-		{
-			Tresor_adapter &_adapter;
+				Tresor_adapter &_adapter;
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
+				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
+				{
+					copy_cstring(dst.start, content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
+
+			public:
+
+			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+			           Allocator &alloc, Tresor_adapter &adapter)
 			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter)
+				Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
 			{ }
 
-			Read_result read(Byte_range_ptr const &, size_t &) override
+			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 			{
-				ASSERT_NEVER_REACHED;
+				out_count = 0;
+				Read_result result = READ_QUEUED;
+				_adapter.with_deinitialize([&] (Initialized_tresor_adapter_interface &adapter, Deinitialize &deinitialize) {
+
+					if (seek() == dst.num_bytes) {
+						result = READ_OK;
+						return;
+					}
+					if (seek() || dst.num_bytes < Content_string::capacity()) {
+						result = READ_ERR_IO;
+						if (VERBOSE)
+							log("malformed read request at deinitialize file");
+						return;
+					}
+					while (adapter.execute()) ;
+					switch (deinitialize.last_result()) {
+					case Deinitialize::NONE: result = _read_ok("none", dst, out_count); break;
+					case Deinitialize::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+					case Deinitialize::FAILED: result = _read_ok("failed", dst, out_count); break;
+					case Deinitialize::PENDING: break;
+					}
+				});
+				return result;
 			}
 
-			Write_result write(Const_byte_range_ptr const &, size_t &) override
+			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
-				ASSERT_NEVER_REACHED;
+				out_count = 0;
+				Write_result result = WRITE_ERR_IO;
+				_adapter.with_deinitialize([&] (Initialized_tresor_adapter_interface &adapter, Deinitialize &deinitialize) {
+
+					bool start_deinitialize { false };
+					Genode::ascii_to(src.start, start_deinitialize);
+					if (seek() || !start_deinitialize) {
+						if (VERBOSE)
+							log("malformed write request at deinitialize file");
+						return;
+					}
+					while (adapter.execute()) ;
+					if (!deinitialize.try_start(adapter)) {
+						if (VERBOSE)
+							log("failed to start deinitialize");
+						return;
+					}
+					out_count = src.num_bytes;
+					result = WRITE_OK;
+				});
+				return result;
 			}
 
 			bool read_ready()  const override { return true; }
@@ -1778,7 +1930,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-			out.size = content_string(_adapter).length() - 1;
+			out.size = Content_string::capacity() - 1;
 			return result;
 		}
 
@@ -2071,7 +2223,7 @@ class Vfs_tresor::Discard_snapshot_file_system : public Vfs::Single_file_system
 					ASSERT_NEVER_REACHED;
 				}
 
-				bool can_be_yielded_to() const override { return false; }
+				bool can_be_yielded_to() const override { return true; }
 
 			public:
 
