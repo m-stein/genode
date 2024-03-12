@@ -222,8 +222,8 @@ main() {
 	test_rekey_start "$tresor_dir"
 	test_write_1 "$data_file" "2"
 	test_read_compare_1 "$data_file" "2"
-	test_deinitialize "$tresor_dir"
 	wait_for_rekeying "$tresor_dir" "no"
+	test_deinitialize "$tresor_dir"
 	wait_for_deinitialize "$tresor_dir"
 	echo "done!"
 }

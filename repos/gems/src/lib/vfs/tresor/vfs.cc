@@ -47,7 +47,7 @@ namespace Vfs_tresor {
 	class Extend_operation;
 	class Extend_file_system;
 	class Extend_progress_file_system;
-	class Rekeying;
+	class Rekey_operation;
 	class Rekey_file_system;
 	class Rekey_progress_file_system;
 	class Deinitialize;
@@ -215,7 +215,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 
 	public:
 
-		Result file_write(addr_t seek, Const_byte_range_ptr const &src)
+		Result request_write(addr_t seek, Const_byte_range_ptr const &src)
 		{
 			switch (_state) {
 			case INIT:
@@ -241,7 +241,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 			ASSERT_NEVER_REACHED;
 		}
 
-		Result file_read(addr_t seek, Byte_range_ptr const &dst)
+		Result request_read(addr_t seek, Byte_range_ptr const &dst)
 		{
 			switch (_state) {
 			case INIT:
@@ -267,7 +267,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 			ASSERT_NEVER_REACHED;
 		}
 
-		Result file_sync()
+		Result request_sync()
 		{
 			switch (_state) {
 			case INIT:
@@ -401,30 +401,76 @@ class Vfs_tresor::Data_operation : Noncopyable
 		}
 };
 
-class Vfs_tresor::Rekeying : Noncopyable, Request_interface
+class Vfs_tresor::Rekey_operation : Noncopyable
 {
+	friend class Tresor_adapter;
+
 	public:
 
 		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
 
+		struct Execute_attr
+		{
+			Initialized_tresor_adapter_interface &adapter;
+			Superblock_control &sb_control;
+			Virtual_block_device &vbd;
+			Free_tree &free_tree;
+			Meta_tree &meta_tree;
+			Block_io &block_io;
+			Crypto &crypto;
+			Trust_anchor &trust_anchor;
+		};
+
 	private:
 
-		enum State { INIT, REKEY, REKEY_SUCCEEDED, COMPLETE };
+		enum State { INIT, REQUESTED, STARTED, REKEY, PAUSED, RESUMED, COMPLETE };
 
 		State _state { INIT };
-		Result _last_result { NONE };
-		bool _rekeying_finished { };
+		bool _success { };
+		bool _complete { };
 		Constructible<Superblock_control::Rekey> _rekey { };
-		Schedule<Request_interface>::Item _schedule_item { this };
 
-		/***********************
-		 ** Request_interface **
-		 ***********************/
+	public:
 
-		bool execute(Execute_attr const &attr) override
+		bool request()
+		{
+			switch (_state) {
+			case INIT:
+			case COMPLETE:
+
+				_state = REQUESTED;
+				if (VERBOSE)
+					log("rekey requested");
+				return true;
+
+			default: return false;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		Result result() const
+		{
+			switch (_state) {
+			case INIT: return NONE;
+			case COMPLETE: return _success ? SUCCEEDED : FAILED;
+			default: return PENDING;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		bool execute(Execute_attr const &attr)
 		{
 			bool progress = false;
 			switch (_state) {
+			case STARTED:
+
+				_rekey.construct(Superblock_control::Rekey::Attr{_complete});
+				_state = REKEY;
+				progress = true;
+				if (VERBOSE)
+					log("rekey started");
+				break;
+
 			case REKEY:
 
 				progress |= attr.sb_control.execute(
@@ -432,74 +478,59 @@ class Vfs_tresor::Rekeying : Noncopyable, Request_interface
 
 				if (_rekey->complete()) {
 					if (_rekey->success()) {
-						if (_rekeying_finished) {
-							_last_result = SUCCEEDED;
+						if (_complete) {
+							_success = true;
 							_state = COMPLETE;
+							attr.adapter.rekey_fs_trigger_watch_response();
 							if (VERBOSE)
-								log("rekeying succeeded");
+								log("rekey succeeded");
 						} else
-							_state = REKEY_SUCCEEDED;
+							_state = PAUSED;
 					} else {
-						_last_result = FAILED;
+						_success = false;
 						_state = COMPLETE;
+						attr.adapter.rekey_fs_trigger_watch_response();
 						if (VERBOSE)
-							log("rekeying failed");
+							log("rekey failed");
 					}
 					_rekey.destruct();
-					attr.adapter.rekey_fs_trigger_watch_response();
 					progress = true;
 				}
 				break;
 
-			case REKEY_SUCCEEDED:
+			case RESUMED:
 
-				_rekey.construct(Superblock_control::Rekey::Attr{_rekeying_finished});
+				_rekey.construct(Superblock_control::Rekey::Attr{_complete});
 				_state = REKEY;
 				progress = true;
 				break;
 
-			default: ASSERT_NEVER_REACHED;
+			default: break;
 			}
 			return progress;
 		}
 
-		Scheduling_state scheduling_state() const override
+		void resume()
 		{
 			switch (_state) {
-			case REKEY: return CANNOT_YIELD;
-			case REKEY_SUCCEEDED: return CAN_YIELD;
-			case COMPLETE: return REMOVE_FROM_SCHEDULE;
-			default: break;
+			case PAUSED: _state = RESUMED; break;
+			default: ASSERT_NEVER_REACHED;
 			}
-			ASSERT_NEVER_REACHED;
 		}
 
-		bool can_be_yielded_to() const override { return false; };
-
-	public:
-
-		bool try_start(Initialized_tresor_adapter_interface &adapter)
+		void start()
 		{
 			switch (_state) {
-			case INIT:
-			case COMPLETE:
-
-				_last_result = PENDING;
-				_rekeying_finished = false;
-				_rekey.construct(Superblock_control::Rekey::Attr{_rekeying_finished});
-				_state = REKEY;
-				adapter.add_to_schedule(_schedule_item);
-				if (VERBOSE)
-					log("rekeying started");
-
-				return true;
-
-			default: break;
+			case REQUESTED: _state = STARTED; break;
+			default: ASSERT_NEVER_REACHED;
 			}
-			return false;
 		}
 
-		Result last_result() { return _last_result; }
+		bool complete() const { return _state == COMPLETE; }
+
+		bool paused() const { return _state == PAUSED; }
+
+		bool requested() const { return _state == REQUESTED; }
 };
 
 class Vfs_tresor::Deinitialize : Noncopyable, Request_interface
@@ -638,7 +669,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 
 	public:
 
-		bool extend_free_tree(Number_of_blocks num_blocks)
+		bool request_for_free_tree(Number_of_blocks num_blocks)
 		{
 			switch (_state) {
 			case INIT:
@@ -655,7 +686,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 			return false;
 		}
 
-		bool extend_vbd(Number_of_blocks num_blocks)
+		bool request_for_vbd(Number_of_blocks num_blocks)
 		{
 			switch (_state) {
 			case INIT:
@@ -848,7 +879,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
 		Data_operation _data_operation { };
-		Rekeying _rekeying { };
+		Rekey_operation _rekey_operation { };
 		Extend_operation _extend_operation { };
 		Deinitialize _deinitialize { };
 		State _state { INIT_SB_CONTROL };
@@ -971,11 +1002,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		bool _try_start_operation()
 		{
-			if (_extend_operation.paused()) {
-				_extend_operation.resume();
-				_state = EXTEND_OPERATION;
-				return true;
-			}
 			if (_data_operation.requested()) {
 				_data_operation.start();
 				_state = DATA_OPERATION;
@@ -986,6 +1012,11 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 				_state = EXTEND_OPERATION;
 				return true;
 			}
+			if (_rekey_operation.requested()) {
+				_rekey_operation.start();
+				_state = REKEY_OPERATION;
+				return true;
+			}
 			return false;
 		}
 
@@ -994,6 +1025,11 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			if (_extend_operation.paused()) {
 				_extend_operation.resume();
 				_state = EXTEND_OPERATION;
+				return true;
+			}
+			if (_rekey_operation.paused()) {
+				_rekey_operation.resume();
+				_state = REKEY_OPERATION;
 				return true;
 			}
 			return false;
@@ -1045,6 +1081,24 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 						_state = DATA_OPERATION;
 					} else
 						_extend_operation.resume();
+					progress = true;
+				}
+				break;
+
+			case REKEY_OPERATION:
+
+				progress |= _rekey_operation.execute({*this, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor}) ;
+				if (_rekey_operation.complete()) {
+					if (!_try_start_operation())
+						_state = NO_OPERATION;
+					progress = true;
+				}
+				if (_rekey_operation.paused()) {
+					if (_data_operation.requested()) {
+						_data_operation.start();
+						_state = DATA_OPERATION;
+					} else
+						_rekey_operation.resume();
 					progress = true;
 				}
 				break;
@@ -1104,9 +1158,11 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		}
 
 		template <typename FUNC>
-		void with_rekeying(FUNC && )
+		void with_rekey_operation(FUNC && func)
 		{
-			ASSERT_NEVER_REACHED;
+			execute();
+			func(_rekey_operation);
+			execute();
 		}
 
 		template <typename FUNC>
@@ -1217,7 +1273,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					Read_result result = READ_QUEUED;
 					_adapter.with_data_operation([&] (Data_operation &data_operation) {
 
-						switch (data_operation.file_read(seek(), dst)) {
+						switch (data_operation.request_read(seek(), dst)) {
 						case Data_operation::PENDING: break;
 						case Data_operation::SUCCEEDED:
 
@@ -1237,7 +1293,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					Write_result result = WRITE_ERR_WOULD_BLOCK;
 					_adapter.with_data_operation([&] (Data_operation &data_operation) {
 
-						switch (data_operation.file_write(seek(), src)) {
+						switch (data_operation.request_write(seek(), src)) {
 						case Data_operation::PENDING: break;
 						case Data_operation::SUCCEEDED:
 
@@ -1256,7 +1312,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					Sync_result result = SYNC_QUEUED;
 					_adapter.with_data_operation([&] (Data_operation &data_operation) {
 
-						switch (data_operation.file_sync()) {
+						switch (data_operation.request_sync()) {
 						case Data_operation::PENDING: break;
 						case Data_operation::SUCCEEDED:
 
@@ -1324,8 +1380,6 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 		{
 			private:
 
-				enum Tree { VBD, FREE_TREE };
-
 				Tresor_adapter &_adapter;
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
@@ -1337,83 +1391,83 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 			public:
 
-			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-			           Allocator &alloc, Tresor_adapter &adapter)
-			:
-				Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
-			{ }
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Tresor_adapter &adapter)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+				{ }
 
-			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
-			{
-				out_count = 0;
-				if (seek() == dst.num_bytes) {
-					return READ_OK;
-				}
-				if (seek() || dst.num_bytes < Content_string::capacity()) {
-					if (VERBOSE)
-						log("malformed read request at extend file");
-					return READ_ERR_IO;
-				}
-				Read_result result = READ_QUEUED;
-				_adapter.with_extend_operation([&] (Extend_operation &extend_operation) {
-
-					switch (extend_operation.result()) {
-					case Extend_operation::NONE: result = _read_ok("none", dst, out_count); break;
-					case Extend_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-					case Extend_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Extend_operation::PENDING: break;
+				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+				{
+					out_count = 0;
+					if (seek() == dst.num_bytes) {
+						return READ_OK;
 					}
-				});
-				return result;
-			}
-
-			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
-			{
-				out_count = 0;
-				char tree_arg[16];
-				Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
-				unsigned long blocks_arg = Arg_string::find_arg(src.start, "blocks").ulong_value(0);
-				if (seek() || !blocks_arg) {
-					if (VERBOSE)
-						log("malformed write at extend file");
-					return WRITE_ERR_IO;
-				}
-				Write_result result = WRITE_ERR_IO;
-				_adapter.with_extend_operation([&] (Extend_operation &extend_operation) {
-
-					if (!strcmp("ft", tree_arg, 2)) {
-
-						if (!extend_operation.extend_free_tree(blocks_arg)) {
-							result = WRITE_ERR_IO;
-							if (VERBOSE)
-								log("failed to start extend free tree");
-							return;
-						}
-
-					} else if (!strcmp("vbd", tree_arg, 3)) {
-
-						if (!extend_operation.extend_vbd(blocks_arg)) {
-							result = WRITE_ERR_IO;
-							if (VERBOSE)
-								log("extend virtual block device failed");
-							return;
-						}
-
-					} else {
-
-						result = WRITE_ERR_IO;
+					if (seek() || dst.num_bytes < Content_string::capacity()) {
 						if (VERBOSE)
-							log("malformed tree argument while writing extend file");
-						return;
+							log("reading extend file failed: malformed arguments");
+						return READ_ERR_IO;
 					}
-					out_count = src.num_bytes;
-					result = WRITE_OK;
-				});
-				return result;
-			}
+					Read_result result = READ_QUEUED;
+					_adapter.with_extend_operation([&] (Extend_operation &extend_operation) {
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+						switch (extend_operation.result()) {
+						case Extend_operation::NONE: result = _read_ok("none", dst, out_count); break;
+						case Extend_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case Extend_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
+						case Extend_operation::PENDING: break;
+						}
+					});
+					return result;
+				}
+
+				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+				{
+					out_count = 0;
+					char tree_arg[16];
+					Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
+					unsigned long blocks_arg = Arg_string::find_arg(src.start, "blocks").ulong_value(0);
+					if (seek() || !blocks_arg) {
+						if (VERBOSE)
+							log("writing extend file failed: malformed arguments");
+						return WRITE_ERR_IO;
+					}
+					Write_result result = WRITE_ERR_IO;
+					_adapter.with_extend_operation([&] (Extend_operation &extend_operation) {
+
+						if (!strcmp("ft", tree_arg, 2)) {
+
+							if (!extend_operation.request_for_free_tree(blocks_arg)) {
+								result = WRITE_ERR_IO;
+								if (VERBOSE)
+									log("writing extend file failed: failed to request operation");
+								return;
+							}
+
+						} else if (!strcmp("vbd", tree_arg, 3)) {
+
+							if (!extend_operation.request_for_vbd(blocks_arg)) {
+								result = WRITE_ERR_IO;
+								if (VERBOSE)
+									log("writing extend file failed: failed to request operation");
+								return;
+							}
+
+						} else {
+
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("writing extend file failed: malformed tree argument");
+							return;
+						}
+						out_count = src.num_bytes;
+						result = WRITE_OK;
+					});
+					return result;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 	public:
@@ -1658,67 +1712,63 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 			public:
 
-			Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-			           Allocator &alloc, Tresor_adapter &adapter)
-			:
-				Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
-			{ }
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Tresor_adapter &adapter)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+				{ }
 
-			Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
-			{
-				out_count = 0;
-				Read_result result = READ_QUEUED;
-				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
-
+				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
+				{
+					out_count = 0;
 					if (seek() == dst.num_bytes) {
-						result = READ_OK;
-						return;
+						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						result = READ_ERR_IO;
 						if (VERBOSE)
-							log("malformed read request at rekey file");
-						return;
+							log("reading rekey file failed: malformed arguments");
+						return READ_ERR_IO;
 					}
-					adapter.execute();
-					switch (rekeying.last_result()) {
-					case Rekeying::NONE: result = _read_ok("none", dst, out_count); break;
-					case Rekeying::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-					case Rekeying::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Rekeying::PENDING: break;
-					}
-				});
-				return result;
-			}
+					Read_result result = READ_QUEUED;
+					_adapter.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
 
-			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
-			{
-				out_count = 0;
-				Write_result result = WRITE_ERR_IO;
-				_adapter.with_rekeying([&] (Initialized_tresor_adapter_interface &adapter, Rekeying &rekeying) {
+						switch (rekey_operation.result()) {
+						case Rekey_operation::NONE: result = _read_ok("none", dst, out_count); break;
+						case Rekey_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case Rekey_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
+						case Rekey_operation::PENDING: break;
+						}
+					});
+					return result;
+				}
 
-					bool start_rekeying_arg { false };
-					Genode::ascii_to(src.start, start_rekeying_arg);
-					if (seek() || !start_rekeying_arg) {
-						result = WRITE_ERR_IO;
+				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
+				{
+					out_count = 0;
+					bool rekey_arg { false };
+					Genode::ascii_to(src.start, rekey_arg);
+					if (seek() || !rekey_arg) {
 						if (VERBOSE)
-							log("malformed write request at rekey file");
-						return;
+							log("writing rekey file failed: malformed arguments");
+						return WRITE_ERR_IO;
 					}
-					adapter.execute();
-					if (!rekeying.try_start(adapter)) {
-						result = WRITE_ERR_IO;
-						if (VERBOSE)
-							log("failed to start rekeying");
-						return;
-					}
-					out_count = src.num_bytes;
-				});
-				return result;
-			}
+					Write_result result = WRITE_ERR_IO;
+					_adapter.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+						if (!rekey_operation.request()) {
+							result = WRITE_ERR_IO;
+							if (VERBOSE)
+								log("writing rekey file failed: failed to request operation");
+							return;
+						}
+						out_count = src.num_bytes;
+						result = WRITE_OK;
+					});
+					return result;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 	public:
