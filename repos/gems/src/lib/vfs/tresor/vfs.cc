@@ -540,7 +540,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 {
 	private:
 
-		enum State { INIT, READ, WRITE, SYNC };
+		enum State { INIT, INIT_SB_CONTROL, READ, WRITE, SYNC };
 
 		struct Crypto_key
 		{
@@ -645,6 +645,16 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			}
 		}
 
+		bool _try_complete_init_sb_control()
+		{
+			if (_init_sb_control_ptr->complete()) {
+				ASSERT(_init_sb_control_ptr->success());
+				destroy(_vfs_env.alloc(), _init_sb_control_ptr);
+				_init_sb_control_ptr = nullptr;
+				_state = INIT;
+			}
+		}
+
 		bool _execute_tresor()
 		{
 			bool progress = false;
@@ -660,6 +670,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			case SYNC:
 				progress |= _sb_control.execute(*_sync, _block_io, _trust_anchor);
 				_try_complete_sync();
+				break;
+			case INIT_SB_CONTROL:
+				progress |= _sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)
+				_try_complete_init_sb_control();
 				break;
 			case INIT: break;
 			}
@@ -696,21 +710,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			return progress;
 		}
 
-		bool _try_complete_init_sb_control()
+		bool _initialized()
 		{
-			if (!_init_sb_control_ptr)
-				return true;
-
-			while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
-			if (_init_sb_control_ptr->complete()) {
-
-				ASSERT(_init_sb_control_ptr->success());
-				destroy(_vfs_env.alloc(), _init_sb_control_ptr);
-				_init_sb_control_ptr = nullptr;
-				return true;
-			}
-			_wakeup_back_end_services();
-			return false;
+			execute();
+			return _state != INIT_SB_CONTROL;
 		}
 
 		bool _exceeds_data_file_range(addr_t start, size_t num_bytes) const
@@ -816,7 +819,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 				execute();
 				return _data_operation_result;
 
-			default: ASSERT_NEVER_REACHED;
+			default: break;
 			}
 			return PENDING;
 		}
@@ -889,28 +892,32 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		template <typename FUNC>
 		void with_initialized_interface(FUNC && func)
 		{
-			if (_try_complete_init_sb_control())
+			execute();
+			if (_state != INIT_SB_CONTROL)
 				func(*this);
 		}
 
 		template <typename FUNC>
 		void with_rekeying(FUNC && func)
 		{
-			if (_try_complete_init_sb_control())
+			execute();
+			if (_state != INIT_SB_CONTROL)
 				func(*this, _rekeying);
 		}
 
 		template <typename FUNC>
 		void with_extending(FUNC && func)
 		{
-			if (_try_complete_init_sb_control())
+			execute();
+			if (_state != INIT_SB_CONTROL)
 				func(*this, _extending);
 		}
 
 		template <typename FUNC>
 		void with_deinitialize(FUNC && func)
 		{
-			if (_try_complete_init_sb_control())
+			execute();
+			if (_state != INIT_SB_CONTROL)
 				func(*this, _deinitialize);
 		}
 
