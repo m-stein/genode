@@ -44,7 +44,7 @@ namespace Vfs_tresor {
 	class Request_interface;
 	class Data_operation;
 	class Data_operation_system;
-	class Extending;
+	class Extend_operation;
 	class Extend_file_system;
 	class Extend_progress_file_system;
 	class Rekeying;
@@ -313,9 +313,9 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_success = _write->success();
 					_write.destruct();
 					_state = WRITE_COMPLETE;
+					progress = true;
 					if (VERBOSE)
 						log("write (seek ", _seek, " num_bytes ", _src->num_bytes, ") ", _success ? "succeeded" : "failed");
-					progress = true;
 				}
 				break;
 
@@ -345,9 +345,9 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_success = _read->success();
 					_read.destruct();
 					_state = READ_COMPLETE;
-					if (VERBOSE)
-						log("read ", _success ? "succeeded" : "failed", " (seek ", _seek, " num_bytes ", _dst->num_bytes, ")");
 					progress = true;
+					if (VERBOSE)
+						log("read (seek ", _seek, " num_bytes ", _dst->num_bytes, ") ", _success ? "succeeded" : "failed");
 				}
 				break;
 
@@ -357,7 +357,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 				_state = SYNC;
 				progress = true;
 				if (VERBOSE)
-					log("sync (seek ", _seek, " num_bytes ", _dst->num_bytes, ") started");
+					log("sync started");
 				break;
 
 			case SYNC:
@@ -367,9 +367,9 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_success = _sync->success();
 					_sync.destruct();
 					_state = SYNC_COMPLETE;
-					if (VERBOSE)
-						log("sync ", _success ? "succeeded" : "failed", " (seek ", _seek, " num_bytes ", _dst->num_bytes, ")");
 					progress = true;
+					if (VERBOSE)
+						log("sync ", _success ? "succeeded" : "failed");
 				}
 				break;
 
@@ -582,7 +582,7 @@ class Vfs_tresor::Deinitialize : Noncopyable, Request_interface
 		}
 };
 
-class Vfs_tresor::Extending : Noncopyable, Request_interface
+class Vfs_tresor::Extend_operation : Noncopyable, Request_interface
 {
 	public:
 
@@ -789,7 +789,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Superblock::State _sb_state { Superblock::INVALID };
 		Data_operation _data_operation { };
 		Rekeying _rekeying { };
-		Extending _extending { };
+		Extend_operation _extending { };
 		Deinitialize _deinitialize { };
 		State _state { INIT_SB_CONTROL };
 
@@ -920,7 +920,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			return state != _state;
 		}
 
-		bool _execute_files()
+		bool _execute_operations()
 		{
 			bool progress = false;
 			switch (_state) {
@@ -954,9 +954,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		bool execute() override
 		{
-			//bool progress = _execute_schedule_items();
-
-			while (_execute_files()) ;
+			while (_execute_operations()) ;
 			_wakeup_back_end_services();
 			return false;
 		}
@@ -997,6 +995,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		template <typename FUNC>
 		void with_data_operation(FUNC && func)
 		{
+			execute();
 			func(_data_operation);
 			execute();
 		}
@@ -1008,7 +1007,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		}
 
 		template <typename FUNC>
-		void with_extending(FUNC && )
+		void with_extend_operation(FUNC && )
 		{
 			ASSERT_NEVER_REACHED;
 		}
@@ -1243,7 +1242,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			{
 				out_count = 0;
 				Read_result result = READ_QUEUED;
-				_adapter.with_extending([&] (Initialized_tresor_adapter_interface &adapter, Extending &extending) {
+				_adapter.with_extend_operation([&] (Initialized_tresor_adapter_interface &adapter, Extend_operation &extend_operation) {
 
 					if (seek() == dst.num_bytes) {
 						result = READ_OK;
@@ -1255,12 +1254,12 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 							log("malformed read request at extend file");
 						return;
 					}
-					while (adapter.execute()) ;
-					switch (extending.last_result()) {
-					case Extending::NONE: result = _read_ok("none", dst, out_count); break;
-					case Extending::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-					case Extending::FAILED: result = _read_ok("failed", dst, out_count); break;
-					case Extending::PENDING: break;
+					adapter.execute();
+					switch (extend_operation.last_result()) {
+					case Extend_operation::NONE: result = _read_ok("none", dst, out_count); break;
+					case Extend_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+					case Extend_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
+					case Extend_operation::PENDING: break;
 					}
 				});
 				return result;
@@ -1270,7 +1269,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			{
 				out_count = 0;
 				Write_result result = WRITE_ERR_WOULD_BLOCK;
-				_adapter.with_extending([&] (Initialized_tresor_adapter_interface &adapter, Extending &extending) {
+				_adapter.with_extend_operation([&] (Initialized_tresor_adapter_interface &adapter, Extend_operation &extend_operation) {
 
 					char tree_arg[16];
 					Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
@@ -1280,22 +1279,22 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						if (VERBOSE)
 							log("malformed write request at extend file");
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					if (!strcmp("ft", tree_arg, 2)) {
 
-						if (!extending.try_start_extending_free_tree(adapter, blocks_arg)) {
+						if (!extend_operation.try_start_extending_free_tree(adapter, blocks_arg)) {
 							result = WRITE_ERR_IO;
 							if (VERBOSE)
-								log("failed to start extending free tree");
+								log("failed to start extend_operation free tree");
 							return;
 						}
 
 					} else if (!strcmp("vbd", tree_arg, 3)) {
 
-						if (!extending.try_start_extending_vbd(adapter, blocks_arg)) {
+						if (!extend_operation.try_start_extending_vbd(adapter, blocks_arg)) {
 							result = WRITE_ERR_IO;
 							if (VERBOSE)
-								log("failed to start extending VBD");
+								log("failed to start extend_operation VBD");
 							return;
 						}
 
@@ -1580,7 +1579,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 							log("malformed read request at rekey file");
 						return;
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					switch (rekeying.last_result()) {
 					case Rekeying::NONE: result = _read_ok("none", dst, out_count); break;
 					case Rekeying::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
@@ -1605,7 +1604,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 							log("malformed write request at rekey file");
 						return;
 					}
-					while (adapter.execute()) ;
+					adapter.execute();
 					if (!rekeying.try_start(adapter)) {
 						result = WRITE_ERR_IO;
 						if (VERBOSE)
@@ -1883,7 +1882,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 								log("malformed read request at deinitialize file");
 							return;
 						}
-						while (adapter.execute()) ;
+						adapter.execute();
 						switch (deinitialize.last_result()) {
 						case Deinitialize::NONE: result = _read_ok("none", dst, out_count); break;
 						case Deinitialize::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
@@ -1907,7 +1906,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 								log("malformed write request at deinitialize file");
 							return;
 						}
-						while (adapter.execute()) ;
+						adapter.execute();
 						if (!deinitialize.try_start(adapter)) {
 							if (VERBOSE)
 								log("failed to start deinitialize");
