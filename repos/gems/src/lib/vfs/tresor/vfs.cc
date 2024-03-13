@@ -50,7 +50,7 @@ namespace Vfs_tresor {
 	class Rekey_operation;
 	class Rekey_file_system;
 	class Rekey_progress_file_system;
-	class Deinitialize;
+	class Deinitialize_operation;
 	class Deinitialize_file_system;
 	class Control_local_factory;
 	class Control_file_system;
@@ -215,7 +215,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 
 	public:
 
-		Result request_write(addr_t seek, Const_byte_range_ptr const &src)
+		Result write(addr_t seek, Const_byte_range_ptr const &src)
 		{
 			switch (_state) {
 			case INIT:
@@ -241,7 +241,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 			ASSERT_NEVER_REACHED;
 		}
 
-		Result request_read(addr_t seek, Byte_range_ptr const &dst)
+		Result read(addr_t seek, Byte_range_ptr const &dst)
 		{
 			switch (_state) {
 			case INIT:
@@ -267,7 +267,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 			ASSERT_NEVER_REACHED;
 		}
 
-		Result request_sync()
+		Result sync()
 		{
 			switch (_state) {
 			case INIT:
@@ -403,8 +403,6 @@ class Vfs_tresor::Data_operation : Noncopyable
 
 class Vfs_tresor::Rekey_operation : Noncopyable
 {
-	friend class Tresor_adapter;
-
 	public:
 
 		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
@@ -533,28 +531,82 @@ class Vfs_tresor::Rekey_operation : Noncopyable
 		bool requested() const { return _state == REQUESTED; }
 };
 
-class Vfs_tresor::Deinitialize : Noncopyable, Request_interface
+class Vfs_tresor::Deinitialize_operation : Noncopyable
 {
 	public:
 
 		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
 
+		struct Execute_attr
+		{
+			Initialized_tresor_adapter_interface &adapter;
+			Superblock_control &sb_control;
+			Block_io &block_io;
+			Crypto &crypto;
+			Trust_anchor &trust_anchor;
+		};
+
 	private:
 
-		enum State { INIT, DEINIT_SB_CONTROL, DEINIT_SB_CONTROL_SUCCEEDED, DEINIT_SB_CONTROL_FAILED };
+		enum State { INIT, REQUESTED, STARTED, DEINIT_SB_CONTROL, COMPLETE };
 
 		State _state { INIT };
+		bool _success { };
 		Constructible<Superblock_control::Deinitialize> _deinit_sb_control { };
-		Schedule<Request_interface>::Item _schedule_item { this };
 
-		/***********************
-		 ** Request_interface **
-		 ***********************/
+	public:
 
-		bool execute(Execute_attr const &attr) override
+		bool request()
+		{
+			switch (_state) {
+			case INIT:
+			case COMPLETE:
+
+				_state = REQUESTED;
+				if (VERBOSE)
+					log("deinitialize requested");
+				return true;
+
+			default: return false;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		void start()
+		{
+			switch (_state) {
+			case REQUESTED: _state = STARTED; break;
+			default: ASSERT_NEVER_REACHED;
+			}
+		}
+
+		Result result() const
+		{
+			switch (_state) {
+			case INIT: return NONE;
+			case COMPLETE: return _success ? SUCCEEDED : FAILED;
+			default: return PENDING;
+			}
+			ASSERT_NEVER_REACHED;
+		}
+
+		bool complete() const { return _state == COMPLETE; }
+
+		bool requested() const { return _state == REQUESTED; }
+
+		bool execute(Execute_attr const &attr)
 		{
 			bool progress = false;
 			switch (_state) {
+			case STARTED:
+
+				_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
+				_state = DEINIT_SB_CONTROL;
+				progress = true;
+				if (VERBOSE)
+					log("deinitialize started");
+				break;
+
 			case DEINIT_SB_CONTROL:
 
 				progress |= attr.sb_control.execute(
@@ -562,83 +614,30 @@ class Vfs_tresor::Deinitialize : Noncopyable, Request_interface
 
 				if (_deinit_sb_control->complete()) {
 					if (_deinit_sb_control->success()) {
-						_state = DEINIT_SB_CONTROL_SUCCEEDED;
+						_success = true;
+						_state = COMPLETE;
 						if (VERBOSE)
 							log("deinitialize succeeded");
 					} else {
-						_state = DEINIT_SB_CONTROL_FAILED;
+						_success = false;
+						_state = DEINIT_SB_CONTROL;
 						if (VERBOSE)
 							log("deinitialize failed");
 					}
 					_deinit_sb_control.destruct();
-					attr.adapter.rekey_fs_trigger_watch_response();
+					attr.adapter.deinit_fs_trigger_watch_response();
 					progress = true;
 				}
 				break;
 
-			case DEINIT_SB_CONTROL_SUCCEEDED:
-
-				_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
-				_state = DEINIT_SB_CONTROL;
-				progress = true;
-				break;
-
-			default: ASSERT_NEVER_REACHED;
+			default: break;
 			}
 			return progress;
-		}
-
-		Scheduling_state scheduling_state() const override
-		{
-			switch (_state) {
-			case DEINIT_SB_CONTROL: return CANNOT_YIELD;
-			case DEINIT_SB_CONTROL_SUCCEEDED:
-			case DEINIT_SB_CONTROL_FAILED: return REMOVE_FROM_SCHEDULE;
-			default: break;
-			}
-			ASSERT_NEVER_REACHED;
-		}
-
-		bool can_be_yielded_to() const override { return false; };
-
-	public:
-
-		bool try_start(Initialized_tresor_adapter_interface &adapter)
-		{
-			switch (_state) {
-			case INIT:
-			case DEINIT_SB_CONTROL_FAILED:
-			case DEINIT_SB_CONTROL_SUCCEEDED:
-
-				_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
-				_state = DEINIT_SB_CONTROL;
-				adapter.add_to_schedule(_schedule_item);
-				if (VERBOSE)
-					log("deinitialize started");
-
-				return true;
-
-			default: break;
-			}
-			return false;
-		}
-
-		Result last_result()
-		{
-			switch (_state) {
-			case INIT: return NONE;
-			case DEINIT_SB_CONTROL: return PENDING;
-			case DEINIT_SB_CONTROL_FAILED: return FAILED;
-			case DEINIT_SB_CONTROL_SUCCEEDED: return SUCCEEDED;
-			}
-			ASSERT_NEVER_REACHED;
 		}
 };
 
 class Vfs_tresor::Extend_operation : Noncopyable
 {
-	friend class Tresor_adapter;
-
 	public:
 
 		enum Result { NONE, SUCCEEDED, FAILED, PENDING };
@@ -837,7 +836,9 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 {
 	private:
 
-		enum State { INIT_SB_CONTROL, NO_OPERATION, DATA_OPERATION, REKEY_OPERATION, EXTEND_OPERATION, DEINITIALIZE_OPERATION };
+		enum State {
+			INIT_SB_CONTROL, NO_OPERATION, DATA_OPERATION, REKEY_OPERATION, EXTEND_OPERATION,
+			DEINITIALIZE_OPERATION, DEINITIALIZED };
 
 		enum { MAX_NUM_COMMANDS = 16 };
 
@@ -881,7 +882,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Data_operation _data_operation { };
 		Rekey_operation _rekey_operation { };
 		Extend_operation _extend_operation { };
-		Deinitialize _deinitialize { };
+		Deinitialize_operation _deinitialize_operation { };
 		State _state { INIT_SB_CONTROL };
 
 		/*
@@ -898,110 +899,13 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			ASSERT_NEVER_REACHED;
 		}
 
-		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
-
-		bool _execute_schedule_items()
-		{
-			bool progress = false;
-			_schedule.with_head([&] (Request_interface &head) {
-
-				progress |= head.execute({*this, _splitter, _sb_control, *this, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor});
-				switch (head.scheduling_state()) {
-				case Request_interface::REMOVE_FROM_SCHEDULE: _schedule.remove_head(); break;
-				case Request_interface::CAN_YIELD:
-
-					_schedule.try_yield_head([&] (Request_interface const &to_req) {
-						return to_req.can_be_yielded_to(); });
-					break;
-
-				case Request_interface::CANNOT_YIELD: break;
-				}
-			});
-			return progress;
-		}
-
-		bool _try_complete_init_sb_control()
-		{
-			if (!_init_sb_control_ptr)
-				return true;
-
-			while (_sb_control.execute(*_init_sb_control_ptr, _block_io, _crypto, _trust_anchor)) ;
-			if (_init_sb_control_ptr->complete()) {
-
-				ASSERT(_init_sb_control_ptr->success());
-				destroy(_vfs_env.alloc(), _init_sb_control_ptr);
-				_init_sb_control_ptr = nullptr;
-				return true;
-			}
-			_wakeup_back_end_services();
-			return false;
-		}
-
-		/********************************
-		 ** Crypto_key_files_interface **
-		 ********************************/
-
-		void add_crypto_key(Key_id key_id) override
-		{
-			for (Constructible<Crypto_key> &key : _crypto_keys)
-				if (!key.constructed()) {
-					key.construct(key_id,
-						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR),
-						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/decrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR)
-					);
-					return;
-				}
-			ASSERT_NEVER_REACHED;
-		}
-
-		void remove_crypto_key(Key_id key_id) override
-		{
-			Constructible<Crypto_key> &crypto_key = _crypto_key(key_id);
-			_vfs_env.root_dir().close(&crypto_key->encrypt_file);
-			_vfs_env.root_dir().close(&crypto_key->decrypt_file);
-			crypto_key.destruct();
-		}
-
-		Vfs::Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
-		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
-
-		/***************************
-		 ** Client_data_interface **
-		 ***************************/
-
-		void obtain_data(Obtain_data_attr const &attr) override
-		{
-			attr.out_blk = _splitter.source_buffer(attr.in_vba);
-		}
-
-		void supply_data(Supply_data_attr const &attr) override
-		{
-			_splitter.destination_buffer(attr.in_vba) = attr.in_blk;
-		}
-
-		/******************************************
-		 ** Initialized_tresor_adapter_interface **
-		 ******************************************/
-
-		bool exceeds_data_file_range(addr_t start, size_t num_bytes) const override
-		{
-			addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
-			addr_t last_file_byte = (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
-			return last_byte > last_file_byte;
-		}
-
-		size_t data_file_size() const override
-		{
-			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
-		}
-
-		void add_to_schedule(Schedule<Request_interface>::Item &item) override
-		{
-			_schedule.add_tail(item);
-		}
-
 		bool _try_start_operation()
 		{
+			if (_deinitialize_operation.requested()) {
+				_deinitialize_operation.start();
+				_state = DEINITIALIZE_OPERATION;
+				return true;
+			}
 			if (_data_operation.requested()) {
 				_data_operation.start();
 				_state = DATA_OPERATION;
@@ -1067,6 +971,15 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 				}
 				break;
 
+			case DEINITIALIZE_OPERATION:
+
+				progress |= _deinitialize_operation.execute({*this, _sb_control, _block_io, _crypto, _trust_anchor}) ;
+				if (_deinitialize_operation.complete()) {
+					_state = DEINITIALIZED;
+					progress = true;
+				}
+				break;
+
 			case EXTEND_OPERATION:
 
 				progress |= _extend_operation.execute({*this, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _trust_anchor}) ;
@@ -1104,9 +1017,74 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 				break;
 
 			case NO_OPERATION: progress |= _try_start_operation(); break;
-			default: ASSERT_NEVER_REACHED;
+			default: break;
 			}
 			return progress;
+		}
+
+		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
+
+		/********************************
+		 ** Crypto_key_files_interface **
+		 ********************************/
+
+		void add_crypto_key(Key_id key_id) override
+		{
+			for (Constructible<Crypto_key> &key : _crypto_keys)
+				if (!key.constructed()) {
+					key.construct(key_id,
+						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR),
+						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/decrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR)
+					);
+					return;
+				}
+			ASSERT_NEVER_REACHED;
+		}
+
+		void remove_crypto_key(Key_id key_id) override
+		{
+			Constructible<Crypto_key> &crypto_key = _crypto_key(key_id);
+			_vfs_env.root_dir().close(&crypto_key->encrypt_file);
+			_vfs_env.root_dir().close(&crypto_key->decrypt_file);
+			crypto_key.destruct();
+		}
+
+		Vfs::Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
+		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
+
+		/***************************
+		 ** Client_data_interface **
+		 ***************************/
+
+		void obtain_data(Obtain_data_attr const &attr) override
+		{
+			attr.out_blk = _splitter.source_buffer(attr.in_vba);
+		}
+
+		void supply_data(Supply_data_attr const &attr) override
+		{
+			_splitter.destination_buffer(attr.in_vba) = attr.in_blk;
+		}
+
+		/******************************************
+		 ** Initialized_tresor_adapter_interface **
+		 ******************************************/
+
+		bool exceeds_data_file_range(addr_t start, size_t num_bytes) const override
+		{
+			addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
+			addr_t last_file_byte = (_sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
+			return last_byte > last_file_byte;
+		}
+
+		size_t data_file_size() const override
+		{
+			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
+		}
+
+		void add_to_schedule(Schedule<Request_interface>::Item &item) override
+		{
+			_schedule.add_tail(item);
 		}
 
 		bool execute() override
@@ -1174,9 +1152,11 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		}
 
 		template <typename FUNC>
-		void with_deinitialize(FUNC && )
+		void with_deinitialize_operation(FUNC && func)
 		{
-			ASSERT_NEVER_REACHED;
+			execute();
+			func(_deinitialize_operation);
+			execute();
 		}
 
 		void manage_extend_file_system(Extend_file_system &extend_fs)
@@ -1273,7 +1253,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					Read_result result = READ_QUEUED;
 					_adapter.with_data_operation([&] (Data_operation &data_operation) {
 
-						switch (data_operation.request_read(seek(), dst)) {
+						switch (data_operation.read(seek(), dst)) {
 						case Data_operation::PENDING: break;
 						case Data_operation::SUCCEEDED:
 
@@ -1293,7 +1273,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					Write_result result = WRITE_ERR_WOULD_BLOCK;
 					_adapter.with_data_operation([&] (Data_operation &data_operation) {
 
-						switch (data_operation.request_write(seek(), src)) {
+						switch (data_operation.write(seek(), src)) {
 						case Data_operation::PENDING: break;
 						case Data_operation::SUCCEEDED:
 
@@ -1312,7 +1292,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 					Sync_result result = SYNC_QUEUED;
 					_adapter.with_data_operation([&] (Data_operation &data_operation) {
 
-						switch (data_operation.request_sync()) {
+						switch (data_operation.sync()) {
 						case Data_operation::PENDING: break;
 						case Data_operation::SUCCEEDED:
 
@@ -2012,7 +1992,8 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 			public:
 
-				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Tresor_adapter &adapter)
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Tresor_adapter &adapter)
 				:
 					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
 				{ }
@@ -2020,25 +2001,22 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
 					out_count = 0;
+					if (seek() == dst.num_bytes) {
+						return READ_OK;
+					}
+					if (seek() || dst.num_bytes < Content_string::capacity()) {
+						if (VERBOSE)
+							log("reading deinitialize file failed: malformed arguments");
+						return READ_ERR_IO;
+					}
 					Read_result result = READ_QUEUED;
-					_adapter.with_deinitialize([&] (Initialized_tresor_adapter_interface &adapter, Deinitialize &deinitialize) {
+					_adapter.with_deinitialize_operation([&] (Deinitialize_operation &deinitialize_operation) {
 
-						if (seek() == dst.num_bytes) {
-							result = READ_OK;
-							return;
-						}
-						if (seek() || dst.num_bytes < Content_string::capacity()) {
-							result = READ_ERR_IO;
-							if (VERBOSE)
-								log("malformed read request at deinitialize file");
-							return;
-						}
-						adapter.execute();
-						switch (deinitialize.last_result()) {
-						case Deinitialize::NONE: result = _read_ok("none", dst, out_count); break;
-						case Deinitialize::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
-						case Deinitialize::FAILED: result = _read_ok("failed", dst, out_count); break;
-						case Deinitialize::PENDING: break;
+						switch (deinitialize_operation.result()) {
+						case Deinitialize_operation::NONE: result = _read_ok("none", dst, out_count); break;
+						case Deinitialize_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case Deinitialize_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
+						case Deinitialize_operation::PENDING: break;
 						}
 					});
 					return result;
@@ -2047,20 +2025,20 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 				Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 				{
 					out_count = 0;
+					bool deinitialize_arg { false };
+					Genode::ascii_to(src.start, deinitialize_arg);
+					if (seek() || !deinitialize_arg) {
+						if (VERBOSE)
+							log("writing deinitialize file failed: malformed arguments");
+						return WRITE_ERR_IO;
+					}
 					Write_result result = WRITE_ERR_IO;
-					_adapter.with_deinitialize([&] (Initialized_tresor_adapter_interface &adapter, Deinitialize &deinitialize) {
+					_adapter.with_deinitialize_operation([&] (Deinitialize_operation &deinitialize_operation) {
 
-						bool start_deinitialize { false };
-						Genode::ascii_to(src.start, start_deinitialize);
-						if (seek() || !start_deinitialize) {
+						if (!deinitialize_operation.request()) {
+							result = WRITE_ERR_IO;
 							if (VERBOSE)
-								log("malformed write request at deinitialize file");
-							return;
-						}
-						adapter.execute();
-						if (!deinitialize.try_start(adapter)) {
-							if (VERBOSE)
-								log("failed to start deinitialize");
+								log("writing deinitialize file failed: failed to request operation");
 							return;
 						}
 						out_count = src.num_bytes;
