@@ -55,7 +55,7 @@ namespace Vfs_tresor {
 	class Current_file_system;
 	class Local_factory;
 	class File_system;
-	class Tresor_adapter;
+	class Plugin;
 }
 
 class Vfs_tresor::Data_operation : Noncopyable
@@ -299,7 +299,7 @@ class Vfs_tresor::Rekey_operation : Noncopyable
 
 		struct Execute_attr
 		{
-			Tresor_adapter &adapter;
+			Rekey_file_system *rekey_fs_ptr;
 			Superblock_control &sb_control;
 			Virtual_block_device &vbd;
 			Free_tree &free_tree;
@@ -382,7 +382,7 @@ class Vfs_tresor::Deinitialize_operation : Noncopyable
 
 		struct Execute_attr
 		{
-			Tresor_adapter &adapter;
+			Deinitialize_file_system *deinit_fs_ptr;
 			Superblock_control &sb_control;
 			Block_io &block_io;
 			Crypto &crypto;
@@ -451,7 +451,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 
 		struct Execute_attr
 		{
-			Tresor_adapter &adapter;
+			Extend_file_system *extend_fs_ptr;
 			Superblock_control &sb_control;
 			Virtual_block_device &vbd;
 			Free_tree &free_tree;
@@ -549,7 +549,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 		bool requested() const { return _state == EXTEND_FT_REQUESTED || _state == EXTEND_VBD_REQUESTED; }
 };
 
-class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface
+class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_interface
 {
 	private:
 
@@ -598,14 +598,14 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Data_operation _data_operation { _verbose };
 		Rekey_operation _rekey_operation { _verbose };
 		Extend_operation _extend_operation { _verbose };
-		Deinitialize_operation _deinitialize_operation { _verbose };
+		Deinitialize_operation _deinit_operation { _verbose };
 		State _state { INIT_SB_CONTROL };
 
 		/*
 		 * Noncopyable
 		 */
-		Tresor_adapter(Tresor_adapter const &) = delete;
-		Tresor_adapter &operator = (Tresor_adapter const &) = delete;
+		Plugin(Plugin const &) = delete;
+		Plugin &operator = (Plugin const &) = delete;
 
 		Constructible<Crypto_key> &_crypto_key(Key_id key_id)
 		{
@@ -617,8 +617,8 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		bool _try_start_operation()
 		{
-			if (_deinitialize_operation.requested()) {
-				_deinitialize_operation.start();
+			if (_deinit_operation.requested()) {
+				_deinit_operation.start();
 				_state = DEINITIALIZE_OPERATION;
 				return true;
 			}
@@ -668,7 +668,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 					destroy(_vfs_env.alloc(), _init_sb_control_ptr);
 					_init_sb_control_ptr = nullptr;
 					if (_verbose)
-						log("init superblock control succeeded");
+						log("initialize succeeded");
 
 					if (!_try_start_operation())
 						_state = NO_OPERATION;
@@ -689,8 +689,8 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 			case DEINITIALIZE_OPERATION:
 
-				progress |= _deinitialize_operation.execute({*this, _sb_control, _block_io, _crypto, _trust_anchor}) ;
-				if (_deinitialize_operation.complete()) {
+				progress |= _deinit_operation.execute({_deinit_fs_ptr, _sb_control, _block_io, _crypto, _trust_anchor}) ;
+				if (_deinit_operation.complete()) {
 					_state = DEINITIALIZED;
 					progress = true;
 				}
@@ -698,7 +698,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 			case EXTEND_OPERATION:
 
-				progress |= _extend_operation.execute({*this, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _trust_anchor}) ;
+				progress |= _extend_operation.execute({_extend_fs_ptr, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _trust_anchor}) ;
 				if (_extend_operation.complete()) {
 					if (!_try_start_operation())
 						_state = NO_OPERATION;
@@ -716,7 +716,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 			case REKEY_OPERATION:
 
-				progress |= _rekey_operation.execute({*this, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor}) ;
+				progress |= _rekey_operation.execute({_rekey_fs_ptr, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor}) ;
 				if (_rekey_operation.complete()) {
 					if (!_try_start_operation())
 						_state = NO_OPERATION;
@@ -792,7 +792,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 	public:
 
-		Tresor_adapter(Vfs::Env &vfs_env, Xml_node const &config)
+		Plugin(Vfs::Env &vfs_env, Xml_node const &config)
 		:
 			_vfs_env(vfs_env),
 			_verbose(config.attribute_value("verbose", _verbose)),
@@ -802,7 +802,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		{
 			_init_sb_control_ptr = new (_vfs_env.alloc()) Superblock_control::Initialize({_sb_state});
 			if (_verbose)
-				log("init superblock control started");
+				log("initialize started");
 		}
 
 		template <typename FUNC>
@@ -838,10 +838,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		}
 
 		template <typename FUNC>
-		void with_deinitialize_operation(FUNC && func)
+		void with_deinit_operation(FUNC && func)
 		{
 			_execute();
-			func(_deinitialize_operation);
+			func(_deinit_operation);
 			_execute();
 		}
 
@@ -905,15 +905,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_deinit_fs_ptr = nullptr;
 		}
 
-		void extend_fs_trigger_watch_response();
-
-		void extend_progress_fs_trigger_watch_response();
-
-		void rekey_fs_trigger_watch_response();
-
-		void rekey_progress_fs_trigger_watch_response();
-
-		void deinit_fs_trigger_watch_response();
+		bool verbose() const { return _verbose; }
 };
 
 
@@ -921,23 +913,11 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 {
 	private:
 
-		Tresor_adapter &_adapter;
-
-	public:
-
 		class Vfs_handle : Noncopyable, public Single_vfs_handle
 		{
 			private:
 
-				Tresor_adapter &_adapter;
-
-			public:
-
-				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-				           Allocator &alloc, Tresor_adapter &adapter)
-				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
-				{ }
+				Plugin &_plugin;
 
 				/***********************
 				 ** Single_vfs_handle **
@@ -947,7 +927,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				{
 					out_count = 0;
 					Read_result result = READ_QUEUED;
-					_adapter.with_data_operation([&] (Data_operation &data_operation) {
+					_plugin.with_data_operation([&] (Data_operation &data_operation) {
 
 						switch (data_operation.read(seek(), dst)) {
 						case Data_operation::PENDING: break;
@@ -967,7 +947,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				{
 					out_count = 0;
 					Write_result result = WRITE_ERR_WOULD_BLOCK;
-					_adapter.with_data_operation([&] (Data_operation &data_operation) {
+					_plugin.with_data_operation([&] (Data_operation &data_operation) {
 
 						switch (data_operation.write(seek(), src)) {
 						case Data_operation::PENDING: break;
@@ -986,7 +966,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 				Sync_result sync() override
 				{
 					Sync_result result = SYNC_QUEUED;
-					_adapter.with_data_operation([&] (Data_operation &data_operation) {
+					_plugin.with_data_operation([&] (Data_operation &data_operation) {
 
 						switch (data_operation.sync()) {
 						case Data_operation::PENDING: break;
@@ -1003,12 +983,17 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 				bool read_ready()  const override { return true; }
 				bool write_ready() const override { return true; }
+
+			public:
+
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Plugin &plugin)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
+				{ }
 		};
 
-		Data_file_system(Tresor_adapter &adapter)
-		:
-			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")), _adapter(adapter)
-		{ }
+		Plugin &_plugin;
 
 		/************************
 		 ** Single_file_system **
@@ -1017,7 +1002,7 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = STAT_ERR_NO_ENTRY;
-			_adapter.with_data_file_size([&] (size_t size) {
+			_plugin.with_data_file_size([&] (size_t size) {
 				result = Single_file_system::stat(path, out);
 				out.size = size;
 			});
@@ -1031,13 +1016,21 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
-			*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+			*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 			return OPEN_OK;
 		}
 
-		static char const *type_name() { return "data"; }
-
 		char const *type() override { return type_name(); }
+
+	public:
+
+		Data_file_system(Plugin &plugin)
+		:
+			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")),
+			_plugin(plugin)
+		{ }
+
+		static char const *type_name() { return "data"; }
 };
 
 
@@ -1049,14 +1042,11 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 		using Watch_handle_registry = Registry<Registered_watch_handle>;
 		using Content_string = String<11>;
 
-		Watch_handle_registry _handle_registry { };
-		Tresor_adapter &_adapter;
-
 		class Vfs_handle : public Single_vfs_handle
 		{
 			private:
 
-				Tresor_adapter &_adapter;
+				Plugin &_plugin;
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
 				{
@@ -1068,10 +1058,14 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			public:
 
 				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-				           Allocator &alloc, Tresor_adapter &adapter)
+				           Allocator &alloc, Plugin &plugin)
 				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
 				{ }
+
+				/***********************
+				 ** Single_vfs_handle **
+				 ***********************/
 
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
@@ -1080,12 +1074,12 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						if (_verbose)
+						if (_plugin.verbose())
 							log("reading extend file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
 					Read_result result = READ_QUEUED;
-					_adapter.with_extend_operation([&] (Extend_operation &extend_operation) {
+					_plugin.with_extend_operation([&] (Extend_operation &extend_operation) {
 
 						switch (extend_operation.result()) {
 						case Extend_operation::NONE: result = _read_ok("none", dst, out_count); break;
@@ -1104,18 +1098,18 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 					Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
 					unsigned long blocks_arg = Arg_string::find_arg(src.start, "blocks").ulong_value(0);
 					if (seek() || !blocks_arg) {
-						if (_verbose)
+						if (_plugin.verbose())
 							log("writing extend file failed: malformed arguments");
 						return WRITE_ERR_IO;
 					}
 					Write_result result = WRITE_ERR_IO;
-					_adapter.with_extend_operation([&] (Extend_operation &extend_operation) {
+					_plugin.with_extend_operation([&] (Extend_operation &extend_operation) {
 
 						if (!strcmp("ft", tree_arg, 2)) {
 
 							if (!extend_operation.request_for_free_tree(blocks_arg)) {
 								result = WRITE_ERR_IO;
-								if (_verbose)
+								if (_plugin.verbose())
 									log("writing extend file failed: failed to request operation");
 								return;
 							}
@@ -1124,7 +1118,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 							if (!extend_operation.request_for_vbd(blocks_arg)) {
 								result = WRITE_ERR_IO;
-								if (_verbose)
+								if (_plugin.verbose())
 									log("writing extend file failed: failed to request operation");
 								return;
 							}
@@ -1132,7 +1126,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						} else {
 
 							result = WRITE_ERR_IO;
-							if (_verbose)
+							if (_plugin.verbose())
 								log("writing extend file failed: malformed tree argument");
 							return;
 						}
@@ -1146,68 +1140,44 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 				bool write_ready() const override { return true; }
 		};
 
-	public:
+		Watch_handle_registry _handle_registry { };
+		Plugin &_plugin;
 
-		Extend_file_system(Tresor_adapter &adapter)
-		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
-			                   Node_rwx::rw(), Xml_node("<extend/>")),
-			_adapter(adapter)
-		{
-			_adapter.manage_extend_file_system(*this);
-		}
+		/************************
+		 ** Single_file_system **
+		 ************************/
 
-		static char const *type_name() { return "extend"; }
-
-		char const *type() override { return type_name(); }
-
-		void trigger_watch_response()
-		{
-			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
-				handle.watch_response(); });
-		}
-
-		Watch_result watch(char const        *path,
-		                   Vfs_watch_handle **handle,
-		                   Allocator         &alloc) override
+		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return WATCH_ERR_UNACCESSIBLE;
 
 			try {
-				*handle = new (alloc)
-					Registered_watch_handle(_handle_registry, *this, alloc);
-
+				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
 				return WATCH_OK;
 			}
-			catch (Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
 			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
 		}
 
 		void close(Vfs_watch_handle *handle) override
 		{
-			destroy(handle->alloc(),
-			        static_cast<Registered_watch_handle *>(handle));
+			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
 		}
 
+		char const *type() override { return type_name(); }
 
-		/*********************************
-		 ** Directory-service interface **
-		 *********************************/
-
-		Open_result open(char const  *path, unsigned,
-		                 Vfs::Vfs_handle **out_handle,
-		                 Allocator &alloc) override
+		Open_result open(char const *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
-			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
 			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
@@ -1218,12 +1188,25 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 			return result;
 		}
 
-		/********************************
-		 ** File I/O service interface **
-		 ********************************/
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
 
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
-			return FTRUNCATE_OK; }
+	public:
+
+		Extend_file_system(Plugin &plugin)
+		:
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<extend/>")),
+			_plugin(plugin)
+		{
+			_plugin.manage_extend_file_system(*this);
+		}
+
+		static char const *type_name() { return "extend"; }
+
+		void trigger_watch_response()
+		{
+			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
+				handle.watch_response(); });
+		}
 };
 
 
@@ -1231,67 +1214,57 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		typedef Registered<Vfs_watch_handle>      Registered_watch_handle;
-		typedef Registry<Registered_watch_handle> Watch_handle_registry;
+		using Registered_watch_handle = Registered<Vfs_watch_handle>;
+		using Watch_handle_registry = Registry<Registered_watch_handle>;
 
 		Watch_handle_registry _handle_registry { };
 
-		Tresor_adapter &_adapter;
+		Plugin &_plugin;
 
 		using Content_string = String<32>;
 
-		static file_size copy_content(Content_string const &content,
-		                              char *dst, size_t const count)
+		class Vfs_handle : public Single_vfs_handle
 		{
-			copy_cstring(dst, content.string(), count);
-			size_t const length_without_nul = content.length() - 1;
-			return count > length_without_nul - 1 ? length_without_nul
-			                                      : count;
-		}
+			private:
 
-		struct Vfs_handle : Single_vfs_handle
-		{
-			Tresor_adapter &_adapter;
+				Plugin &_plugin;
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
-			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter)
-			{ }
+			public:
 
-			Read_result read(Byte_range_ptr const &,
-			                 size_t               &) override
-			{
-				ASSERT_NEVER_REACHED;
-			}
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Plugin &plugin)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
+				{ }
 
-			Write_result write(Const_byte_range_ptr const &,
-			                   size_t                     &) override
-			{
-				return WRITE_ERR_IO;
-			}
+				/***********************
+				 ** Single_vfs_handle **
+				 ***********************/
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				Read_result read(Byte_range_ptr const &, size_t &) override
+				{
+					ASSERT_NEVER_REACHED;
+				}
+
+				Write_result write(Const_byte_range_ptr const &, size_t &) override
+				{
+					return WRITE_ERR_IO;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 	public:
 
-		Extend_progress_file_system(Tresor_adapter &adapter)
+		Extend_progress_file_system(Plugin &plugin)
 		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
-			                   Node_rwx::rw(), Xml_node("<extend_progress/>")),
-			_adapter(adapter)
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<extend_progress/>")),
+			_plugin(plugin)
 		{
-			_adapter.manage_extend_progress_file_system(*this);
+			_plugin.manage_extend_progress_file_system(*this);
 		}
 
 		static char const *type_name() { return "extend_progress"; }
-
-		char const *type() override { return type_name(); }
 
 		void trigger_watch_response()
 		{
@@ -1299,33 +1272,29 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 				handle.watch_response(); });
 		}
 
-		Watch_result watch(char const        *path,
-		                   Vfs_watch_handle **handle,
-		                   Allocator         &alloc) override
+		/************************
+		 ** Single_file_system **
+		 ************************/
+
+		char const *type() override { return type_name(); }
+
+		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return WATCH_ERR_UNACCESSIBLE;
 
 			try {
-				*handle = new (alloc)
-					Registered_watch_handle(_handle_registry, *this, alloc);
-
+				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
 				return WATCH_OK;
 			}
-			catch (Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
 			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
 		}
 
 		void close(Vfs_watch_handle *handle) override
 		{
-			destroy(handle->alloc(),
-			        static_cast<Registered_watch_handle *>(handle));
+			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
 		}
-
-
-		/*********************************
-		 ** Directory-service interface **
-		 *********************************/
 
 		Open_result open(char const  *path, unsigned,
 		                 Vfs::Vfs_handle **out_handle,
@@ -1335,11 +1304,10 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
-			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
 			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
@@ -1350,13 +1318,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 			return result;
 		}
 
-
-		/********************************
-		 ** File I/O service interface **
-		 ********************************/
-
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
-			return FTRUNCATE_OK; }
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
 };
 
 
@@ -1364,12 +1326,12 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		typedef Registered<Vfs_watch_handle>      Registered_watch_handle;
-		typedef Registry<Registered_watch_handle> Watch_handle_registry;
+		using Registered_watch_handle = Registered<Vfs_watch_handle>;
+		using Watch_handle_registry = Registry<Registered_watch_handle>;
 
 		Watch_handle_registry _handle_registry { };
 
-		Tresor_adapter &_adapter;
+		Plugin &_plugin;
 
 		using Content_string = String<11>;
 
@@ -1377,7 +1339,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 		{
 			private:
 
-				Tresor_adapter &_adapter;
+				Plugin &_plugin;
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
 				{
@@ -1389,10 +1351,14 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			public:
 
 				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-				           Allocator &alloc, Tresor_adapter &adapter)
+				           Allocator &alloc, Plugin &plugin)
 				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
 				{ }
+
+				/***********************
+				 ** Single_vfs_handle **
+				 ***********************/
 
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
@@ -1401,12 +1367,12 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						if (_verbose)
+						if (_plugin.verbose())
 							log("reading rekey file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
 					Read_result result = READ_QUEUED;
-					_adapter.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
+					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
 
 						switch (rekey_operation.result()) {
 						case Rekey_operation::NONE: result = _read_ok("none", dst, out_count); break;
@@ -1424,16 +1390,16 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 					bool rekey_arg { false };
 					Genode::ascii_to(src.start, rekey_arg);
 					if (seek() || !rekey_arg) {
-						if (_verbose)
+						if (_plugin.verbose())
 							log("writing rekey file failed: malformed arguments");
 						return WRITE_ERR_IO;
 					}
 					Write_result result = WRITE_ERR_IO;
-					_adapter.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
+					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
 
 						if (!rekey_operation.request()) {
 							result = WRITE_ERR_IO;
-							if (_verbose)
+							if (_plugin.verbose())
 								log("writing rekey file failed: failed to request operation");
 							return;
 						}
@@ -1449,18 +1415,15 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Rekey_file_system(Tresor_adapter &adapter)
+		Rekey_file_system(Plugin &plugin)
 		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
-			                   Node_rwx::rw(), Xml_node("<rekey/>")),
-			_adapter(adapter)
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<rekey/>")),
+			_plugin(plugin)
 		{
-			_adapter.manage_rekey_file_system(*this);
+			_plugin.manage_rekey_file_system(*this);
 		}
 
 		static char const *type_name() { return "rekey"; }
-
-		char const *type() override { return type_name(); }
 
 		void trigger_watch_response()
 		{
@@ -1468,47 +1431,41 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 				handle.watch_response(); });
 		}
 
-		Watch_result watch(char const        *path,
-		                   Vfs_watch_handle **handle,
-		                   Allocator         &alloc) override
+		/************************
+		 ** Single_file_system **
+		 ************************/
+
+		char const *type() override { return type_name(); }
+
+		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return WATCH_ERR_UNACCESSIBLE;
 
 			try {
-				*handle = new (alloc)
-					Registered_watch_handle(_handle_registry, *this, alloc);
-
+				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
 				return WATCH_OK;
 			}
-			catch (Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
 			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
 		}
 
 		void close(Vfs_watch_handle *handle) override
 		{
-			destroy(handle->alloc(),
-			        static_cast<Registered_watch_handle *>(handle));
+			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
 		}
 
-
-		/*********************************
-		 ** Directory-service interface **
-		 *********************************/
-
-		Open_result open(char const  *path, unsigned,
-		                 Vfs::Vfs_handle **out_handle,
-		                 Allocator &alloc) override
+		Open_result open(char const *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
-			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
 			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
@@ -1519,13 +1476,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 			return result;
 		}
 
-
-		/********************************
-		 ** File I/O service interface **
-		 ********************************/
-
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
-			return FTRUNCATE_OK; }
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
 };
 
 
@@ -1533,67 +1484,57 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 {
 	private:
 
-		typedef Registered<Vfs_watch_handle>      Registered_watch_handle;
-		typedef Registry<Registered_watch_handle> Watch_handle_registry;
+		using Registered_watch_handle = Registered<Vfs_watch_handle>;
+		using Watch_handle_registry = Registry<Registered_watch_handle>;
 
 		Watch_handle_registry _handle_registry { };
 
-		Tresor_adapter &_adapter;
+		Plugin &_plugin;
 
 		using Content_string = String<32>;
 
-		static file_size copy_content(Content_string const &content,
-		                              char *dst, size_t const count)
+		class Vfs_handle : public Single_vfs_handle
 		{
-			copy_cstring(dst, content.string(), count);
-			size_t const length_without_nul = content.length() - 1;
-			return count > length_without_nul - 1 ? length_without_nul
-			                                      : count;
-		}
+			private:
 
-		struct Vfs_handle : Single_vfs_handle
-		{
-			Tresor_adapter &_adapter;
+				Plugin &_plugin;
 
-			Vfs_handle(Directory_service &ds,
-			           File_io_service &fs,
-			           Allocator &alloc,
-			           Tresor_adapter &adapter)
-			:
-				Single_vfs_handle(ds, fs, alloc, 0),
-				_adapter(adapter)
-			{ }
+			public:
 
-			Read_result read(Byte_range_ptr const &,
-			                 size_t               &) override
-			{
-				ASSERT_NEVER_REACHED;
-			}
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Plugin &plugin)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
+				{ }
 
-			Write_result write(Const_byte_range_ptr const &,
-			                   size_t                     &) override
-			{
-				return WRITE_ERR_IO;
-			}
+				/***********************
+				 ** Single_vfs_handle **
+				 ***********************/
 
-			bool read_ready()  const override { return true; }
-			bool write_ready() const override { return true; }
+				Read_result read(Byte_range_ptr const &, size_t &) override
+				{
+					ASSERT_NEVER_REACHED;
+				}
+
+				Write_result write(Const_byte_range_ptr const &, size_t &) override
+				{
+					ASSERT_NEVER_REACHED;
+				}
+
+				bool read_ready()  const override { return true; }
+				bool write_ready() const override { return true; }
 		};
 
 	public:
 
-		Rekey_progress_file_system(Tresor_adapter &adapter)
+		Rekey_progress_file_system(Plugin &plugin)
 		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(),
-			                   Node_rwx::rw(), Xml_node("<rekey_progress/>")),
-			_adapter(adapter)
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<rekey_progress/>")),
+			_plugin(plugin)
 		{
-			_adapter.manage_rekey_progress_file_system(*this);
+			_plugin.manage_rekey_progress_file_system(*this);
 		}
 
 		static char const *type_name() { return "rekey_progress"; }
-
-		char const *type() override { return type_name(); }
 
 		void trigger_watch_response()
 		{
@@ -1601,47 +1542,41 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 				handle.watch_response(); });
 		}
 
-		Watch_result watch(char const        *path,
-		                   Vfs_watch_handle **handle,
-		                   Allocator         &alloc) override
+		/************************
+		 ** Single_file_system **
+		 ************************/
+
+		char const *type() override { return type_name(); }
+
+		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return WATCH_ERR_UNACCESSIBLE;
 
 			try {
-				*handle = new (alloc)
-					Registered_watch_handle(_handle_registry, *this, alloc);
-
+				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
 				return WATCH_OK;
 			}
-			catch (Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
 			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
 		}
 
 		void close(Vfs_watch_handle *handle) override
 		{
-			destroy(handle->alloc(),
-			        static_cast<Registered_watch_handle *>(handle));
+			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
 		}
 
-
-		/*********************************
-		 ** Directory-service interface **
-		 *********************************/
-
-		Open_result open(char const  *path, unsigned,
-		                 Vfs::Vfs_handle **out_handle,
-		                 Allocator &alloc) override
+		Open_result open(char const  *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
-			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
 			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
@@ -1652,13 +1587,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 			return result;
 		}
 
-
-		/********************************
-		 ** File I/O service interface **
-		 ********************************/
-
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
-			return FTRUNCATE_OK; }
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
 };
 
 
@@ -1671,13 +1600,13 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 		using Content_string = String<11>;
 
 		Watch_handle_registry _handle_registry { };
-		Tresor_adapter &_adapter;
+		Plugin &_plugin;
 
 		class Vfs_handle : public Single_vfs_handle
 		{
 			private:
 
-				Tresor_adapter &_adapter;
+				Plugin &_plugin;
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
 				{
@@ -1689,10 +1618,14 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 			public:
 
 				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-				           Allocator &alloc, Tresor_adapter &adapter)
+				           Allocator &alloc, Plugin &plugin)
 				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _adapter(adapter)
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
 				{ }
+
+				/***********************
+				 ** Single_vfs_handle **
+				 ***********************/
 
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
@@ -1701,14 +1634,14 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						if (_verbose)
+						if (_plugin.verbose())
 							log("reading deinitialize file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
 					Read_result result = READ_QUEUED;
-					_adapter.with_deinitialize_operation([&] (Deinitialize_operation &deinitialize_operation) {
+					_plugin.with_deinit_operation([&] (Deinitialize_operation &deinit_operation) {
 
-						switch (deinitialize_operation.result()) {
+						switch (deinit_operation.result()) {
 						case Deinitialize_operation::NONE: result = _read_ok("none", dst, out_count); break;
 						case Deinitialize_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
 						case Deinitialize_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
@@ -1724,16 +1657,16 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 					bool deinitialize_arg { false };
 					Genode::ascii_to(src.start, deinitialize_arg);
 					if (seek() || !deinitialize_arg) {
-						if (_verbose)
+						if (_plugin.verbose())
 							log("writing deinitialize file failed: malformed arguments");
 						return WRITE_ERR_IO;
 					}
 					Write_result result = WRITE_ERR_IO;
-					_adapter.with_deinitialize_operation([&] (Deinitialize_operation &deinitialize_operation) {
+					_plugin.with_deinit_operation([&] (Deinitialize_operation &deinit_operation) {
 
-						if (!deinitialize_operation.request()) {
+						if (!deinit_operation.request()) {
 							result = WRITE_ERR_IO;
-							if (_verbose)
+							if (_plugin.verbose())
 								log("writing deinitialize file failed: failed to request operation");
 							return;
 						}
@@ -1749,18 +1682,15 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 	public:
 
-		Deinitialize_file_system(Tresor_adapter &adapter)
+		Deinitialize_file_system(Plugin &plugin)
 		:
-			Single_file_system(
-				Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<deinitialize/>")),
-			_adapter(adapter)
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<deinitialize/>")),
+			_plugin(plugin)
 		{
-			_adapter.manage_deinit_file_system(*this);
+			_plugin.manage_deinit_file_system(*this);
 		}
 
 		static char const *type_name() { return "deinitialize"; }
-
-		char const *type() override { return type_name(); }
 
 		void trigger_watch_response()
 		{
@@ -1768,46 +1698,41 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 				handle.watch_response(); });
 		}
 
-		Watch_result watch(char const        *path,
-		                   Vfs_watch_handle **handle,
-		                   Allocator         &alloc) override
+		/************************
+		 ** Single_file_system **
+		 ************************/
+
+		char const *type() override { return type_name(); }
+
+		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return WATCH_ERR_UNACCESSIBLE;
 
 			try {
-				*handle = new (alloc)
-					Registered_watch_handle(_handle_registry, *this, alloc);
-
+				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
 				return WATCH_OK;
 			}
-			catch (Out_of_ram)  { return WATCH_ERR_OUT_OF_RAM;  }
+			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
 			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
 		}
 
 		void close(Vfs_watch_handle *handle) override
 		{
-			destroy(handle->alloc(),
-			        static_cast<Registered_watch_handle *>(handle));
+			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
 		}
 
-		/*********************************
-		 ** Directory-service interface **
-		 *********************************/
-
-		Open_result open(char const  *path, unsigned,
-		                 Vfs::Vfs_handle **out_handle,
-		                 Allocator &alloc) override
+		Open_result open(char const  *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
 				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _adapter);
+					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
-			catch (Out_of_ram)  { return OPEN_ERR_OUT_OF_RAM; }
+			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
 			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
 		}
 
@@ -1818,28 +1743,31 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 			return result;
 		}
 
-		/********************************
-		 ** File I/O service interface **
-		 ********************************/
-
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override {
-			return FTRUNCATE_OK; }
+		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
 };
 
 
-struct Vfs_tresor::Current_local_factory : File_system_factory
+class Vfs_tresor::Current_local_factory : public File_system_factory
 {
-	Data_file_system _data_fs;
+	private:
 
-	Current_local_factory(Vfs::Env &, Tresor_adapter &adapter) : _data_fs(adapter) { }
+		Data_file_system _data_fs;
 
-	Vfs::File_system *create(Vfs::Env&, Xml_node node) override
-	{
-		if (node.has_type(Data_file_system::type_name()))
-			return &_data_fs;
+		/*************************
+		 ** File_system_factory **
+		 *************************/
 
-		return nullptr;
-	}
+		Vfs::File_system *create(Vfs::Env&, Xml_node node) override
+		{
+			if (node.has_type(Data_file_system::type_name()))
+				return &_data_fs;
+
+			return nullptr;
+		}
+
+	public:
+
+		Current_local_factory(Vfs::Env &, Plugin &plugin) : _data_fs(plugin) { }
 };
 
 
@@ -1847,7 +1775,7 @@ class Vfs_tresor::Current_file_system : private Current_local_factory, public Vf
 {
 	private:
 
-		typedef String<128> Config;
+		using Config = String<128>;
 
 		static Config _config()
 		{
@@ -1863,21 +1791,21 @@ class Vfs_tresor::Current_file_system : private Current_local_factory, public Vf
 			return Config(Cstring(buf));
 		}
 
-	public:
-
-		Current_file_system(Vfs::Env &vfs_env, Tresor_adapter &adapter)
-		:
-			Current_local_factory(vfs_env, adapter),
-			Vfs::Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
-		{ }
-
-		static char const *type_name() { return "current"; }
-
 		/**************************
 		 ** Vfs::Dir_file_system **
 		 **************************/
 
 		char const *type() override { return type_name(); }
+
+	public:
+
+		Current_file_system(Vfs::Env &vfs_env, Plugin &plugin)
+		:
+			Current_local_factory(vfs_env, plugin),
+			Vfs::Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
+		{ }
+
+		static char const *type_name() { return "current"; }
 };
 
 
@@ -1885,29 +1813,16 @@ class Vfs_tresor::Control_local_factory : public File_system_factory
 {
 	private:
 
-		Tresor_adapter &_adapter;
+		Plugin &_plugin;
 		Rekey_file_system _rekeying_fs;
 		Rekey_progress_file_system _rekeying_progress_fs;
 		Deinitialize_file_system _deinitialize_fs;
 		Extend_file_system _extend_fs;
 		Extend_progress_file_system _extend_progress_fs;
 
-	public:
-
-		Control_local_factory(Vfs::Env &, Xml_node, Tresor_adapter &adapter)
-		:
-			_adapter(adapter), _rekeying_fs(adapter), _rekeying_progress_fs(adapter),
-			_deinitialize_fs(adapter), _extend_fs(adapter), _extend_progress_fs(adapter)
-		{ }
-
-		~Control_local_factory()
-		{
-			_adapter.dissolve_rekey_file_system(_rekeying_fs);
-			_adapter.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
-			_adapter.dissolve_deinit_file_system(_deinitialize_fs);
-			_adapter.dissolve_extend_file_system(_extend_fs);
-			_adapter.dissolve_extend_progress_file_system(_extend_progress_fs);
-		}
+		/*************************
+		 ** File_system_factory **
+		 *************************/
 
 		Vfs::File_system *create(Vfs::Env&, Xml_node node) override
 		{
@@ -1928,6 +1843,23 @@ class Vfs_tresor::Control_local_factory : public File_system_factory
 
 			return nullptr;
 		}
+
+	public:
+
+		Control_local_factory(Vfs::Env &, Xml_node, Plugin &plugin)
+		:
+			_plugin(plugin), _rekeying_fs(plugin), _rekeying_progress_fs(plugin),
+			_deinitialize_fs(plugin), _extend_fs(plugin), _extend_progress_fs(plugin)
+		{ }
+
+		~Control_local_factory()
+		{
+			_plugin.dissolve_rekey_file_system(_rekeying_fs);
+			_plugin.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
+			_plugin.dissolve_deinit_file_system(_deinitialize_fs);
+			_plugin.dissolve_extend_file_system(_extend_fs);
+			_plugin.dissolve_extend_progress_file_system(_extend_progress_fs);
+		}
 };
 
 
@@ -1935,7 +1867,7 @@ class Vfs_tresor::Control_file_system : Control_local_factory, public Vfs::Dir_f
 {
 	private:
 
-		typedef String<256> Config;
+		using Config = String<256>;
 
 		static Config _config()
 		{
@@ -1951,23 +1883,23 @@ class Vfs_tresor::Control_file_system : Control_local_factory, public Vfs::Dir_f
 			return Config(Cstring(buf));
 		}
 
+		/**************************
+		 ** Vfs::Dir_file_system **
+		 **************************/
+
+		char const *type() override { return type_name(); }
+
 	public:
 
 		Control_file_system(Vfs::Env         &vfs_env,
 		                    Xml_node  node,
-		                    Tresor_adapter          &tresor)
+		                    Plugin          &tresor)
 		:
 			Control_local_factory(vfs_env, node, tresor),
 			Vfs::Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
 		{ }
 
 		static char const *type_name() { return "control"; }
-
-		/**************************
-		 ** Vfs::Dir_file_system **
-		 **************************/
-
-		char const *type() override { return type_name(); }
 };
 
 
@@ -1975,15 +1907,15 @@ class Vfs_tresor::Local_factory : public File_system_factory
 {
 	private:
 
-		Tresor_adapter  &_adapter;
+		Plugin  &_plugin;
 		Current_file_system _current_fs;
 		Control_file_system _control_fs;
 
 	public:
 
-		Local_factory(Vfs::Env &env, Xml_node config, Tresor_adapter &adapter)
+		Local_factory(Vfs::Env &env, Xml_node config, Plugin &plugin)
 		:
-			_adapter(adapter), _current_fs(env, adapter), _control_fs(env, config, adapter)
+			_plugin(plugin), _current_fs(env, plugin), _control_fs(env, config, plugin)
 		{ }
 
 		/*************************
@@ -2009,7 +1941,7 @@ class Vfs_tresor::File_system : Local_factory, public Vfs::Dir_file_system
 
 		using Config = String<256>;
 
-		Tresor_adapter &_adapter;
+		Plugin &_plugin;
 
 		static Config _config(Xml_node node)
 		{
@@ -2025,88 +1957,13 @@ class Vfs_tresor::File_system : Local_factory, public Vfs::Dir_file_system
 
 	public:
 
-		File_system(Vfs::Env &vfs_env, Xml_node node, Tresor_adapter &adapter)
+		File_system(Vfs::Env &vfs_env, Xml_node node, Plugin &plugin)
 		:
-			Local_factory(vfs_env, node, adapter),
+			Local_factory(vfs_env, node, plugin),
 			Vfs::Dir_file_system(vfs_env, Xml_node(_config(node).string()), *this),
-			_adapter(adapter)
+			_plugin(plugin)
 		{ }
 };
-
-
-extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
-{
-	class Factory : public Vfs::File_system_factory
-	{
-		private:
-
-			Allocator *_alloc_ptr { };
-			Vfs_tresor::Tresor_adapter *_adapter_ptr { };
-
-			/*************************
-			 ** File_system_factory **
-			 *************************/
-
-			Vfs::File_system *create(Vfs::Env &env, Xml_node node) override
-			{
-				try {
-					if (!_adapter_ptr) {
-						_alloc_ptr = &env.alloc();
-						_adapter_ptr = new (*_alloc_ptr) Vfs_tresor::Tresor_adapter { env, node };
-					}
-					return new (env.alloc()) Vfs_tresor::File_system(env, node, *_adapter_ptr);
-
-				} catch (...) { error("could not create 'tresor_fs' "); }
-				return nullptr;
-			}
-
-		public:
-
-			~Factory()
-			{
-				if (_adapter_ptr)
-					destroy(_alloc_ptr, _adapter_ptr);
-			}
-	};
-
-	static Factory factory { };
-	return &factory;
-}
-
-
-void Vfs_tresor::Tresor_adapter::extend_fs_trigger_watch_response()
-{
-	if (_extend_fs_ptr)
-		_extend_fs_ptr->trigger_watch_response();
-}
-
-
-void Vfs_tresor::Tresor_adapter::extend_progress_fs_trigger_watch_response()
-{
-	if (_extend_progress_fs_ptr)
-		_extend_progress_fs_ptr->trigger_watch_response();
-}
-
-
-void Vfs_tresor::Tresor_adapter::rekey_fs_trigger_watch_response()
-{
-	if (_rekey_fs_ptr)
-		_rekey_fs_ptr->trigger_watch_response();
-}
-
-
-void Vfs_tresor::Tresor_adapter::rekey_progress_fs_trigger_watch_response()
-{
-	if (_rekey_progress_fs_ptr)
-		_rekey_progress_fs_ptr->trigger_watch_response();
-}
-
-
-void Vfs_tresor::Tresor_adapter::deinit_fs_trigger_watch_response()
-{
-	if (_deinit_fs_ptr)
-		_deinit_fs_ptr->trigger_watch_response();
-}
 
 
 bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
@@ -2132,7 +1989,8 @@ bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
 				if (_complete) {
 					_success = true;
 					_state = COMPLETE;
-					attr.adapter.rekey_fs_trigger_watch_response();
+					if (attr.rekey_fs_ptr)
+						attr.rekey_fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("rekey succeeded");
 				} else
@@ -2140,7 +1998,8 @@ bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
 			} else {
 				_success = false;
 				_state = COMPLETE;
-				attr.adapter.rekey_fs_trigger_watch_response();
+				if (attr.rekey_fs_ptr)
+					attr.rekey_fs_ptr->trigger_watch_response();
 				if (_verbose)
 					log("rekey failed");
 			}
@@ -2185,7 +2044,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 				if (_complete) {
 					_success = true;
 					_state = COMPLETE;
-					attr.adapter.extend_fs_trigger_watch_response();
+					if (attr.extend_fs_ptr)
+						attr.extend_fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("extend free tree succeeded");
 				} else
@@ -2193,7 +2053,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 			} else {
 				_success = false;
 				_state = COMPLETE;
-				attr.adapter.extend_fs_trigger_watch_response();
+				if (attr.extend_fs_ptr)
+					attr.extend_fs_ptr->trigger_watch_response();
 				if (_verbose)
 					log("extend free tree failed");
 			}
@@ -2228,7 +2089,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 				if (_complete) {
 					_success = true;
 					_state = COMPLETE;
-					attr.adapter.extend_fs_trigger_watch_response();
+					if (attr.extend_fs_ptr)
+						attr.extend_fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("extend virtual block device succeeded");
 				} else
@@ -2236,7 +2098,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 			} else {
 				_success = false;
 				_state = COMPLETE;
-				attr.adapter.extend_fs_trigger_watch_response();
+				if (attr.extend_fs_ptr)
+					attr.extend_fs_ptr->trigger_watch_response();
 				if (_verbose)
 					log("extend virtual block device failed");
 			}
@@ -2289,7 +2152,8 @@ bool Vfs_tresor::Deinitialize_operation::execute(Execute_attr const &attr)
 					log("deinitialize failed");
 			}
 			_deinit_sb_control.destruct();
-			attr.adapter.deinit_fs_trigger_watch_response();
+			if (attr.deinit_fs_ptr)
+				attr.deinit_fs_ptr->trigger_watch_response();
 			progress = true;
 		}
 		break;
@@ -2297,4 +2161,44 @@ bool Vfs_tresor::Deinitialize_operation::execute(Execute_attr const &attr)
 	default: break;
 	}
 	return progress;
+}
+
+
+extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
+{
+	class Factory : public Vfs::File_system_factory
+	{
+		private:
+
+			Allocator *_plugin_alloc_ptr { };
+			Vfs_tresor::Plugin *_plugin_ptr { };
+
+			/*************************
+			 ** File_system_factory **
+			 *************************/
+
+			Vfs::File_system *create(Vfs::Env &env, Xml_node node) override
+			{
+				try {
+					if (!_plugin_ptr) {
+						_plugin_alloc_ptr = &env.alloc();
+						_plugin_ptr = new (_plugin_alloc_ptr) Vfs_tresor::Plugin { env, node };
+					}
+					return new (env.alloc()) Vfs_tresor::File_system(env, node, *_plugin_ptr);
+
+				} catch (...) { error("could not create 'tresor_fs' "); }
+				return nullptr;
+			}
+
+		public:
+
+			~Factory()
+			{
+				if (_plugin_ptr)
+					destroy(_plugin_alloc_ptr, _plugin_ptr);
+			}
+	};
+
+	static Factory factory { };
+	return &factory;
 }
