@@ -38,8 +38,6 @@ using namespace Tresor;
 
 namespace Vfs_tresor {
 
-	enum { VERBOSE = 1 };
-
 	class Request_interface;
 	class Data_operation;
 	class Data_file_system;
@@ -58,16 +56,7 @@ namespace Vfs_tresor {
 	class Local_factory;
 	class File_system;
 	class Tresor_adapter;
-	class Crypto_key;
-	class Initialized_tresor_adapter_interface;
 }
-
-struct Vfs_tresor::Initialized_tresor_adapter_interface
-{
-	virtual size_t data_file_size() const = 0;
-
-	virtual ~Initialized_tresor_adapter_interface() { };
-};
 
 class Vfs_tresor::Data_operation : Noncopyable
 {
@@ -91,11 +80,11 @@ class Vfs_tresor::Data_operation : Noncopyable
 	private:
 
 		enum State {
-			INIT, READ_REQUESTED, READ_STARTED, READ, READ_COMPLETE,
-			WRITE_REQUESTED, WRITE_STARTED, WRITE, WRITE_COMPLETE,
-			SYNC_REQUESTED, SYNC_STARTED, SYNC, SYNC_COMPLETE };
+			INIT, READ_REQUESTED, READ_STARTED, READ, READ_COMPLETE, WRITE_REQUESTED, WRITE_STARTED, WRITE,
+			WRITE_COMPLETE, SYNC_REQUESTED, SYNC_STARTED, SYNC, SYNC_COMPLETE };
 
 		State _state { INIT };
+		bool const _verbose;
 		Generation _generation { };
 		addr_t _seek { };
 		bool _success { };
@@ -108,11 +97,13 @@ class Vfs_tresor::Data_operation : Noncopyable
 		bool _range_violation(Superblock_control &sb_control, addr_t start, size_t num_bytes) const
 		{
 			addr_t last_byte = num_bytes ? start - 1 + num_bytes : start;
-			addr_t last_file_byte = (sb_control.max_vba() * BLOCK_SIZE) + BLOCK_SIZE - 1;
+			addr_t last_file_byte = (sb_control.max_vba() * BLOCK_SIZE) + (BLOCK_SIZE - 1);
 			return last_byte > last_file_byte;
 		}
 
 	public:
+
+		Data_operation(bool verbose) : _verbose(verbose) { }
 
 		Result write(addr_t seek, Const_byte_range_ptr const &src)
 		{
@@ -122,7 +113,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 				_seek = seek;
 				_src.construct(src.start, src.num_bytes);
 				_state = WRITE_REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("write (seek ", _seek, " num_bytes ", _src->num_bytes, ") requested");
 				return PENDING;
 
@@ -148,7 +139,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 				_seek = seek;
 				_dst.construct(dst.start, dst.num_bytes);
 				_state = READ_REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("read (seek ", _seek, " num_bytes ", _dst->num_bytes, ") requested");
 				return PENDING;
 
@@ -172,7 +163,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 			case INIT:
 
 				_state = SYNC_REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("sync requested");
 				return PENDING;
 
@@ -213,14 +204,14 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_success = false;
 					_state = WRITE_COMPLETE;
 					progress = true;
-					if (VERBOSE)
+					if (_verbose)
 						log("write (seek ", _seek, " num_bytes ", _src->num_bytes, ") failed: range violation");
 					break;
 				}
 				_write.construct(Splitter::Write::Attr{_seek, _generation, _src->start, _src->num_bytes});
 				_state = WRITE;
 				progress = true;
-				if (VERBOSE)
+				if (_verbose)
 					log("write (seek ", _seek, " num_bytes ", _src->num_bytes, ") started");
 				break;
 
@@ -235,7 +226,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_write.destruct();
 					_state = WRITE_COMPLETE;
 					progress = true;
-					if (VERBOSE)
+					if (_verbose)
 						log("write (seek ", _seek, " num_bytes ", _src->num_bytes, ") ", _success ? "succeeded" : "failed");
 				}
 				break;
@@ -246,14 +237,14 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_success = false;
 					_state = READ_COMPLETE;
 					progress = true;
-					if (VERBOSE)
+					if (_verbose)
 						log("read (seek ", _seek, " num_bytes ", _dst->num_bytes, ") failed: range violation");
 					break;
 				}
 				_read.construct(Splitter::Read::Attr{_seek, _generation, _dst->start, _dst->num_bytes});
 				_state = READ;
 				progress = true;
-				if (VERBOSE)
+				if (_verbose)
 					log("read (seek ", _seek, " num_bytes ", _dst->num_bytes, ") started");
 				break;
 
@@ -267,7 +258,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_read.destruct();
 					_state = READ_COMPLETE;
 					progress = true;
-					if (VERBOSE)
+					if (_verbose)
 						log("read (seek ", _seek, " num_bytes ", _dst->num_bytes, ") ", _success ? "succeeded" : "failed");
 				}
 				break;
@@ -277,7 +268,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 				_sync.construct(Superblock_control::Synchronize::Attr{});
 				_state = SYNC;
 				progress = true;
-				if (VERBOSE)
+				if (_verbose)
 					log("sync started");
 				break;
 
@@ -289,7 +280,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 					_sync.destruct();
 					_state = SYNC_COMPLETE;
 					progress = true;
-					if (VERBOSE)
+					if (_verbose)
 						log("sync ", _success ? "succeeded" : "failed");
 				}
 				break;
@@ -323,11 +314,14 @@ class Vfs_tresor::Rekey_operation : Noncopyable
 		enum State { INIT, REQUESTED, STARTED, REKEY, PAUSED, RESUMED, COMPLETE };
 
 		State _state { INIT };
+		bool const _verbose;
 		bool _success { };
 		bool _complete { };
 		Constructible<Superblock_control::Rekey> _rekey { };
 
 	public:
+
+		Rekey_operation(bool verbose) : _verbose(verbose) { }
 
 		bool request()
 		{
@@ -336,7 +330,7 @@ class Vfs_tresor::Rekey_operation : Noncopyable
 			case COMPLETE:
 
 				_state = REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("rekey requested");
 				return true;
 
@@ -355,57 +349,7 @@ class Vfs_tresor::Rekey_operation : Noncopyable
 			ASSERT_NEVER_REACHED;
 		}
 
-		bool execute(Execute_attr const &attr)
-		{
-			bool progress = false;
-			switch (_state) {
-			case STARTED:
-
-				_rekey.construct(Superblock_control::Rekey::Attr{_complete});
-				_state = REKEY;
-				progress = true;
-				if (VERBOSE)
-					log("rekey started");
-				break;
-
-			case REKEY:
-
-				progress |= attr.sb_control.execute(
-					*_rekey, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.crypto, attr.trust_anchor);
-
-				if (_rekey->complete()) {
-					if (_rekey->success()) {
-						if (_complete) {
-							_success = true;
-							_state = COMPLETE;
-							attr.adapter.rekey_fs_trigger_watch_response();
-							if (VERBOSE)
-								log("rekey succeeded");
-						} else
-							_state = PAUSED;
-					} else {
-						_success = false;
-						_state = COMPLETE;
-						attr.adapter.rekey_fs_trigger_watch_response();
-						if (VERBOSE)
-							log("rekey failed");
-					}
-					_rekey.destruct();
-					progress = true;
-				}
-				break;
-
-			case RESUMED:
-
-				_rekey.construct(Superblock_control::Rekey::Attr{_complete});
-				_state = REKEY;
-				progress = true;
-				break;
-
-			default: break;
-			}
-			return progress;
-		}
+		bool execute(Execute_attr const &attr);
 
 		void resume()
 		{
@@ -450,10 +394,13 @@ class Vfs_tresor::Deinitialize_operation : Noncopyable
 		enum State { INIT, REQUESTED, STARTED, DEINIT_SB_CONTROL, COMPLETE };
 
 		State _state { INIT };
+		bool const _verbose;
 		bool _success { };
 		Constructible<Superblock_control::Deinitialize> _deinit_sb_control { };
 
 	public:
+
+		Deinitialize_operation(bool verbose) : _verbose(verbose) { }
 
 		bool request()
 		{
@@ -462,7 +409,7 @@ class Vfs_tresor::Deinitialize_operation : Noncopyable
 			case COMPLETE:
 
 				_state = REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("deinitialize requested");
 				return true;
 
@@ -493,46 +440,7 @@ class Vfs_tresor::Deinitialize_operation : Noncopyable
 
 		bool requested() const { return _state == REQUESTED; }
 
-		bool execute(Execute_attr const &attr)
-		{
-			bool progress = false;
-			switch (_state) {
-			case STARTED:
-
-				_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
-				_state = DEINIT_SB_CONTROL;
-				progress = true;
-				if (VERBOSE)
-					log("deinitialize started");
-				break;
-
-			case DEINIT_SB_CONTROL:
-
-				progress |= attr.sb_control.execute(
-					*_deinit_sb_control, attr.block_io, attr.crypto, attr.trust_anchor);
-
-				if (_deinit_sb_control->complete()) {
-					if (_deinit_sb_control->success()) {
-						_success = true;
-						_state = COMPLETE;
-						if (VERBOSE)
-							log("deinitialize succeeded");
-					} else {
-						_success = false;
-						_state = DEINIT_SB_CONTROL;
-						if (VERBOSE)
-							log("deinitialize failed");
-					}
-					_deinit_sb_control.destruct();
-					attr.adapter.deinit_fs_trigger_watch_response();
-					progress = true;
-				}
-				break;
-
-			default: break;
-			}
-			return progress;
-		}
+		bool execute(Execute_attr const &attr);
 };
 
 class Vfs_tresor::Extend_operation : Noncopyable
@@ -559,6 +467,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 			EXTEND_VBD_REQUESTED, EXTEND_VBD_STARTED, EXTEND_VBD, EXTEND_VBD_PAUSED, EXTEND_VBD_RESUMED, COMPLETE };
 
 		State _state { INIT };
+		bool const _verbose;
 		bool _success { };
 		bool _complete { };
 		Number_of_blocks _num_blocks { };
@@ -566,6 +475,8 @@ class Vfs_tresor::Extend_operation : Noncopyable
 		Constructible<Superblock_control::Extend_vbd> _extend_vbd { };
 
 	public:
+
+		Extend_operation(bool verbose) : _verbose(verbose) { }
 
 		bool request_for_free_tree(Number_of_blocks num_blocks)
 		{
@@ -575,7 +486,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 
 				_num_blocks = num_blocks;
 				_state = EXTEND_FT_REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("extend free tree requested");
 				return true;
 
@@ -592,7 +503,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 
 				_num_blocks = num_blocks;
 				_state = EXTEND_VBD_REQUESTED;
-				if (VERBOSE)
+				if (_verbose)
 					log("extend virtual block device requested");
 				return true;
 
@@ -611,100 +522,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 			ASSERT_NEVER_REACHED;
 		}
 
-		bool execute(Execute_attr const &attr)
-		{
-			bool progress = false;
-			switch (_state) {
-			case EXTEND_FT_STARTED:
-
-				_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
-				_state = EXTEND_FT;
-				progress = true;
-				if (VERBOSE)
-					log("extend free tree started");
-				break;
-
-			case EXTEND_FT:
-
-				progress |= attr.sb_control.execute(
-					*_extend_ft, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor);
-
-				if (_extend_ft->complete()) {
-					if (_extend_ft->success()) {
-						if (_complete) {
-							_success = true;
-							_state = COMPLETE;
-							attr.adapter.extend_fs_trigger_watch_response();
-							if (VERBOSE)
-								log("extend free tree succeeded");
-						} else
-							_state = EXTEND_FT_PAUSED;
-					} else {
-						_success = false;
-						_state = COMPLETE;
-						attr.adapter.extend_fs_trigger_watch_response();
-						if (VERBOSE)
-							log("extend free tree failed");
-					}
-					_extend_ft.destruct();
-					progress = true;
-				}
-				break;
-
-			case EXTEND_FT_RESUMED:
-
-				_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
-				_state = EXTEND_FT;
-				progress = true;
-				break;
-
-			case EXTEND_VBD_STARTED:
-
-				_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
-				_state = EXTEND_VBD;
-				progress = true;
-				if (VERBOSE)
-					log("extend virtual block device started");
-				break;
-
-			case EXTEND_VBD:
-
-				progress |= attr.sb_control.execute(
-					*_extend_vbd, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor);
-
-				if (_extend_vbd->complete()) {
-					if (_extend_vbd->success()) {
-						if (_complete) {
-							_success = true;
-							_state = COMPLETE;
-							attr.adapter.extend_fs_trigger_watch_response();
-							if (VERBOSE)
-								log("extend virtual block device succeeded");
-						} else
-							_state = EXTEND_VBD_PAUSED;
-					} else {
-						_success = false;
-						_state = COMPLETE;
-						attr.adapter.extend_fs_trigger_watch_response();
-						if (VERBOSE)
-							log("extend virtual block device failed");
-					}
-					_extend_vbd.destruct();
-					progress = true;
-				}
-				break;
-
-			case EXTEND_VBD_RESUMED:
-
-				_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
-				_state = EXTEND_VBD;
-				progress = true;
-				break;
-
-			default: break;
-			}
-			return progress;
-		}
+		bool execute(Execute_attr const &attr);
 
 		void resume()
 		{
@@ -731,7 +549,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 		bool requested() const { return _state == EXTEND_FT_REQUESTED || _state == EXTEND_VBD_REQUESTED; }
 };
 
-class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface, Initialized_tresor_adapter_interface
+class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_interface
 {
 	private:
 
@@ -777,10 +595,10 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 		Constructible<Crypto_key> _crypto_keys[2] { };
 		Superblock_control::Initialize *_init_sb_control_ptr { };
 		Superblock::State _sb_state { Superblock::INVALID };
-		Data_operation _data_operation { };
-		Rekey_operation _rekey_operation { };
-		Extend_operation _extend_operation { };
-		Deinitialize_operation _deinitialize_operation { };
+		Data_operation _data_operation { _verbose };
+		Rekey_operation _rekey_operation { _verbose };
+		Extend_operation _extend_operation { _verbose };
+		Deinitialize_operation _deinitialize_operation { _verbose };
 		State _state { INIT_SB_CONTROL };
 
 		/*
@@ -849,7 +667,7 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 					ASSERT(_init_sb_control_ptr->success());
 					destroy(_vfs_env.alloc(), _init_sb_control_ptr);
 					_init_sb_control_ptr = nullptr;
-					if (VERBOSE)
+					if (_verbose)
 						log("init superblock control succeeded");
 
 					if (!_try_start_operation())
@@ -928,6 +746,8 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
+		size_t _data_file_size() const { return (_sb_control.max_vba() + 1) * BLOCK_SIZE; }
+
 		/********************************
 		 ** Crypto_key_files_interface **
 		 ********************************/
@@ -970,15 +790,6 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_splitter.destination_buffer(attr.in_vba) = attr.in_blk;
 		}
 
-		/******************************************
-		 ** Initialized_tresor_adapter_interface **
-		 ******************************************/
-
-		size_t data_file_size() const override
-		{
-			return (_sb_control.max_vba() + 1) * BLOCK_SIZE;
-		}
-
 	public:
 
 		Tresor_adapter(Vfs::Env &vfs_env, Xml_node const &config)
@@ -990,16 +801,16 @@ class Vfs_tresor::Tresor_adapter : Client_data_interface, Crypto_key_files_inter
 			_trust_anchor_path(config.attribute_value("trust_anchor", Tresor::Path()))
 		{
 			_init_sb_control_ptr = new (_vfs_env.alloc()) Superblock_control::Initialize({_sb_state});
-			if (VERBOSE)
+			if (_verbose)
 				log("init superblock control started");
 		}
 
 		template <typename FUNC>
-		void with_initialized_interface(FUNC && func)
+		void with_data_file_size(FUNC && func)
 		{
 			_execute();
 			if (_state != INIT_SB_CONTROL)
-				func(*this);
+				func(_data_file_size());
 		}
 
 		template <typename FUNC>
@@ -1206,9 +1017,9 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = STAT_ERR_NO_ENTRY;
-			_adapter.with_initialized_interface([&] (Initialized_tresor_adapter_interface &adapter) {
+			_adapter.with_data_file_size([&] (size_t size) {
 				result = Single_file_system::stat(path, out);
-				out.size = adapter.data_file_size();
+				out.size = size;
 			});
 			return result;
 		}
@@ -1269,7 +1080,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						if (VERBOSE)
+						if (_verbose)
 							log("reading extend file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
@@ -1293,7 +1104,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 					Arg_string::find_arg(src.start, "tree").string(tree_arg, sizeof(tree_arg), "-");
 					unsigned long blocks_arg = Arg_string::find_arg(src.start, "blocks").ulong_value(0);
 					if (seek() || !blocks_arg) {
-						if (VERBOSE)
+						if (_verbose)
 							log("writing extend file failed: malformed arguments");
 						return WRITE_ERR_IO;
 					}
@@ -1304,7 +1115,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 							if (!extend_operation.request_for_free_tree(blocks_arg)) {
 								result = WRITE_ERR_IO;
-								if (VERBOSE)
+								if (_verbose)
 									log("writing extend file failed: failed to request operation");
 								return;
 							}
@@ -1313,7 +1124,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 
 							if (!extend_operation.request_for_vbd(blocks_arg)) {
 								result = WRITE_ERR_IO;
-								if (VERBOSE)
+								if (_verbose)
 									log("writing extend file failed: failed to request operation");
 								return;
 							}
@@ -1321,7 +1132,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 						} else {
 
 							result = WRITE_ERR_IO;
-							if (VERBOSE)
+							if (_verbose)
 								log("writing extend file failed: malformed tree argument");
 							return;
 						}
@@ -1590,7 +1401,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						if (VERBOSE)
+						if (_verbose)
 							log("reading rekey file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
@@ -1613,7 +1424,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 					bool rekey_arg { false };
 					Genode::ascii_to(src.start, rekey_arg);
 					if (seek() || !rekey_arg) {
-						if (VERBOSE)
+						if (_verbose)
 							log("writing rekey file failed: malformed arguments");
 						return WRITE_ERR_IO;
 					}
@@ -1622,7 +1433,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 						if (!rekey_operation.request()) {
 							result = WRITE_ERR_IO;
-							if (VERBOSE)
+							if (_verbose)
 								log("writing rekey file failed: failed to request operation");
 							return;
 						}
@@ -1890,7 +1701,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
-						if (VERBOSE)
+						if (_verbose)
 							log("reading deinitialize file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
@@ -1913,7 +1724,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 					bool deinitialize_arg { false };
 					Genode::ascii_to(src.start, deinitialize_arg);
 					if (seek() || !deinitialize_arg) {
-						if (VERBOSE)
+						if (_verbose)
 							log("writing deinitialize file failed: malformed arguments");
 						return WRITE_ERR_IO;
 					}
@@ -1922,7 +1733,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 
 						if (!deinitialize_operation.request()) {
 							result = WRITE_ERR_IO;
-							if (VERBOSE)
+							if (_verbose)
 								log("writing deinitialize file failed: failed to request operation");
 							return;
 						}
@@ -2295,4 +2106,195 @@ void Vfs_tresor::Tresor_adapter::deinit_fs_trigger_watch_response()
 {
 	if (_deinit_fs_ptr)
 		_deinit_fs_ptr->trigger_watch_response();
+}
+
+
+bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_state) {
+	case STARTED:
+
+		_rekey.construct(Superblock_control::Rekey::Attr{_complete});
+		_state = REKEY;
+		progress = true;
+		if (_verbose)
+			log("rekey started");
+		break;
+
+	case REKEY:
+
+		progress |= attr.sb_control.execute(
+			*_rekey, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.crypto, attr.trust_anchor);
+
+		if (_rekey->complete()) {
+			if (_rekey->success()) {
+				if (_complete) {
+					_success = true;
+					_state = COMPLETE;
+					attr.adapter.rekey_fs_trigger_watch_response();
+					if (_verbose)
+						log("rekey succeeded");
+				} else
+					_state = PAUSED;
+			} else {
+				_success = false;
+				_state = COMPLETE;
+				attr.adapter.rekey_fs_trigger_watch_response();
+				if (_verbose)
+					log("rekey failed");
+			}
+			_rekey.destruct();
+			progress = true;
+		}
+		break;
+
+	case RESUMED:
+
+		_rekey.construct(Superblock_control::Rekey::Attr{_complete});
+		_state = REKEY;
+		progress = true;
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
+
+bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_state) {
+	case EXTEND_FT_STARTED:
+
+		_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
+		_state = EXTEND_FT;
+		progress = true;
+		if (_verbose)
+			log("extend free tree started");
+		break;
+
+	case EXTEND_FT:
+
+		progress |= attr.sb_control.execute(
+			*_extend_ft, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor);
+
+		if (_extend_ft->complete()) {
+			if (_extend_ft->success()) {
+				if (_complete) {
+					_success = true;
+					_state = COMPLETE;
+					attr.adapter.extend_fs_trigger_watch_response();
+					if (_verbose)
+						log("extend free tree succeeded");
+				} else
+					_state = EXTEND_FT_PAUSED;
+			} else {
+				_success = false;
+				_state = COMPLETE;
+				attr.adapter.extend_fs_trigger_watch_response();
+				if (_verbose)
+					log("extend free tree failed");
+			}
+			_extend_ft.destruct();
+			progress = true;
+		}
+		break;
+
+	case EXTEND_FT_RESUMED:
+
+		_extend_ft.construct(Superblock_control::Extend_free_tree::Attr{_num_blocks, _complete});
+		_state = EXTEND_FT;
+		progress = true;
+		break;
+
+	case EXTEND_VBD_STARTED:
+
+		_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
+		_state = EXTEND_VBD;
+		progress = true;
+		if (_verbose)
+			log("extend virtual block device started");
+		break;
+
+	case EXTEND_VBD:
+
+		progress |= attr.sb_control.execute(
+			*_extend_vbd, attr.vbd, attr.free_tree, attr.meta_tree, attr.block_io, attr.trust_anchor);
+
+		if (_extend_vbd->complete()) {
+			if (_extend_vbd->success()) {
+				if (_complete) {
+					_success = true;
+					_state = COMPLETE;
+					attr.adapter.extend_fs_trigger_watch_response();
+					if (_verbose)
+						log("extend virtual block device succeeded");
+				} else
+					_state = EXTEND_VBD_PAUSED;
+			} else {
+				_success = false;
+				_state = COMPLETE;
+				attr.adapter.extend_fs_trigger_watch_response();
+				if (_verbose)
+					log("extend virtual block device failed");
+			}
+			_extend_vbd.destruct();
+			progress = true;
+		}
+		break;
+
+	case EXTEND_VBD_RESUMED:
+
+		_extend_vbd.construct(Superblock_control::Extend_vbd::Attr{_num_blocks, _complete});
+		_state = EXTEND_VBD;
+		progress = true;
+		break;
+
+	default: break;
+	}
+	return progress;
+}
+
+
+bool Vfs_tresor::Deinitialize_operation::execute(Execute_attr const &attr)
+{
+	bool progress = false;
+	switch (_state) {
+	case STARTED:
+
+		_deinit_sb_control.construct(Superblock_control::Deinitialize::Attr{});
+		_state = DEINIT_SB_CONTROL;
+		progress = true;
+		if (_verbose)
+			log("deinitialize started");
+		break;
+
+	case DEINIT_SB_CONTROL:
+
+		progress |= attr.sb_control.execute(
+			*_deinit_sb_control, attr.block_io, attr.crypto, attr.trust_anchor);
+
+		if (_deinit_sb_control->complete()) {
+			if (_deinit_sb_control->success()) {
+				_success = true;
+				_state = COMPLETE;
+				if (_verbose)
+					log("deinitialize succeeded");
+			} else {
+				_success = false;
+				_state = DEINIT_SB_CONTROL;
+				if (_verbose)
+					log("deinitialize failed");
+			}
+			_deinit_sb_control.destruct();
+			attr.adapter.deinit_fs_trigger_watch_response();
+			progress = true;
+		}
+		break;
+
+	default: break;
+	}
+	return progress;
 }
