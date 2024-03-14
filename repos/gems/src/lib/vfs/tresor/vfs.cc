@@ -1489,13 +1489,20 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 
 		Plugin &_plugin;
 
-		using Content_string = String<32>;
+		using Content_string = String<11>;
 
 		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
 				Plugin &_plugin;
+
+				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
+				{
+					copy_cstring(dst.start, content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					return READ_OK;
+				}
 
 			public:
 
@@ -1510,12 +1517,30 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 
 				Read_result read(Byte_range_ptr const &, size_t &) override
 				{
-					ASSERT_NEVER_REACHED;
+					out_count = 0;
+					if (seek() == dst.num_bytes) {
+						return READ_OK;
+					}
+					if (seek() || dst.num_bytes < Content_string::capacity()) {
+						if (_plugin.verbose())
+							log("reading rekey progress file failed: malformed arguments");
+						return READ_ERR_IO;
+					}
+					Read_result result = READ_QUEUED;
+					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
+
+						if (!rekey_operation.in_progress()) {
+							result = _read_ok("idle");
+							return;
+						}
+						result = _read_ok({"at ", rekey_operation.progress_in_percent()});
+					});
+					return result;
 				}
 
 				Write_result write(Const_byte_range_ptr const &, size_t &) override
 				{
-					ASSERT_NEVER_REACHED;
+					return WRITE_ERR_IO;
 				}
 
 				bool read_ready()  const override { return true; }

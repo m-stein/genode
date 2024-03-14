@@ -129,14 +129,15 @@ wait_for_rekeying() {
 	echo "Wait for rekeying to finish..."
 	while : ; do
 		local done=0
-		local file_content="$(< $tresor_dir/control/rekey)"
-		# XXX remove later
+		local file_content="$(< $tresor_dir/control/rekey_progress)"
 		echo "file_content: ${file_content}"
 		case "$file_content" in
-		*failed*)
-			done=1;
+		*at*)
+			if [ "$verbose" = "yes" ]; then
+				echo "Rekeying: $file_content"
+			fi
 			;;
-		*successful*)
+		*idle*)
 			done=1;
 			;;
 		esac
