@@ -38,6 +38,8 @@ using namespace Tresor;
 
 namespace Vfs_tresor {
 
+	using Percentage = uint64_t;
+
 	class Request_interface;
 	class Data_operation;
 	class Data_file_system;
@@ -299,7 +301,8 @@ class Vfs_tresor::Rekey_operation : private Noncopyable
 
 		struct Execute_attr
 		{
-			Rekey_file_system *rekey_fs_ptr;
+			Rekey_file_system *fs_ptr;
+			Rekey_progress_file_system *progress_fs_ptr;
 			Superblock_control &sb_control;
 			Virtual_block_device &vbd;
 			Free_tree &free_tree;
@@ -317,7 +320,12 @@ class Vfs_tresor::Rekey_operation : private Noncopyable
 		bool const _verbose;
 		bool _success { };
 		bool _complete { };
+		Percentage _progress_in_percent { };
 		Constructible<Superblock_control::Rekey> _rekey { };
+
+		void _update_progress_in_percent(Superblock_control const &, Rekey_progress_file_system *);
+
+		void _reset_progress_in_percent(Rekey_progress_file_system *);
 
 	public:
 
@@ -369,9 +377,13 @@ class Vfs_tresor::Rekey_operation : private Noncopyable
 
 		bool complete() const { return _state == COMPLETE; }
 
+		bool in_progress() const { return _state != COMPLETE && _state != INIT; }
+
 		bool paused() const { return _state == PAUSED; }
 
 		bool requested() const { return _state == REQUESTED; }
+
+		Percentage progress_in_percent() const { return _progress_in_percent; }
 };
 
 class Vfs_tresor::Deinitialize_operation : private Noncopyable
@@ -451,7 +463,8 @@ class Vfs_tresor::Extend_operation : private Noncopyable
 
 		struct Execute_attr
 		{
-			Extend_file_system *extend_fs_ptr;
+			Extend_file_system *fs_ptr;
+			Extend_progress_file_system *progress_fs_ptr;
 			Superblock_control &sb_control;
 			Virtual_block_device &vbd;
 			Free_tree &free_tree;
@@ -698,7 +711,8 @@ class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, p
 
 			case EXTEND_OPERATION:
 
-				progress |= _extend_operation.execute({_extend_fs_ptr, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _trust_anchor}) ;
+				progress |= _extend_operation.execute({
+					_extend_fs_ptr, _extend_progress_fs_ptr, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _trust_anchor}) ;
 				if (_extend_operation.complete()) {
 					if (!_try_start_operation())
 						_state = NO_OPERATION;
@@ -716,7 +730,8 @@ class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, p
 
 			case REKEY_OPERATION:
 
-				progress |= _rekey_operation.execute({_rekey_fs_ptr, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor}) ;
+				progress |= _rekey_operation.execute({
+					_rekey_fs_ptr, _rekey_progress_fs_ptr, _sb_control, _vbd, _free_tree, _meta_tree, _block_io, _crypto, _trust_anchor}) ;
 				if (_rekey_operation.complete()) {
 					if (!_try_start_operation())
 						_state = NO_OPERATION;
@@ -1489,7 +1504,7 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 
 		Plugin &_plugin;
 
-		using Content_string = String<11>;
+		using Content_string = String<5>;
 
 		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
@@ -1515,7 +1530,7 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 				 ** Single_vfs_handle **
 				 ***********************/
 
-				Read_result read(Byte_range_ptr const &, size_t &) override
+				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
 					out_count = 0;
 					if (seek() == dst.num_bytes) {
@@ -1528,12 +1543,7 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 					}
 					Read_result result = READ_QUEUED;
 					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
-
-						if (!rekey_operation.in_progress()) {
-							result = _read_ok("idle");
-							return;
-						}
-						result = _read_ok({"at ", rekey_operation.progress_in_percent()});
+						result = _read_ok({rekey_operation.progress_in_percent(), "%"}, dst, out_count);
 					});
 					return result;
 				}
@@ -2008,19 +2018,23 @@ bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
 		if (_rekey->complete()) {
 			if (_rekey->success()) {
 				if (_complete) {
+					_reset_progress_in_percent(attr.progress_fs_ptr);
 					_success = true;
 					_state = COMPLETE;
-					if (attr.rekey_fs_ptr)
-						attr.rekey_fs_ptr->trigger_watch_response();
+					if (attr.fs_ptr)
+						attr.fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("rekey succeeded");
-				} else
+				} else {
+					_update_progress_in_percent(attr.sb_control, attr.progress_fs_ptr);
 					_state = PAUSED;
+				}
 			} else {
+				_reset_progress_in_percent(attr.progress_fs_ptr);
 				_success = false;
 				_state = COMPLETE;
-				if (attr.rekey_fs_ptr)
-					attr.rekey_fs_ptr->trigger_watch_response();
+				if (attr.fs_ptr)
+					attr.fs_ptr->trigger_watch_response();
 				if (_verbose)
 					log("rekey failed");
 			}
@@ -2039,6 +2053,28 @@ bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
 	default: break;
 	}
 	return progress;
+}
+
+
+void Vfs_tresor::Rekey_operation::_update_progress_in_percent(Superblock_control const &sb_control, Rekey_progress_file_system *progress_fs_ptr)
+{
+	Percentage current_progress_in_percent =
+		sb_control.rekeying_vba() * 100 / sb_control.max_vba();
+
+	if (_progress_in_percent == current_progress_in_percent)
+		return;
+
+	_progress_in_percent = current_progress_in_percent;
+	if (progress_fs_ptr)
+		progress_fs_ptr->trigger_watch_response();
+}
+
+
+void Vfs_tresor::Rekey_operation::_reset_progress_in_percent(Rekey_progress_file_system *progress_fs_ptr)
+{
+	_progress_in_percent = 0;
+	if (progress_fs_ptr)
+		progress_fs_ptr->trigger_watch_response();
 }
 
 
@@ -2065,8 +2101,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 				if (_complete) {
 					_success = true;
 					_state = COMPLETE;
-					if (attr.extend_fs_ptr)
-						attr.extend_fs_ptr->trigger_watch_response();
+					if (attr.fs_ptr)
+						attr.fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("extend free tree succeeded");
 				} else
@@ -2074,8 +2110,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 			} else {
 				_success = false;
 				_state = COMPLETE;
-				if (attr.extend_fs_ptr)
-					attr.extend_fs_ptr->trigger_watch_response();
+				if (attr.fs_ptr)
+					attr.fs_ptr->trigger_watch_response();
 				if (_verbose)
 					log("extend free tree failed");
 			}
@@ -2110,8 +2146,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 				if (_complete) {
 					_success = true;
 					_state = COMPLETE;
-					if (attr.extend_fs_ptr)
-						attr.extend_fs_ptr->trigger_watch_response();
+					if (attr.fs_ptr)
+						attr.fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("extend virtual block device succeeded");
 				} else
@@ -2119,8 +2155,8 @@ bool Vfs_tresor::Extend_operation::execute(Execute_attr const &attr)
 			} else {
 				_success = false;
 				_state = COMPLETE;
-				if (attr.extend_fs_ptr)
-					attr.extend_fs_ptr->trigger_watch_response();
+				if (attr.fs_ptr)
+					attr.fs_ptr->trigger_watch_response();
 				if (_verbose)
 					log("extend virtual block device failed");
 			}
