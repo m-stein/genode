@@ -260,6 +260,7 @@ append config {
 								<rom name=".profile" label="vfs_tresor.sh"/>
 							</vfs>
 							<arg value="bash"/>
+							<arg value="--login"/>
 							<env key="TERM" value="screen"/>
 							<env key="HOME" value="/"/>
 							<env key="PATH" value="/bin"/>

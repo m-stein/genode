@@ -130,7 +130,6 @@ wait_for_rekeying() {
 	while : ; do
 		local done=0
 		local file_content="$(< $tresor_dir/control/rekey_progress)"
-		echo "file_content: ${file_content}"
 		case "$file_content" in
 		*at*)
 			if [ "$verbose" = "yes" ]; then
@@ -223,7 +222,7 @@ main() {
 	test_rekey_start "$tresor_dir"
 	test_write_1 "$data_file" "2"
 	test_read_compare_1 "$data_file" "2"
-	wait_for_rekeying "$tresor_dir" "no"
+	wait_for_rekeying "$tresor_dir"
 	test_deinitialize "$tresor_dir"
 	wait_for_deinitialize "$tresor_dir"
 	echo "done!"

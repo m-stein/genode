@@ -320,32 +320,16 @@ class Vfs_tresor::Rekey_operation : private Noncopyable
 		bool const _verbose;
 		bool _success { };
 		bool _complete { };
-		Percentage _progress_in_percent { };
+		Percentage _progress { 100 };
 		Constructible<Superblock_control::Rekey> _rekey { };
 
-		void _update_progress_in_percent(Superblock_control const &, Rekey_progress_file_system *);
-
-		void _reset_progress_in_percent(Rekey_progress_file_system *);
+		void _set_progress(Percentage, Rekey_progress_file_system *);
 
 	public:
 
 		Rekey_operation(bool verbose) : _verbose(verbose) { }
 
-		bool request()
-		{
-			switch (_state) {
-			case INIT:
-			case COMPLETE:
-
-				_state = REQUESTED;
-				if (_verbose)
-					log("rekey requested");
-				return true;
-
-			default: return false;
-			}
-			ASSERT_NEVER_REACHED;
-		}
+		bool request(Rekey_progress_file_system *);
 
 		Result result() const
 		{
@@ -383,7 +367,7 @@ class Vfs_tresor::Rekey_operation : private Noncopyable
 
 		bool requested() const { return _state == REQUESTED; }
 
-		Percentage progress_in_percent() const { return _progress_in_percent; }
+		Percentage progress() const { return _progress; }
 };
 
 class Vfs_tresor::Deinitialize_operation : private Noncopyable
@@ -840,7 +824,7 @@ class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, p
 		void with_rekey_operation(FUNC && func)
 		{
 			_execute();
-			func(_rekey_operation);
+			func(_rekey_operation, _rekey_progress_fs_ptr);
 			_execute();
 		}
 
@@ -1206,8 +1190,7 @@ class Vfs_tresor::Extend_file_system : private Noncopyable, public Single_file_s
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1385,7 +1368,7 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 						return READ_ERR_IO;
 					}
 					Read_result result = READ_QUEUED;
-					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
+					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation, Rekey_progress_file_system *) {
 
 						switch (rekey_operation.result()) {
 						case Rekey_operation::NONE: result = _read_ok("none", dst, out_count); break;
@@ -1408,9 +1391,9 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 						return WRITE_ERR_IO;
 					}
 					Write_result result = WRITE_ERR_IO;
-					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
+					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation, Rekey_progress_file_system *progress_fs_ptr) {
 
-						if (!rekey_operation.request()) {
+						if (!rekey_operation.request(progress_fs_ptr)) {
 							result = WRITE_ERR_IO;
 							if (_plugin.verbose())
 								log("writing rekey file failed: failed to request operation");
@@ -1474,8 +1457,7 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1499,31 +1481,28 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 
 		using Registered_watch_handle = Registered<Vfs_watch_handle>;
 		using Watch_handle_registry = Registry<Registered_watch_handle>;
+		using Content_string = String<8>;
 
 		Watch_handle_registry _handle_registry { };
-
 		Plugin &_plugin;
-
-		using Content_string = String<5>;
+		Content_string _content { "idle" };
+		bool _content_read { false };
 
 		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
 				Plugin &_plugin;
-
-				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
-				{
-					copy_cstring(dst.start, content.string(), dst.num_bytes);
-					out_count = dst.num_bytes;
-					return READ_OK;
-				}
+				Content_string &_content;
+				bool &_content_read;
 
 			public:
 
-				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Plugin &plugin)
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Plugin &plugin,
+				           Content_string &content, bool &content_read)
 				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin),
+					_content(content), _content_read(content_read)
 				{ }
 
 				/***********************
@@ -1532,6 +1511,7 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 
 				Read_result read(Byte_range_ptr const &dst, size_t &out_count) override
 				{
+log(__func__);
 					out_count = 0;
 					if (seek() == dst.num_bytes) {
 						return READ_OK;
@@ -1541,11 +1521,15 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 							log("reading rekey progress file failed: malformed arguments");
 						return READ_ERR_IO;
 					}
-					Read_result result = READ_QUEUED;
-					_plugin.with_rekey_operation([&] (Rekey_operation &rekey_operation) {
-						result = _read_ok({rekey_operation.progress_in_percent(), "%"}, dst, out_count);
-					});
-					return result;
+					if (_content_read)
+						return READ_QUEUED;
+
+					_content_read = true;
+					copy_cstring(dst.start, _content.string(), dst.num_bytes);
+					out_count = dst.num_bytes;
+					if (_plugin.verbose())
+						log("rekey progress: ", _content);
+					return READ_OK;
 				}
 
 				Write_result write(Const_byte_range_ptr const &, size_t &) override
@@ -1556,6 +1540,14 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 				bool read_ready()  const override { return true; }
 				bool write_ready() const override { return true; }
 		};
+
+		void _update_content(Content_string const &content)
+		{
+			_content = content;
+			_content_read = false;
+			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
+				handle.watch_response(); });
+		}
 
 	public:
 
@@ -1569,10 +1561,12 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 
 		static char const *type_name() { return "rekey_progress"; }
 
-		void trigger_watch_response()
+		void update_content(Percentage rekey_progress)
 		{
-			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
-				handle.watch_response(); });
+			if (rekey_progress < 100)
+				_update_content({"at ", rekey_progress, "%"});
+			else
+				_update_content({"idle"});
 		}
 
 		/************************
@@ -1605,8 +1599,7 @@ class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Singl
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin, _content, _content_read);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1761,8 +1754,7 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1847,8 +1839,8 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 	private:
 
 		Plugin &_plugin;
-		Rekey_file_system _rekeying_fs;
-		Rekey_progress_file_system _rekeying_progress_fs;
+		Rekey_file_system _rekey_fs;
+		Rekey_progress_file_system _rekey_progress_fs;
 		Deinitialize_file_system _deinitialize_fs;
 		Extend_file_system _extend_fs;
 		Extend_progress_file_system _extend_progress_fs;
@@ -1857,14 +1849,14 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 
 		Control_local_factory(Vfs::Env &, Xml_node, Plugin &plugin)
 		:
-			_plugin(plugin), _rekeying_fs(plugin), _rekeying_progress_fs(plugin),
+			_plugin(plugin), _rekey_fs(plugin), _rekey_progress_fs(plugin),
 			_deinitialize_fs(plugin), _extend_fs(plugin), _extend_progress_fs(plugin)
 		{ }
 
 		~Control_local_factory()
 		{
-			_plugin.dissolve_rekey_file_system(_rekeying_fs);
-			_plugin.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
+			_plugin.dissolve_rekey_file_system(_rekey_fs);
+			_plugin.dissolve_rekey_progress_file_system(_rekey_progress_fs);
 			_plugin.dissolve_deinit_file_system(_deinitialize_fs);
 			_plugin.dissolve_extend_file_system(_extend_fs);
 			_plugin.dissolve_extend_progress_file_system(_extend_progress_fs);
@@ -1877,10 +1869,10 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 		Vfs::File_system *create(Vfs::Env&, Xml_node node) override
 		{
 			if (node.has_type(Rekey_file_system::type_name()))
-				return &_rekeying_fs;
+				return &_rekey_fs;
 
 			if (node.has_type(Rekey_progress_file_system::type_name()))
-				return &_rekeying_progress_fs;
+				return &_rekey_progress_fs;
 
 			if (node.has_type(Deinitialize_file_system::type_name()))
 				return &_deinitialize_fs;
@@ -2018,21 +2010,23 @@ bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
 		if (_rekey->complete()) {
 			if (_rekey->success()) {
 				if (_complete) {
-					_reset_progress_in_percent(attr.progress_fs_ptr);
 					_success = true;
 					_state = COMPLETE;
+					_set_progress(100, attr.progress_fs_ptr);
 					if (attr.fs_ptr)
 						attr.fs_ptr->trigger_watch_response();
 					if (_verbose)
 						log("rekey succeeded");
 				} else {
-					_update_progress_in_percent(attr.sb_control, attr.progress_fs_ptr);
 					_state = PAUSED;
+					Percentage progress = attr.sb_control.rekeying_vba() * 100 / attr.sb_control.max_vba();
+					if (_progress != progress)
+						_set_progress(progress, attr.progress_fs_ptr);
 				}
 			} else {
-				_reset_progress_in_percent(attr.progress_fs_ptr);
 				_success = false;
 				_state = COMPLETE;
+				_set_progress(100, attr.progress_fs_ptr);
 				if (attr.fs_ptr)
 					attr.fs_ptr->trigger_watch_response();
 				if (_verbose)
@@ -2056,25 +2050,30 @@ bool Vfs_tresor::Rekey_operation::execute(Execute_attr const &attr)
 }
 
 
-void Vfs_tresor::Rekey_operation::_update_progress_in_percent(Superblock_control const &sb_control, Rekey_progress_file_system *progress_fs_ptr)
+void Vfs_tresor::Rekey_operation::_set_progress(Percentage progress, Rekey_progress_file_system *progress_fs_ptr)
 {
-	Percentage current_progress_in_percent =
-		sb_control.rekeying_vba() * 100 / sb_control.max_vba();
-
-	if (_progress_in_percent == current_progress_in_percent)
-		return;
-
-	_progress_in_percent = current_progress_in_percent;
+log(__func__, " ", progress);
+	_progress = progress;
 	if (progress_fs_ptr)
-		progress_fs_ptr->trigger_watch_response();
+		progress_fs_ptr->update_content(_progress);
 }
 
 
-void Vfs_tresor::Rekey_operation::_reset_progress_in_percent(Rekey_progress_file_system *progress_fs_ptr)
+bool Vfs_tresor::Rekey_operation::request(Rekey_progress_file_system *progress_fs_ptr)
 {
-	_progress_in_percent = 0;
-	if (progress_fs_ptr)
-		progress_fs_ptr->trigger_watch_response();
+	switch (_state) {
+	case INIT:
+	case COMPLETE:
+
+		_state = REQUESTED;
+		_set_progress(0, progress_fs_ptr);
+		if (_verbose)
+			log("rekey requested");
+		return true;
+
+	default: return false;
+	}
+	ASSERT_NEVER_REACHED;
 }
 
 
