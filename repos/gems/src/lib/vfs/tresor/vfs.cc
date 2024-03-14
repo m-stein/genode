@@ -1173,7 +1173,7 @@ class Vfs_tresor::Extend_file_system : private Noncopyable, public Single_file_s
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-			out.size = Content_string::capacity() - 1;
+			out.size = Content_string::capacity();
 			return result;
 		}
 
@@ -1330,7 +1330,7 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-			out.size = Content_string::size();
+			out.size = Content_string::capacity();
 			return result;
 		}
 
@@ -1357,6 +1357,7 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
 				{
+log("read deinitialize: ", content);
 					copy_cstring(dst.start, content.string(), dst.num_bytes);
 					out_count = dst.num_bytes;
 					return READ_OK;
@@ -1378,6 +1379,7 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 				{
 					out_count = 0;
 					if (seek() == dst.num_bytes) {
+log("read deinitialize: <eof>");
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
@@ -1406,6 +1408,8 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 					if (seek() || !deinitialize_arg) {
 						if (_plugin.verbose())
 							log("writing deinitialize file failed: malformed arguments");
+
+log("write deinitialize: ", seek(), " ", src.num_bytes, " ", false);
 						return WRITE_ERR_IO;
 					}
 					Write_result result = WRITE_ERR_IO;
@@ -1420,6 +1424,8 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 						out_count = src.num_bytes;
 						result = WRITE_OK;
 					});
+
+log("write deinitialize: ", seek(), " ", src.num_bytes, " ", result == WRITE_OK);
 					return result;
 				}
 
@@ -1485,7 +1491,7 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 		Stat_result stat(char const *path, Stat &out) override
 		{
 			Stat_result result = Single_file_system::stat(path, out);
-			out.size = Content_string::capacity() - 1;
+			out.size = Content_string::capacity();
 			return result;
 		}
 
