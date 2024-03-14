@@ -58,7 +58,7 @@ namespace Vfs_tresor {
 	class Plugin;
 }
 
-class Vfs_tresor::Data_operation : Noncopyable
+class Vfs_tresor::Data_operation : private Noncopyable
 {
 	public:
 
@@ -291,7 +291,7 @@ class Vfs_tresor::Data_operation : Noncopyable
 		}
 };
 
-class Vfs_tresor::Rekey_operation : Noncopyable
+class Vfs_tresor::Rekey_operation : private Noncopyable
 {
 	public:
 
@@ -374,7 +374,7 @@ class Vfs_tresor::Rekey_operation : Noncopyable
 		bool requested() const { return _state == REQUESTED; }
 };
 
-class Vfs_tresor::Deinitialize_operation : Noncopyable
+class Vfs_tresor::Deinitialize_operation : private Noncopyable
 {
 	public:
 
@@ -443,7 +443,7 @@ class Vfs_tresor::Deinitialize_operation : Noncopyable
 		bool execute(Execute_attr const &attr);
 };
 
-class Vfs_tresor::Extend_operation : Noncopyable
+class Vfs_tresor::Extend_operation : private Noncopyable
 {
 	public:
 
@@ -549,7 +549,7 @@ class Vfs_tresor::Extend_operation : Noncopyable
 		bool requested() const { return _state == EXTEND_FT_REQUESTED || _state == EXTEND_VBD_REQUESTED; }
 };
 
-class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_interface
+class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, private Crypto_key_files_interface
 {
 	private:
 
@@ -562,8 +562,8 @@ class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_
 		struct Crypto_key
 		{
 			Key_id const key_id;
-			Vfs::Vfs_handle &encrypt_file;
-			Vfs::Vfs_handle &decrypt_file;
+			Vfs_handle &encrypt_file;
+			Vfs_handle &decrypt_file;
 		};
 
 		Vfs::Env &_vfs_env;
@@ -571,14 +571,14 @@ class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_
 		Tresor::Path const _crypto_path;
 		Tresor::Path const _block_io_path;
 		Tresor::Path const _trust_anchor_path;
-		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Vfs::Vfs_handle &_crypto_add_key_file { open_file(_vfs_env, { _crypto_path, "/add_key" }, Vfs::Directory_service::OPEN_MODE_WRONLY) };
-		Vfs::Vfs_handle &_crypto_remove_key_file { open_file(_vfs_env, { _crypto_path, "/remove_key" }, Vfs::Directory_service::OPEN_MODE_WRONLY) };
-		Vfs::Vfs_handle &_ta_decrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/decrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Vfs::Vfs_handle &_ta_encrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Vfs::Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Vfs::Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
-		Vfs::Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Directory_service::OPEN_MODE_RDWR) };
+		Vfs_handle &_crypto_add_key_file { open_file(_vfs_env, { _crypto_path, "/add_key" }, Directory_service::OPEN_MODE_WRONLY) };
+		Vfs_handle &_crypto_remove_key_file { open_file(_vfs_env, { _crypto_path, "/remove_key" }, Directory_service::OPEN_MODE_WRONLY) };
+		Vfs_handle &_ta_decrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/decrypt" }, Directory_service::OPEN_MODE_RDWR) };
+		Vfs_handle &_ta_encrypt_file { open_file(_vfs_env, { _trust_anchor_path, "/encrypt" }, Directory_service::OPEN_MODE_RDWR) };
+		Vfs_handle &_ta_generate_key_file { open_file(_vfs_env, { _trust_anchor_path, "/generate_key" }, Directory_service::OPEN_MODE_RDWR) };
+		Vfs_handle &_ta_initialize_file { open_file(_vfs_env, { _trust_anchor_path, "/initialize" }, Directory_service::OPEN_MODE_RDWR) };
+		Vfs_handle &_ta_hash_file { open_file(_vfs_env, { _trust_anchor_path, "/hash" }, Directory_service::OPEN_MODE_RDWR) };
 		Tresor::Free_tree _free_tree { };
 		Tresor::Virtual_block_device _vbd { };
 		Superblock_control _sb_control { };
@@ -757,8 +757,8 @@ class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_
 			for (Constructible<Crypto_key> &key : _crypto_keys)
 				if (!key.constructed()) {
 					key.construct(key_id,
-						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/encrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR),
-						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/decrypt" }, Vfs::Directory_service::OPEN_MODE_RDWR)
+						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/encrypt" }, Directory_service::OPEN_MODE_RDWR),
+						open_file(_vfs_env, { _crypto_path, "/keys/", key_id, "/decrypt" }, Directory_service::OPEN_MODE_RDWR)
 					);
 					return;
 				}
@@ -773,8 +773,8 @@ class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_
 			crypto_key.destruct();
 		}
 
-		Vfs::Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
-		Vfs::Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
+		Vfs_handle &encrypt_file(Key_id key_id) override { return _crypto_key(key_id)->encrypt_file; }
+		Vfs_handle &decrypt_file(Key_id key_id) override { return _crypto_key(key_id)->decrypt_file; }
 
 		/***************************
 		 ** Client_data_interface **
@@ -909,15 +909,23 @@ class Vfs_tresor::Plugin : Noncopyable, Client_data_interface, Crypto_key_files_
 };
 
 
-class Vfs_tresor::Data_file_system : public Single_file_system
+class Vfs_tresor::Data_file_system : private Noncopyable, public Single_file_system
 {
 	private:
 
-		class Vfs_handle : Noncopyable, public Single_vfs_handle
+		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
 				Plugin &_plugin;
+
+			public:
+
+				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
+				           Allocator &alloc, Plugin &plugin)
+				:
+					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
+				{ }
 
 				/***********************
 				 ** Single_vfs_handle **
@@ -983,17 +991,19 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 
 				bool read_ready()  const override { return true; }
 				bool write_ready() const override { return true; }
-
-			public:
-
-				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service,
-				           Allocator &alloc, Plugin &plugin)
-				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
-				{ }
 		};
 
 		Plugin &_plugin;
+
+	public:
+
+		Data_file_system(Plugin &plugin)
+		:
+			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")),
+			_plugin(plugin)
+		{ }
+
+		static char const *type_name() { return "data"; }
 
 		/************************
 		 ** Single_file_system **
@@ -1021,20 +1031,10 @@ class Vfs_tresor::Data_file_system : public Single_file_system
 		}
 
 		char const *type() override { return type_name(); }
-
-	public:
-
-		Data_file_system(Plugin &plugin)
-		:
-			Single_file_system(Node_type::CONTINUOUS_FILE, type_name(), Node_rwx::rw(), Xml_node("<data/>")),
-			_plugin(plugin)
-		{ }
-
-		static char const *type_name() { return "data"; }
 };
 
 
-class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
+class Vfs_tresor::Extend_file_system : private Noncopyable, public Single_file_system
 {
 	private:
 
@@ -1042,7 +1042,7 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 		using Watch_handle_registry = Registry<Registered_watch_handle>;
 		using Content_string = String<11>;
 
-		class Vfs_handle : public Single_vfs_handle
+		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
@@ -1143,6 +1143,24 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 		Watch_handle_registry _handle_registry { };
 		Plugin &_plugin;
 
+	public:
+
+		Extend_file_system(Plugin &plugin)
+		:
+			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<extend/>")),
+			_plugin(plugin)
+		{
+			_plugin.manage_extend_file_system(*this);
+		}
+
+		static char const *type_name() { return "extend"; }
+
+		void trigger_watch_response()
+		{
+			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
+				handle.watch_response(); });
+		}
+
 		/************************
 		 ** Single_file_system **
 		 ************************/
@@ -1189,28 +1207,10 @@ class Vfs_tresor::Extend_file_system : public Vfs::Single_file_system
 		}
 
 		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
-
-	public:
-
-		Extend_file_system(Plugin &plugin)
-		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<extend/>")),
-			_plugin(plugin)
-		{
-			_plugin.manage_extend_file_system(*this);
-		}
-
-		static char const *type_name() { return "extend"; }
-
-		void trigger_watch_response()
-		{
-			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
-				handle.watch_response(); });
-		}
 };
 
 
-class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
+class Vfs_tresor::Extend_progress_file_system : private Noncopyable, public Single_file_system
 {
 	private:
 
@@ -1223,7 +1223,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 
 		using Content_string = String<32>;
 
-		class Vfs_handle : public Single_vfs_handle
+		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
@@ -1296,9 +1296,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
 		}
 
-		Open_result open(char const  *path, unsigned,
-		                 Vfs::Vfs_handle **out_handle,
-		                 Allocator &alloc) override
+		Open_result open(char const  *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
 		{
 			if (!_single_file(path))
 				return OPEN_ERR_UNACCESSIBLE;
@@ -1322,7 +1320,7 @@ class Vfs_tresor::Extend_progress_file_system : public Vfs::Single_file_system
 };
 
 
-class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
+class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_system
 {
 	private:
 
@@ -1335,7 +1333,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 
 		using Content_string = String<11>;
 
-		class Vfs_handle : public Single_vfs_handle
+		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
@@ -1480,7 +1478,7 @@ class Vfs_tresor::Rekey_file_system : public Vfs::Single_file_system
 };
 
 
-class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
+class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Single_file_system
 {
 	private:
 
@@ -1493,7 +1491,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 
 		using Content_string = String<32>;
 
-		class Vfs_handle : public Single_vfs_handle
+		class Vfs_handle : private Noncopyable, public Single_vfs_handle
 		{
 			private:
 
@@ -1591,7 +1589,7 @@ class Vfs_tresor::Rekey_progress_file_system : public Vfs::Single_file_system
 };
 
 
-class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
+class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_file_system
 {
 	private:
 
@@ -1747,7 +1745,7 @@ class Vfs_tresor::Deinitialize_file_system : public Vfs::Single_file_system
 };
 
 
-class Vfs_tresor::Current_local_factory : public File_system_factory
+class Vfs_tresor::Current_local_factory : private Noncopyable, public File_system_factory
 {
 	private:
 
@@ -1771,7 +1769,7 @@ class Vfs_tresor::Current_local_factory : public File_system_factory
 };
 
 
-class Vfs_tresor::Current_file_system : private Current_local_factory, public Vfs::Dir_file_system
+class Vfs_tresor::Current_file_system : private Current_local_factory, public Dir_file_system
 {
 	private:
 
@@ -1791,25 +1789,25 @@ class Vfs_tresor::Current_file_system : private Current_local_factory, public Vf
 			return Config(Cstring(buf));
 		}
 
-		/**************************
-		 ** Vfs::Dir_file_system **
-		 **************************/
-
-		char const *type() override { return type_name(); }
-
 	public:
 
 		Current_file_system(Vfs::Env &vfs_env, Plugin &plugin)
 		:
 			Current_local_factory(vfs_env, plugin),
-			Vfs::Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
+			Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
 		{ }
 
 		static char const *type_name() { return "current"; }
+
+		/*********************
+		 ** Dir_file_system **
+		 *********************/
+
+		char const *type() override { return type_name(); }
 };
 
 
-class Vfs_tresor::Control_local_factory : public File_system_factory
+class Vfs_tresor::Control_local_factory : private Noncopyable, public File_system_factory
 {
 	private:
 
@@ -1819,6 +1817,23 @@ class Vfs_tresor::Control_local_factory : public File_system_factory
 		Deinitialize_file_system _deinitialize_fs;
 		Extend_file_system _extend_fs;
 		Extend_progress_file_system _extend_progress_fs;
+
+	public:
+
+		Control_local_factory(Vfs::Env &, Xml_node, Plugin &plugin)
+		:
+			_plugin(plugin), _rekeying_fs(plugin), _rekeying_progress_fs(plugin),
+			_deinitialize_fs(plugin), _extend_fs(plugin), _extend_progress_fs(plugin)
+		{ }
+
+		~Control_local_factory()
+		{
+			_plugin.dissolve_rekey_file_system(_rekeying_fs);
+			_plugin.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
+			_plugin.dissolve_deinit_file_system(_deinitialize_fs);
+			_plugin.dissolve_extend_file_system(_extend_fs);
+			_plugin.dissolve_extend_progress_file_system(_extend_progress_fs);
+		}
 
 		/*************************
 		 ** File_system_factory **
@@ -1843,27 +1858,10 @@ class Vfs_tresor::Control_local_factory : public File_system_factory
 
 			return nullptr;
 		}
-
-	public:
-
-		Control_local_factory(Vfs::Env &, Xml_node, Plugin &plugin)
-		:
-			_plugin(plugin), _rekeying_fs(plugin), _rekeying_progress_fs(plugin),
-			_deinitialize_fs(plugin), _extend_fs(plugin), _extend_progress_fs(plugin)
-		{ }
-
-		~Control_local_factory()
-		{
-			_plugin.dissolve_rekey_file_system(_rekeying_fs);
-			_plugin.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
-			_plugin.dissolve_deinit_file_system(_deinitialize_fs);
-			_plugin.dissolve_extend_file_system(_extend_fs);
-			_plugin.dissolve_extend_progress_file_system(_extend_progress_fs);
-		}
 };
 
 
-class Vfs_tresor::Control_file_system : Control_local_factory, public Vfs::Dir_file_system
+class Vfs_tresor::Control_file_system : private Control_local_factory, public Dir_file_system
 {
 	private:
 
@@ -1883,27 +1881,25 @@ class Vfs_tresor::Control_file_system : Control_local_factory, public Vfs::Dir_f
 			return Config(Cstring(buf));
 		}
 
-		/**************************
-		 ** Vfs::Dir_file_system **
-		 **************************/
-
-		char const *type() override { return type_name(); }
-
 	public:
 
-		Control_file_system(Vfs::Env         &vfs_env,
-		                    Xml_node  node,
-		                    Plugin          &tresor)
+		Control_file_system(Vfs::Env &vfs_env, Xml_node  node, Plugin &plugin)
 		:
-			Control_local_factory(vfs_env, node, tresor),
-			Vfs::Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
+			Control_local_factory(vfs_env, node, plugin),
+			Dir_file_system(vfs_env, Xml_node(_config().string()), *this)
 		{ }
 
 		static char const *type_name() { return "control"; }
+
+		/*********************
+		 ** Dir_file_system **
+		 *********************/
+
+		char const *type() override { return type_name(); }
 };
 
 
-class Vfs_tresor::Local_factory : public File_system_factory
+class Vfs_tresor::Local_factory : private Noncopyable, public File_system_factory
 {
 	private:
 
@@ -1913,9 +1909,9 @@ class Vfs_tresor::Local_factory : public File_system_factory
 
 	public:
 
-		Local_factory(Vfs::Env &env, Xml_node config, Plugin &plugin)
+		Local_factory(Vfs::Env &vfs_env, Xml_node config, Plugin &plugin)
 		:
-			_plugin(plugin), _current_fs(env, plugin), _control_fs(env, config, plugin)
+			_plugin(plugin), _current_fs(vfs_env, plugin), _control_fs(vfs_env, config, plugin)
 		{ }
 
 		/*************************
@@ -1935,7 +1931,7 @@ class Vfs_tresor::Local_factory : public File_system_factory
 };
 
 
-class Vfs_tresor::File_system : Local_factory, public Vfs::Dir_file_system
+class Vfs_tresor::File_system : private Local_factory, public Dir_file_system
 {
 	private:
 
@@ -1960,7 +1956,7 @@ class Vfs_tresor::File_system : Local_factory, public Vfs::Dir_file_system
 		File_system(Vfs::Env &vfs_env, Xml_node node, Plugin &plugin)
 		:
 			Local_factory(vfs_env, node, plugin),
-			Vfs::Dir_file_system(vfs_env, Xml_node(_config(node).string()), *this),
+			Dir_file_system(vfs_env, Xml_node(_config(node).string()), *this),
 			_plugin(plugin)
 		{ }
 };
@@ -2164,31 +2160,14 @@ bool Vfs_tresor::Deinitialize_operation::execute(Execute_attr const &attr)
 }
 
 
-extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
+extern "C" File_system_factory *vfs_file_system_factory(void)
 {
-	class Factory : public Vfs::File_system_factory
+	class Factory : public File_system_factory
 	{
 		private:
 
 			Allocator *_plugin_alloc_ptr { };
 			Vfs_tresor::Plugin *_plugin_ptr { };
-
-			/*************************
-			 ** File_system_factory **
-			 *************************/
-
-			Vfs::File_system *create(Vfs::Env &env, Xml_node node) override
-			{
-				try {
-					if (!_plugin_ptr) {
-						_plugin_alloc_ptr = &env.alloc();
-						_plugin_ptr = new (_plugin_alloc_ptr) Vfs_tresor::Plugin { env, node };
-					}
-					return new (env.alloc()) Vfs_tresor::File_system(env, node, *_plugin_ptr);
-
-				} catch (...) { error("could not create 'tresor_fs' "); }
-				return nullptr;
-			}
 
 		public:
 
@@ -2196,6 +2175,23 @@ extern "C" Vfs::File_system_factory *vfs_file_system_factory(void)
 			{
 				if (_plugin_ptr)
 					destroy(_plugin_alloc_ptr, _plugin_ptr);
+			}
+
+			/*************************
+			 ** File_system_factory **
+			 *************************/
+
+			Vfs::File_system *create(Vfs::Env &vfs_env, Xml_node node) override
+			{
+				try {
+					if (!_plugin_ptr) {
+						_plugin_alloc_ptr = &vfs_env.alloc();
+						_plugin_ptr = new (_plugin_alloc_ptr) Vfs_tresor::Plugin { vfs_env, node };
+					}
+					return new (vfs_env.alloc()) Vfs_tresor::File_system(vfs_env, node, *_plugin_ptr);
+
+				} catch (...) { error("could not create 'tresor_fs' "); }
+				return nullptr;
 			}
 	};
 
