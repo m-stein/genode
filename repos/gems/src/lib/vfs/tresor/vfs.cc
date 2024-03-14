@@ -43,10 +43,8 @@ namespace Vfs_tresor {
 	class Data_file_system;
 	class Extend_operation;
 	class Extend_file_system;
-	class Extend_progress_file_system;
 	class Rekey_operation;
 	class Rekey_file_system;
-	class Rekey_progress_file_system;
 	class Deinitialize_operation;
 	class Deinitialize_file_system;
 	class Control_local_factory;
@@ -588,9 +586,7 @@ class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, p
 		Block_io _block_io { _block_io_file };
 		Splitter _splitter { };
 		Extend_file_system * _extend_fs_ptr  { };
-		Extend_progress_file_system *_extend_progress_fs_ptr { };
 		Rekey_file_system * _rekey_fs_ptr  { };
-		Rekey_progress_file_system *_rekey_progress_fs_ptr { };
 		Deinitialize_file_system *_deinit_fs_ptr  { };
 		Constructible<Crypto_key> _crypto_keys[2] { };
 		Superblock_control::Initialize *_init_sb_control_ptr { };
@@ -857,18 +853,6 @@ class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, p
 			_extend_fs_ptr = nullptr;
 		}
 
-		void manage_extend_progress_file_system(Extend_progress_file_system &extend_progress_fs)
-		{
-			ASSERT(!_extend_progress_fs_ptr);
-			_extend_progress_fs_ptr = &extend_progress_fs;
-		}
-
-		void dissolve_extend_progress_file_system(Extend_progress_file_system &extend_progress_fs)
-		{
-			ASSERT(_extend_progress_fs_ptr == &extend_progress_fs);
-			_extend_progress_fs_ptr = nullptr;
-		}
-
 		void manage_rekey_file_system(Rekey_file_system &rekey_fs)
 		{
 			ASSERT(!_rekey_fs_ptr);
@@ -879,18 +863,6 @@ class Vfs_tresor::Plugin : private Noncopyable, private Client_data_interface, p
 		{
 			ASSERT(_rekey_fs_ptr == &rekey_fs);
 			_rekey_fs_ptr = nullptr;
-		}
-
-		void manage_rekey_progress_file_system(Rekey_progress_file_system &rekey_progress_fs)
-		{
-			ASSERT(!_rekey_progress_fs_ptr);
-			_rekey_progress_fs_ptr = &rekey_progress_fs;
-		}
-
-		void dissolve_rekey_progress_file_system(Rekey_progress_file_system &rekey_progress_fs)
-		{
-			ASSERT(_rekey_progress_fs_ptr == &rekey_progress_fs);
-			_rekey_progress_fs_ptr = nullptr;
 		}
 
 		void manage_deinit_file_system(Deinitialize_file_system &deinit_fs)
@@ -1209,116 +1181,6 @@ class Vfs_tresor::Extend_file_system : private Noncopyable, public Single_file_s
 };
 
 
-class Vfs_tresor::Extend_progress_file_system : private Noncopyable, public Single_file_system
-{
-	private:
-
-		using Registered_watch_handle = Registered<Vfs_watch_handle>;
-		using Watch_handle_registry = Registry<Registered_watch_handle>;
-
-		Watch_handle_registry _handle_registry { };
-
-		Plugin &_plugin;
-
-		using Content_string = String<32>;
-
-		class Vfs_handle : private Noncopyable, public Single_vfs_handle
-		{
-			private:
-
-				Plugin &_plugin;
-
-			public:
-
-				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Plugin &plugin)
-				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
-				{ }
-
-				/***********************
-				 ** Single_vfs_handle **
-				 ***********************/
-
-				Read_result read(Byte_range_ptr const &, size_t &) override
-				{
-					ASSERT_NEVER_REACHED;
-				}
-
-				Write_result write(Const_byte_range_ptr const &, size_t &) override
-				{
-					return WRITE_ERR_IO;
-				}
-
-				bool read_ready()  const override { return true; }
-				bool write_ready() const override { return true; }
-		};
-
-	public:
-
-		Extend_progress_file_system(Plugin &plugin)
-		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<extend_progress/>")),
-			_plugin(plugin)
-		{
-			_plugin.manage_extend_progress_file_system(*this);
-		}
-
-		static char const *type_name() { return "extend_progress"; }
-
-		void trigger_watch_response()
-		{
-			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
-				handle.watch_response(); });
-		}
-
-		/************************
-		 ** Single_file_system **
-		 ************************/
-
-		char const *type() override { return type_name(); }
-
-		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
-		{
-			if (!_single_file(path))
-				return WATCH_ERR_UNACCESSIBLE;
-
-			try {
-				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
-				return WATCH_OK;
-			}
-			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
-			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
-		}
-
-		void close(Vfs_watch_handle *handle) override
-		{
-			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
-		}
-
-		Open_result open(char const  *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
-		{
-			if (!_single_file(path))
-				return OPEN_ERR_UNACCESSIBLE;
-
-			try {
-				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
-				return OPEN_OK;
-			}
-			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
-		}
-
-		Stat_result stat(char const *path, Stat &out) override
-		{
-			Stat_result result = Single_file_system::stat(path, out);
-			out.size = Content_string::capacity() - 1;
-			return result;
-		}
-
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
-};
-
-
 class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_system
 {
 	private:
@@ -1469,117 +1331,6 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 		{
 			Stat_result result = Single_file_system::stat(path, out);
 			out.size = Content_string::size();
-			return result;
-		}
-
-		Ftruncate_result ftruncate(Vfs::Vfs_handle *, file_size) override { return FTRUNCATE_OK; }
-};
-
-
-class Vfs_tresor::Rekey_progress_file_system : private Noncopyable, public Single_file_system
-{
-	private:
-
-		using Registered_watch_handle = Registered<Vfs_watch_handle>;
-		using Watch_handle_registry = Registry<Registered_watch_handle>;
-
-		Watch_handle_registry _handle_registry { };
-
-		Plugin &_plugin;
-
-		using Content_string = String<32>;
-
-		class Vfs_handle : private Noncopyable, public Single_vfs_handle
-		{
-			private:
-
-				Plugin &_plugin;
-
-			public:
-
-				Vfs_handle(Directory_service &dir_service, File_io_service &file_io_service, Allocator &alloc, Plugin &plugin)
-				:
-					Single_vfs_handle(dir_service, file_io_service, alloc, 0), _plugin(plugin)
-				{ }
-
-				/***********************
-				 ** Single_vfs_handle **
-				 ***********************/
-
-				Read_result read(Byte_range_ptr const &, size_t &) override
-				{
-					ASSERT_NEVER_REACHED;
-				}
-
-				Write_result write(Const_byte_range_ptr const &, size_t &) override
-				{
-					ASSERT_NEVER_REACHED;
-				}
-
-				bool read_ready()  const override { return true; }
-				bool write_ready() const override { return true; }
-		};
-
-	public:
-
-		Rekey_progress_file_system(Plugin &plugin)
-		:
-			Single_file_system(Node_type::TRANSACTIONAL_FILE, type_name(), Node_rwx::rw(), Xml_node("<rekey_progress/>")),
-			_plugin(plugin)
-		{
-			_plugin.manage_rekey_progress_file_system(*this);
-		}
-
-		static char const *type_name() { return "rekey_progress"; }
-
-		void trigger_watch_response()
-		{
-			_handle_registry.for_each([this] (Registered_watch_handle &handle) {
-				handle.watch_response(); });
-		}
-
-		/************************
-		 ** Single_file_system **
-		 ************************/
-
-		char const *type() override { return type_name(); }
-
-		Watch_result watch(char const *path, Vfs_watch_handle **handle, Allocator &alloc) override
-		{
-			if (!_single_file(path))
-				return WATCH_ERR_UNACCESSIBLE;
-
-			try {
-				*handle = new (alloc) Registered_watch_handle(_handle_registry, *this, alloc);
-				return WATCH_OK;
-			}
-			catch (Out_of_ram) { return WATCH_ERR_OUT_OF_RAM;  }
-			catch (Out_of_caps) { return WATCH_ERR_OUT_OF_CAPS; }
-		}
-
-		void close(Vfs_watch_handle *handle) override
-		{
-			destroy(handle->alloc(), static_cast<Registered_watch_handle *>(handle));
-		}
-
-		Open_result open(char const  *path, unsigned, Vfs::Vfs_handle **out_handle, Allocator &alloc) override
-		{
-			if (!_single_file(path))
-				return OPEN_ERR_UNACCESSIBLE;
-
-			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
-				return OPEN_OK;
-			}
-			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
-			catch (Out_of_caps) { return OPEN_ERR_OUT_OF_CAPS; }
-		}
-
-		Stat_result stat(char const *path, Stat &out) override
-		{
-			Stat_result result = Single_file_system::stat(path, out);
-			out.size = Content_string::capacity() - 1;
 			return result;
 		}
 
@@ -1810,26 +1561,21 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 
 		Plugin &_plugin;
 		Rekey_file_system _rekey_fs;
-		Rekey_progress_file_system _rekey_progress_fs;
 		Deinitialize_file_system _deinitialize_fs;
 		Extend_file_system _extend_fs;
-		Extend_progress_file_system _extend_progress_fs;
 
 	public:
 
 		Control_local_factory(Vfs::Env &, Xml_node, Plugin &plugin)
 		:
-			_plugin(plugin), _rekey_fs(plugin), _rekey_progress_fs(plugin),
-			_deinitialize_fs(plugin), _extend_fs(plugin), _extend_progress_fs(plugin)
+			_plugin(plugin), _rekey_fs(plugin), _deinitialize_fs(plugin), _extend_fs(plugin)
 		{ }
 
 		~Control_local_factory()
 		{
 			_plugin.dissolve_rekey_file_system(_rekey_fs);
-			_plugin.dissolve_rekey_progress_file_system(_rekey_progress_fs);
 			_plugin.dissolve_deinit_file_system(_deinitialize_fs);
 			_plugin.dissolve_extend_file_system(_extend_fs);
-			_plugin.dissolve_extend_progress_file_system(_extend_progress_fs);
 		}
 
 		/*************************
@@ -1841,17 +1587,11 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 			if (node.has_type(Rekey_file_system::type_name()))
 				return &_rekey_fs;
 
-			if (node.has_type(Rekey_progress_file_system::type_name()))
-				return &_rekey_progress_fs;
-
 			if (node.has_type(Deinitialize_file_system::type_name()))
 				return &_deinitialize_fs;
 
 			if (node.has_type(Extend_file_system::type_name()))
 				return &_extend_fs;
-
-			if (node.has_type(Extend_progress_file_system::type_name()))
-				return &_extend_progress_fs;
 
 			return nullptr;
 		}
@@ -1870,9 +1610,7 @@ class Vfs_tresor::Control_file_system : private Control_local_factory, public Di
 			Xml_generator xml(buf, sizeof(buf), "dir", [&] () {
 				xml.attribute("name", "control");
 				xml.node("rekey", [&] () { });
-				xml.node("rekey_progress", [&] () { });
 				xml.node("extend", [&] () { });
-				xml.node("extend_progress", [&] () { });
 				xml.node("deinitialize", [&] () { });
 			});
 			return Config(Cstring(buf));
