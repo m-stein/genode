@@ -1191,8 +1191,7 @@ class Vfs_tresor::Extend_file_system : private Noncopyable, public Single_file_s
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1459,8 +1458,7 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1726,8 +1724,7 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 				return OPEN_ERR_UNACCESSIBLE;
 
 			try {
-				*out_handle =
-					new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
+				*out_handle = new (alloc) Vfs_handle(*this, *this, alloc, _plugin);
 				return OPEN_OK;
 			}
 			catch (Out_of_ram) { return OPEN_ERR_OUT_OF_RAM; }
@@ -1812,8 +1809,8 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 	private:
 
 		Plugin &_plugin;
-		Rekey_file_system _rekeying_fs;
-		Rekey_progress_file_system _rekeying_progress_fs;
+		Rekey_file_system _rekey_fs;
+		Rekey_progress_file_system _rekey_progress_fs;
 		Deinitialize_file_system _deinitialize_fs;
 		Extend_file_system _extend_fs;
 		Extend_progress_file_system _extend_progress_fs;
@@ -1822,14 +1819,14 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 
 		Control_local_factory(Vfs::Env &, Xml_node, Plugin &plugin)
 		:
-			_plugin(plugin), _rekeying_fs(plugin), _rekeying_progress_fs(plugin),
+			_plugin(plugin), _rekey_fs(plugin), _rekey_progress_fs(plugin),
 			_deinitialize_fs(plugin), _extend_fs(plugin), _extend_progress_fs(plugin)
 		{ }
 
 		~Control_local_factory()
 		{
-			_plugin.dissolve_rekey_file_system(_rekeying_fs);
-			_plugin.dissolve_rekey_progress_file_system(_rekeying_progress_fs);
+			_plugin.dissolve_rekey_file_system(_rekey_fs);
+			_plugin.dissolve_rekey_progress_file_system(_rekey_progress_fs);
 			_plugin.dissolve_deinit_file_system(_deinitialize_fs);
 			_plugin.dissolve_extend_file_system(_extend_fs);
 			_plugin.dissolve_extend_progress_file_system(_extend_progress_fs);
@@ -1842,10 +1839,10 @@ class Vfs_tresor::Control_local_factory : private Noncopyable, public File_syste
 		Vfs::File_system *create(Vfs::Env&, Xml_node node) override
 		{
 			if (node.has_type(Rekey_file_system::type_name()))
-				return &_rekeying_fs;
+				return &_rekey_fs;
 
 			if (node.has_type(Rekey_progress_file_system::type_name()))
-				return &_rekeying_progress_fs;
+				return &_rekey_progress_fs;
 
 			if (node.has_type(Deinitialize_file_system::type_name()))
 				return &_deinitialize_fs;
