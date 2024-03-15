@@ -1055,7 +1055,7 @@ class Vfs_tresor::Extend_file_system : private Noncopyable, public Single_file_s
 
 						switch (extend_operation.result()) {
 						case Extend_operation::NONE: result = _read_ok("none", dst, out_count); break;
-						case Extend_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case Extend_operation::SUCCEEDED: result = _read_ok("succeeded", dst, out_count); break;
 						case Extend_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
 						case Extend_operation::PENDING: break;
 						}
@@ -1235,7 +1235,7 @@ class Vfs_tresor::Rekey_file_system : private Noncopyable, public Single_file_sy
 
 						switch (rekey_operation.result()) {
 						case Rekey_operation::NONE: result = _read_ok("none", dst, out_count); break;
-						case Rekey_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case Rekey_operation::SUCCEEDED: result = _read_ok("succeeded", dst, out_count); break;
 						case Rekey_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
 						case Rekey_operation::PENDING: break;
 						}
@@ -1392,7 +1392,7 @@ log("read deinitialize: <eof>");
 
 						switch (deinit_operation.result()) {
 						case Deinitialize_operation::NONE: result = _read_ok("none", dst, out_count); break;
-						case Deinitialize_operation::SUCCEEDED: result = _read_ok("successful", dst, out_count); break;
+						case Deinitialize_operation::SUCCEEDED: result = _read_ok("succeeded", dst, out_count); break;
 						case Deinitialize_operation::FAILED: result = _read_ok("failed", dst, out_count); break;
 						case Deinitialize_operation::PENDING: break;
 						}
