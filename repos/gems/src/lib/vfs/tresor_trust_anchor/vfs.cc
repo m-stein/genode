@@ -1716,6 +1716,7 @@ class Vfs_tresor_trust_anchor::Decrypt_file_system : public Vfs::Single_file_sys
 
 			Write_result write(Const_byte_range_ptr const &src, size_t &out_count) override
 			{
+Genode::log("write decrypt file: ", Genode::Hex(src.start[0]), " ", Genode::Hex(src.start[1]));
 				if (_state != State::NONE) {
 					return WRITE_ERR_IO;
 				}
@@ -1733,6 +1734,8 @@ class Vfs_tresor_trust_anchor::Decrypt_file_system : public Vfs::Single_file_sys
 
 				_trust_anchor.execute();
 				out_count = src.num_bytes;
+
+Genode::log("write decrypt file ok");
 				return WRITE_OK;
 			}
 
