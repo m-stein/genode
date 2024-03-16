@@ -50,7 +50,7 @@ bool Superblock_control::Write::execute(Execute_attr const &attr)
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
+
 		if (_first_vba() + _num_vbas() - 1 > attr.sb.max_vba()) {
 			_helper.mark_failed(progress, "invalid VBA range");
 			break;
@@ -93,7 +93,6 @@ bool Superblock_control::Read::execute(Execute_attr const &attr)
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 
 		if (_first_vba() + _num_vbas() - 1 > attr.sb.max_vba()) {
 			_helper.mark_failed(progress, "invalid VBA range");
@@ -123,7 +122,6 @@ bool Superblock_control::Extend_free_tree::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 	{
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		_num_pbas = _attr.in_num_pbas;
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		Physical_block_address last_used_pba { attr.sb.first_pba + (attr.sb.nr_of_pbas - 1) };
@@ -209,7 +207,6 @@ bool Superblock_control::Extend_vbd::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 	{
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		_num_pbas = _attr.in_num_pbas;
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		Physical_block_address last_used_pba { attr.sb.first_pba + (attr.sb.nr_of_pbas - 1) };
@@ -299,7 +296,6 @@ bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		_attr.out_rekeying_finished = false;
 		switch (attr.sb.state) {
@@ -393,23 +389,18 @@ bool Superblock_control::Secure_superblock::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		attr.sb.curr_snap().gen = attr.curr_gen;
 		_sb_ciphertext.copy_all_but_key_values_from(attr.sb);
 		_encrypt_key.generate(
-			_helper, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb_ciphertext.current_key.value, attr.sb.current_key.value);
+			_helper, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key.value, _sb_ciphertext.current_key.value);
 		break;
 
 	case ENCRYPT_KEY: progress |= _encrypt_key.execute(attr.trust_anchor); break;
 	case ENCRYPT_CURR_KEY_SUCCEEDED:
 
-log("sb_control: secure_sb : curr key cipher ", _sb_ciphertext.current_key.value);
 		if (attr.sb.state == Superblock::REKEYING)
-{
-log("sb_control: secure_sb ",&attr.sb, ": prev key plain ", attr.sb.previous_key.value);
 			_encrypt_key.generate(
 				_helper, ENCRYPT_KEY, ENCRYPT_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key.value, _sb_ciphertext.previous_key.value);
-}
 		else {
 			_sb_ciphertext.encode_to_blk(_blk);
 			_write_block.generate(_helper, WRITE_BLOCK, WRITE_BLOCK_SUCCEEDED, progress, attr.sb_idx, _blk);
@@ -418,7 +409,6 @@ log("sb_control: secure_sb ",&attr.sb, ": prev key plain ", attr.sb.previous_key
 
 	case ENCRYPT_PREV_KEY_SUCCEEDED:
 
-log("sb_control: secure_sb: prev key cipher ", _sb_ciphertext.previous_key.value);
 		_sb_ciphertext.encode_to_blk(_blk);
 		_write_block.generate(_helper, WRITE_BLOCK, WRITE_BLOCK_SUCCEEDED, progress, attr.sb_idx, _blk);
 		break;
@@ -459,7 +449,6 @@ bool Superblock_control::Discard_snapshot::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		for (Snapshot &snap : attr.sb.snapshots.items)
 			if (snap.valid && snap.gen == _attr.in_gen && snap.keep)
 				snap.keep = false;
@@ -482,7 +471,6 @@ bool Superblock_control::Create_snapshot::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 	{
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		Snapshot &snap = attr.sb.curr_snap();
 		if (snap.keep) {
 			_attr.out_gen = snap.gen;
@@ -513,7 +501,6 @@ bool Superblock_control::Synchronize::execute(Execute_attr const &attr)
 	switch (_helper.state) {
 	case INIT:
 
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		attr.sb.last_secured_generation = attr.curr_gen;
 		_secure_sb.generate(_helper, SECURE_SB, SECURE_SB_SUCCEEDED, progress);
@@ -531,9 +518,7 @@ bool Superblock_control::Initialize::execute(Execute_attr const &attr)
 {
 	bool progress = false;
 	switch (_helper.state) {
-	case INIT:
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
-_read_sb_hash.generate(_helper, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash); break;
+	case INIT: _read_sb_hash.generate(_helper, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, _hash); break;
 	case READ_SB_HASH: progress |= _read_sb_hash.execute(attr.trust_anchor); break;
 	case READ_SB_HASH_SUCCEEDED:
 
@@ -545,9 +530,6 @@ _read_sb_hash.generate(_helper, READ_SB_HASH, READ_SB_HASH_SUCCEEDED, progress, 
 	case READ_BLOCK_SUCCEEDED:
 
 		_sb_ciphertext.decode_from_blk(_blk);
-
-log("sb_control: init: cipher_sb prev key ", _sb_ciphertext.previous_key.value);
-log("sb_control: init: cipher_sb curr key ", _sb_ciphertext.current_key.value);
 		if (check_hash(_blk, _hash)) {
 			_gen = _sb_ciphertext.snapshots.items[_sb_ciphertext.snapshots.newest_snap_idx()].gen;
 			attr.sb.copy_all_but_key_values_from(_sb_ciphertext);
@@ -566,16 +548,10 @@ log("sb_control: init: cipher_sb curr key ", _sb_ciphertext.current_key.value);
 	case ADD_CURR_KEY_SUCCEEDED:
 
 		if (_sb_ciphertext.state == Superblock::REKEYING)
-{
-log("-------------");
 			_decrypt_key.generate(_helper, DECRYPT_KEY, DECRYPT_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key.value, _sb_ciphertext.previous_key.value);
-}
 		else {
 			attr.curr_gen = _gen + 1;
 			_attr.out_sb_state = attr.sb.state;
-
-log("sb_control: init_sb ",&attr.sb, ": plain_sb prev key ", attr.sb.previous_key.value);
-log("sb_control: init_sb ",&attr.sb, ": plain_sb curr key ", attr.sb.current_key.value);
 			_helper.mark_succeeded(progress);
 		}
 		break;
@@ -585,9 +561,6 @@ log("sb_control: init_sb ",&attr.sb, ": plain_sb curr key ", attr.sb.current_key
 
 		attr.curr_gen = _gen + 1;
 		_attr.out_sb_state = attr.sb.state;
-
-log("sb_control: init_sb ",&attr.sb, ": plain_sb prev key ", attr.sb.previous_key.value);
-log("sb_control: init_sb ",&attr.sb, ": plain_sb curr key ", attr.sb.current_key.value);
 		_helper.mark_succeeded(progress);
 		break;
 
@@ -602,7 +575,6 @@ bool Superblock_control::Deinitialize::execute(Execute_attr const &attr)
 	bool progress = false;
 	switch (_helper.state) {
 	case INIT:
-log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.value);
 
 		attr.sb.snapshots.discard_disposable_snapshots(attr.sb.last_secured_generation, attr.curr_gen);
 		attr.sb.last_secured_generation = attr.curr_gen;
@@ -613,23 +585,16 @@ log(__PRETTY_FUNCTION__, " ", __LINE__, " ", &attr.sb, " ", attr.sb.current_key.
 	case SECURE_SB_SUCCEEDED: _remove_key.generate(_helper, REMOVE_KEY, REMOVE_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key.id); break;
 	case REMOVE_CURR_KEY_SUCCEEDED:
 
-log("Deinitialize ", __LINE__);
-
 		if (attr.sb.state == Superblock::REKEYING)
 			_remove_key.generate(_helper, REMOVE_KEY, REMOVE_PREV_KEY_SUCCEEDED, progress, attr.sb.previous_key.id);
 		else
-{
-log("Deinitialize ", __LINE__);
 			_helper.mark_succeeded(progress);
-}
 		break;
 
 	case REMOVE_KEY: progress |= _remove_key.execute(attr.crypto); break;
 	case REMOVE_PREV_KEY_SUCCEEDED:
 
 		attr.sb.state = Superblock::INVALID;
-
-log("Deinitialize ", __LINE__);
 		_helper.mark_succeeded(progress);
 		break;
 
