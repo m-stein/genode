@@ -340,6 +340,12 @@ struct Tresor::Splitter : Noncopyable
 					return *(Block *)(_curr_buf_addr + (vba - _curr_vba()) * BLOCK_SIZE);
 				}
 
+				Block &destination_buffer()
+				{
+					ASSERT(_helper.state == READ_FIRST_BLOCK || _helper.state == READ_LAST_BLOCK);
+					return _blk;
+				}
+
 				bool complete() const { return _helper.complete(); }
 				bool success() const { return _helper.success(); }
 		};
@@ -389,8 +395,11 @@ struct Tresor::Splitter : Noncopyable
 
 		Block &destination_buffer(Virtual_block_address vba)
 		{
-			ASSERT(_read_ptr);
-			return _read_ptr->destination_buffer(vba);
+			if (_read_ptr)
+				return _read_ptr->destination_buffer(vba);
+			if (_write_ptr)
+				return _write_ptr->destination_buffer();
+			ASSERT_NEVER_REACHED;
 		}
 
 		static constexpr char const *name() { return "sb_control"; }
