@@ -217,7 +217,6 @@ class Main : Vfs::Env::User
 				error("mandatory 'passphrase' attribute missing");
 				throw Missing_config_attribute();
 			}
-log("passphrase: ", passphrase);
 
 			String_path ta_dir = _config_ta_dir(_config_rom.xml());
 
