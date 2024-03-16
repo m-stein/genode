@@ -116,6 +116,12 @@ class Trust_anchor
 
 			uint64_t const *u64_ptr() const { return (uint64_t const *)value; }
 			uint64_t *u64_ptr() { return (uint64_t *)value; }
+
+void print(Genode::Output &out) const
+{
+	for (unsigned char const &snap : value)
+		Genode::print(out, " ", Genode::Hex(snap));
+}
 		};
 
 		Private_key _private_key { };
@@ -136,6 +142,12 @@ class Trust_anchor
 
 			uint64_t const *u64_ptr() const { return (uint64_t const *)value; }
 			uint64_t *u64_ptr() { return (uint64_t *)value; }
+
+void print(Genode::Output &out) const
+{
+	for (unsigned char const &snap : value)
+		Genode::print(out, " ", Genode::Hex(snap));
+}
 		};
 
 		Key _decrypt_key   { };
@@ -183,12 +195,16 @@ class Trust_anchor
 				Genode::memcpy(
 					key_ciphertext.value, _decrypt_key.value, Key::KEY_LEN);
 
+Genode::log("decrypt: key ciphertext: ", key_ciphertext);
+
 				Aes_256::decrypt_with_zeroed_iv(
 					_decrypt_key.value,
 					Key::KEY_LEN,
 					key_ciphertext.value,
 					_private_key.value,
 					PRIVATE_KEY_SIZE);
+
+Genode::log("decrypt: key plaintext: ", _decrypt_key);
 
 				_job_state = Job_state::COMPLETE;
 				_job_success = true;
@@ -274,6 +290,8 @@ class Trust_anchor
 				}
 				if (_key_io_job_buffer.size == Aes_256_key_wrap::CIPHERTEXT_SIZE) {
 
+Genode::log("unlock: private key wrapped: ", _key_io_job_buffer);
+
 					bool private_key_corrupt;
 					Aes_256_key_wrap::unwrap_key(
 						_private_key.u64_ptr(),
@@ -283,6 +301,8 @@ class Trust_anchor
 						_key_io_job_buffer.size,
 						_passphrase_hash_buffer.u64_ptr(),
 						_passphrase_hash_buffer.size);
+
+Genode::log("unlock: private key unwrapped: ", _private_key);
 
 					if (private_key_corrupt) {
 
@@ -347,6 +367,8 @@ class Trust_anchor
 					_private_key_io_job_buffer.base,
 					_private_key_io_job_buffer.size);
 
+Genode::log("init: private key unwrapped: ", _private_key);
+
 				_key_io_job_buffer.size = Aes_256_key_wrap::CIPHERTEXT_SIZE;
 				Aes_256_key_wrap::wrap_key(
 					_key_io_job_buffer.u64_ptr(),
@@ -355,6 +377,8 @@ class Trust_anchor
 					_private_key_io_job_buffer.size,
 					_passphrase_hash_buffer.u64_ptr(),
 					_passphrase_hash_buffer.size);
+
+Genode::log("init: private key wrapped: ", _key_io_job_buffer);
 
 				_job_state = Job_state::PENDING;
 				progress = true;
@@ -583,6 +607,12 @@ class Trust_anchor
 
 			uint64_t const *u64_ptr() const { return (uint64_t const *)buffer; }
 			uint64_t *u64_ptr() { return (uint64_t *)buffer; }
+
+void print(Genode::Output &out) const
+{
+	for (char snap : buffer)
+		Genode::print(out, " ", Genode::Hex(snap));
+}
 		};
 
 		struct Passphrase_hash_buffer : Util::Io_job::Buffer

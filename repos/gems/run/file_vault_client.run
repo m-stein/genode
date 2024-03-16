@@ -1,7 +1,7 @@
 proc jent_avail { } {
 	if {[have_board pbxa9]} { return 0 }
 	if {[have_board zynq_qemu]} { return 0 }
-	return 1
+	return 0
 }
 
 proc jent_avail_attr { } {
