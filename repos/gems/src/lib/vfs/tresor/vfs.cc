@@ -1357,7 +1357,6 @@ class Vfs_tresor::Deinitialize_file_system : private Noncopyable, public Single_
 
 				static Read_result _read_ok(Content_string const &content, Byte_range_ptr const &dst, size_t &out_count)
 				{
-log("read deinitialize: ", content);
 					copy_cstring(dst.start, content.string(), dst.num_bytes);
 					out_count = dst.num_bytes;
 					return READ_OK;
@@ -1379,7 +1378,6 @@ log("read deinitialize: ", content);
 				{
 					out_count = 0;
 					if (seek() == dst.num_bytes) {
-log("read deinitialize: <eof>");
 						return READ_OK;
 					}
 					if (seek() || dst.num_bytes < Content_string::capacity()) {
@@ -1409,7 +1407,6 @@ log("read deinitialize: <eof>");
 						if (_plugin.verbose())
 							log("writing deinitialize file failed: malformed arguments");
 
-log("write deinitialize: ", seek(), " ", src.num_bytes, " ", false);
 						return WRITE_ERR_IO;
 					}
 					Write_result result = WRITE_ERR_IO;
@@ -1424,8 +1421,6 @@ log("write deinitialize: ", seek(), " ", src.num_bytes, " ", false);
 						out_count = src.num_bytes;
 						result = WRITE_OK;
 					});
-
-log("write deinitialize: ", seek(), " ", src.num_bytes, " ", result == WRITE_OK);
 					return result;
 				}
 

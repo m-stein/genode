@@ -22,7 +22,7 @@ bool Trust_anchor::Encrypt_key::execute(Trust_anchor::Attr const &ta_attr)
 	switch (_helper.state) {
 	case INIT:
 
-		_file.construct(_helper.state, ta_attr.decrypt_file);
+		_file.construct(_helper.state, ta_attr.encrypt_file);
 		_helper.state = WRITE;
 		progress = true;
 		break;

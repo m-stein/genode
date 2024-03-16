@@ -392,7 +392,7 @@ bool Superblock_control::Secure_superblock::execute(Execute_attr const &attr)
 		attr.sb.curr_snap().gen = attr.curr_gen;
 		_sb_ciphertext.copy_all_but_key_values_from(attr.sb);
 		_encrypt_key.generate(
-			_helper, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, attr.sb.current_key.value, _sb_ciphertext.current_key.value);
+			_helper, ENCRYPT_KEY, ENCRYPT_CURR_KEY_SUCCEEDED, progress, _sb_ciphertext.current_key.value, attr.sb.current_key.value);
 		break;
 
 	case ENCRYPT_KEY: progress |= _encrypt_key.execute(attr.trust_anchor); break;
