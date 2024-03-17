@@ -47,11 +47,9 @@ struct Tresor::Sb_check : Noncopyable
 			Snapshot_index _snap_idx { 0 };
 			Constructible<Tree_root> _tree_root { };
 			Block _blk { };
-			union {
-				Generatable_request<Helper, State, Vbd_check::Check> _check_vbd;
-				Generatable_request<Helper, State, Ft_check::Check> _check_ft;
-				Generatable_request<Helper, State, Block_io::Read> _read_block;
-			};
+			Generatable_request<Helper, State, Vbd_check::Check> _check_vbd { };
+			Generatable_request<Helper, State, Ft_check::Check> _check_ft { };
+			Generatable_request<Helper, State, Block_io::Read> _read_block { };
 
 		public:
 

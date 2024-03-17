@@ -58,12 +58,10 @@ class Tresor::Superblock_control : Noncopyable
 				Block _blk { };
 				Hash _hash { };
 				Generation _gen { };
-				union {
-					Generatable_request<Helper, State, Block_io::Write> _write_block;
-					Generatable_request<Helper, State, Block_io::Sync> _sync_block_io;
-					Generatable_request<Helper, State, Trust_anchor::Encrypt_key> _encrypt_key;
-					Generatable_request<Helper, State, Trust_anchor::Write_hash> _write_sb_hash;
-				};
+				Generatable_request<Helper, State, Block_io::Write> _write_block { };
+				Generatable_request<Helper, State, Block_io::Sync> _sync_block_io { };
+				Generatable_request<Helper, State, Trust_anchor::Encrypt_key> _encrypt_key { };
+				Generatable_request<Helper, State, Trust_anchor::Write_hash> _write_sb_hash { };
 
 			public:
 
@@ -179,10 +177,8 @@ class Tresor::Superblock_control : Noncopyable
 				Number_of_blocks _nr_of_leaves { };
 				Constructible<Tree_root> _ft { };
 				Constructible<Tree_root> _mt { };
-				union {
-					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
-					Generatable_request<Helper, State, Free_tree::Extend_tree> _extend_free_tree;
-				};
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+				Generatable_request<Helper, State, Free_tree::Extend_tree> _extend_free_tree { };
 
 			public:
 
@@ -235,10 +231,8 @@ class Tresor::Superblock_control : Noncopyable
 				Number_of_blocks _nr_of_leaves { };
 				Constructible<Tree_root> _ft { };
 				Constructible<Tree_root> _mt { };
-				union {
-					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
-					Generatable_request<Helper, State, Virtual_block_device::Extend_tree> _extend_vbd;
-				};
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+				Generatable_request<Helper, State, Virtual_block_device::Extend_tree> _extend_vbd { };
 
 			public:
 
@@ -288,13 +282,11 @@ class Tresor::Superblock_control : Noncopyable
 				Constructible<Tree_root> _ft { };
 				Constructible<Tree_root> _mt { };
 				Generation _gen { };
-				union {
-					Generatable_request<Helper, State, Virtual_block_device::Rekey_vba> _rekey_vba;
-					Generatable_request<Helper, State, Crypto::Remove_key> _remove_key;
-					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
-					Generatable_request<Helper, State, Crypto::Add_key> _add_key;
-					Generatable_request<Helper, State, Trust_anchor::Generate_key> _generate_key;
-				};
+				Generatable_request<Helper, State, Virtual_block_device::Rekey_vba> _rekey_vba { };
+				Generatable_request<Helper, State, Crypto::Remove_key> _remove_key { };
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+				Generatable_request<Helper, State, Crypto::Add_key> _add_key { };
+				Generatable_request<Helper, State, Trust_anchor::Generate_key> _generate_key { };
 
 			public:
 
@@ -475,10 +467,8 @@ class Tresor::Superblock_control : Noncopyable
 
 				Helper _helper;
 				Attr const _attr;
-				union {
-					Generatable_request<Helper, State, Secure_superblock> _secure_sb;
-					Generatable_request<Helper, State, Crypto::Remove_key> _remove_key;
-				};
+				Generatable_request<Helper, State, Secure_superblock> _secure_sb { };
+				Generatable_request<Helper, State, Crypto::Remove_key> _remove_key { };
 
 			public:
 
@@ -528,12 +518,10 @@ class Tresor::Superblock_control : Noncopyable
 				Hash _hash { };
 				Block _blk { };
 				Superblock _sb_ciphertext { };
-				union {
-					Generatable_request<Helper, State, Block_io::Read> _read_block;
-					Generatable_request<Helper, State, Trust_anchor::Read_hash> _read_sb_hash;
-					Generatable_request<Helper, State, Trust_anchor::Decrypt_key> _decrypt_key;
-					Generatable_request<Helper, State, Crypto::Add_key> _add_key;
-				};
+				Generatable_request<Helper, State, Block_io::Read> _read_block { };
+				Generatable_request<Helper, State, Trust_anchor::Read_hash> _read_sb_hash { };
+				Generatable_request<Helper, State, Trust_anchor::Decrypt_key> _decrypt_key { };
+				Generatable_request<Helper, State, Crypto::Add_key> _add_key { };
 
 			public:
 

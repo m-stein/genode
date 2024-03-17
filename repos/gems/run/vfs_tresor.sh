@@ -136,7 +136,7 @@ wait_for_rekeying() {
 		*failed*)
 			done=1;
 			;;
-		*successful*)
+		*succeeded*)
 			done=1;
 			;;
 		esac
@@ -160,7 +160,7 @@ wait_for_vbd_extension() {
 		*failed*)
 			done=1;
 			;;
-		*successful*)
+		*succeeded*)
 			done=1;
 			;;
 		esac
@@ -184,7 +184,7 @@ wait_for_ft_extension() {
 		*failed*)
 			done=1;
 			;;
-		*successful*)
+		*succeeded*)
 			done=1;
 			;;
 		esac

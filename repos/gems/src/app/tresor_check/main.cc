@@ -31,7 +31,7 @@ using namespace Tresor;
 
 namespace Tresor_check { class Main; }
 
-class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_composition, public  Tresor::Module, public Module_channel
+class Tresor_check::Main : private Vfs::Env::User
 {
 	private:
 
@@ -42,56 +42,33 @@ class Tresor_check::Main : private Vfs::Env::User, private Tresor::Module_compos
 		Attached_rom_dataspace _config_rom { _env, "config" };
 		Vfs::Simple_env _vfs_env { _env, _heap, _config_rom.xml().sub_node("vfs"), *this };
 		Signal_handler<Main> _sigh { _env.ep(), *this, &Main::_handle_signal };
-		Trust_anchor _trust_anchor { _vfs_env, _config_rom.xml().sub_node("trust-anchor") };
-		Crypto _crypto { _vfs_env, _config_rom.xml().sub_node("crypto") };
-		Block_io _block_io { _vfs_env, _config_rom.xml().sub_node("block-io") };
+		Tresor::Path const _block_io_path { _config_rom.xml().sub_node("block-io").attribute_value("path", Tresor::Path()) };
+		Vfs::Vfs_handle &_block_io_file { open_file(_vfs_env, _block_io_path, Vfs::Directory_service::OPEN_MODE_RDWR) };
+		Block_io _block_io { _block_io_file };
 		Vbd_check _vbd_check { };
 		Ft_check _ft_check { };
 		Sb_check _sb_check { };
-		bool _generated_req_success { };
-		State _generated_req_succeeded { INIT };
-		State _state { INIT };
-		Generatable_request<Main, State, Sb_check::Check> _check_sb { };
-
-		NONCOPYABLE(Main);
-
-		void wakeup_vfs_user() override { _sigh.local_submit(); }
+		Sb_check::Check _check_superblocks { };
 
 		void _wakeup_back_end_services() { _vfs_env.io().commit(); }
 
 		void _handle_signal()
 		{
-			execute_modules();
+			while(_sb_check.execute(_check_superblocks, _vbd_check, _ft_check, _block_io));
+			if (_check_superblocks.complete())
+				_env.parent().exit(_check_superblocks.success() ? 0 : -1);
 			_wakeup_back_end_services();
 		}
 
+		/********************
+		 ** Vfs::Env::User **
+		 ********************/
+
+		void wakeup_vfs_user() override { _sigh.local_submit(); }
+
 	public:
 
-		Main(Env &env) : Module_channel(COMMAND_POOL, 0), _env(env)
-		{
-			add_module(COMMAND_POOL, *this);
-			add_module(CRYPTO, _crypto);
-			add_module(TRUST_ANCHOR, _trust_anchor);
-			add_module(BLOCK_IO, _block_io);
-			add_channel(*this);
-			_handle_signal();
-		}
-
-		void mark_failed(bool &, Error_string) { _env.parent().exit(-1); }
-
-		void execute(bool &progress) override
-		{
-			switch(_state) {
-			case INIT: _check_sb.generate(*this, _state, CHECK_SB, CHECK_SB_SUCCEEDED, progress); break;
-			case CHECK_SB: progress |= _check_sb.execute(_sb_check, _vbd_check, _ft_check, _block_io); break;
-			case CHECK_SB_SUCCEEDED: _env.parent().exit(0); break;
-			default: break;
-			}
-		}
-
-		using Module = Main;
-
-		static constexpr char const *name() { return "tresor_check"; }
+		Main(Env &env) : _env(env) { _handle_signal(); }
 };
 
 void Component::construct(Genode::Env &env) { static Tresor_check::Main main { env }; }

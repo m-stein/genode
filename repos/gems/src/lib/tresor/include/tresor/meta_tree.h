@@ -57,10 +57,8 @@ class Tresor::Meta_tree::Allocate_pba : Noncopyable
 		Type_1_node_block _t1_blks[TREE_MAX_NR_OF_LEVELS] { };
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _lvl { 0 };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Block_io::Write> _write_block;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Block_io::Write> _write_block { };
 
 		bool _can_alloc_pba_of(Type_2_node &);
 

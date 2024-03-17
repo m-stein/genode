@@ -6,15 +6,12 @@ proc tresor_image_file { } {
 	return "vfs_tresor_block.img"
 }
 
-set use_interactively [expr ![get_cmd_switch --autopilot]]
-
 import_from_depot [depot_user]/pkg/[drivers_interactive_pkg] \
                   [depot_user]/pkg/terminal \
                   [depot_user]/src/ncurses \
                   [depot_user]/src/bash \
                   [depot_user]/src/coreutils \
                   [depot_user]/src/nitpicker
-
 
 build {
 	core lib/ld timer init
@@ -36,7 +33,7 @@ build {
 	app/sequence
 }
 
-set config {
+append config {
 <config verbose="yes">
 	<parent-provides>
 		<service name="ROM"/>
@@ -86,32 +83,16 @@ set config {
 		<route>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>}
+	</start>
 
-append_if $use_interactively config {
-
-	<start name="terminal_service" caps="110">
-		<binary name="terminal"/>
-		<resource name="RAM" quantum="12M"/>
-		<provides><service name="Terminal"/></provides>
-		<route>
-			<service name="ROM" label="config"> <parent label="terminal.config"/> </service>
-			<service name="Gui"> <child name="nitpicker"/> </service>
-			<any-service> <parent/> <any-child/> </any-service>
-		</route>
-	</start>}
-
-append_if [expr !$use_interactively] config {
-	<start name="terminal_service" caps="110">
-		<binary name="log_terminal"/>
+	<start name="log_terminal" caps="110">
 		<resource name="RAM" quantum="2M"/>
 		<provides><service name="Terminal"/></provides>
 		<route>
 			<any-service> <parent/> <any-child/> </any-service>
 		</route>
-	</start>}
+	</start>
 
-append config {
 	<start name="lx_fs" ld="no">
 		<resource name="RAM" quantum="4M"/>
 		<provides> <service name="File_system"/> </provides>
@@ -230,7 +211,7 @@ append config {
 							<default-policy root="/" writeable="yes"/>
 						</config>
 						<route>
-							<service name="Terminal"> <parent label="terminal_service"/> </service>
+							<service name="Terminal"> <parent label="log_terminal"/> </service>
 							<service name="Timer"> <child name="timer"/> </service>
 							<any-service> <parent/> </any-service>
 						</route>
@@ -278,7 +259,7 @@ append config {
 			</start>
 		</config>
 		<route>
-			<service name="Terminal"> <child name="terminal_service"/> </service>
+			<service name="Terminal"> <child name="log_terminal"/> </service>
 			<service name="File_system" label_last="fs"> <child name="lx_fs"/> </service>
 			<service name="File_system" label_last="ta"> <child name="vfs_tresor_trust_anchor"/> </service>
 			<service name="Timer"> <child name="timer"/> </service>
@@ -299,14 +280,6 @@ set boot_modules [build_artifacts]
 append  boot_modules { vfs_tresor.sh encrypted_private_key superblock_hash }
 lappend boot_modules [tresor_image_file]
 
-set fd [open [run_dir]/genode/focus w]
-puts $fd "<focus label=\"terminal_service -> \" domain=\"default\"/>"
-close $fd
-
 build_boot_image $boot_modules
 
-if {$use_interactively} {
-	run_genode_until forever
-} else {
-	run_genode_until {.*--- Automated Tresor testing finished.*} 1800
-}
+run_genode_until {.*"/bin/bash".* exited with exit value 0.*\n} 120

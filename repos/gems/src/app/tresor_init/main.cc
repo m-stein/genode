@@ -34,11 +34,9 @@ using namespace Tresor;
 
 namespace Tresor_init { class Main; }
 
-class Tresor_init::Main : Vfs::Env::User, Crypto_key_files_interface
+class Tresor_init::Main : private Vfs::Env::User, private Crypto_key_files_interface
 {
 	private:
-
-		enum State { INIT, INIT_SUPERBLOCKS };
 
 		struct Crypto_key
 		{
@@ -72,7 +70,6 @@ class Tresor_init::Main : Vfs::Env::User, Crypto_key_files_interface
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
-		State _state { INIT };
 		Sb_initializer::Initialize _init_superblocks {{
 			Tree_configuration {
 				(Tree_level_index)(_cfg.vbd_nr_of_lvls() - 1),

@@ -86,11 +86,9 @@ class Tresor::Free_tree::Allocate_pbas : Noncopyable
 		Type_2_node_block _t2_blk { };
 		Tree_degree_log_2 _vbd_degree_log_2 { 0 };
 		Tree_level_index _lvl { 0 };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Block_io::Write> _write_block;
-			Generatable_request<Helper, State, Meta_tree::Allocate_pba> _allocate_pba;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Block_io::Write> _write_block { };
+		Generatable_request<Helper, State, Meta_tree::Allocate_pba> _allocate_pba { };
 
 		void _alloc_pba_of(Type_2_node &);
 
@@ -150,11 +148,9 @@ class Tresor::Free_tree::Extend_tree : Noncopyable
 		Type_2_node_block _t2_blk { };
 		Tree_level_index _alloc_lvl { 0 };
 		Physical_block_address _alloc_pba { 0 };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Block_io::Write> _write_block;
-			Generatable_request<Helper, State, Meta_tree::Allocate_pba> _allocate_pba;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Block_io::Write> _write_block { };
+		Generatable_request<Helper, State, Meta_tree::Allocate_pba> _allocate_pba { };
 
 		void _add_new_branch_at(Tree_level_index, Tree_node_index);
 

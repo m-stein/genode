@@ -61,15 +61,13 @@ class Tresor::Sb_initializer : Noncopyable
 				Type_1_node _vbd_root { };
 				Type_1_node _ft_root { };
 				Type_1_node _mt_root { };
-				union {
-					Generatable_request<Helper, State, Block_io::Write> _write_block;
-					Generatable_request<Helper, State, Block_io::Sync> _sync_block_io;
-					Generatable_request<Helper, State, Trust_anchor::Generate_key> _generate_key;
-					Generatable_request<Helper, State, Trust_anchor::Write_hash> _write_sb_hash;
-					Generatable_request<Helper, State, Trust_anchor::Encrypt_key> _encrypt_key;
-					Generatable_request<Helper, State, Ft_initializer::Initialize> _init_ft;
-					Generatable_request<Helper, State, Vbd_initializer::Initialize> _init_vbd;
-				};
+				Generatable_request<Helper, State, Block_io::Write> _write_block { };
+				Generatable_request<Helper, State, Block_io::Sync> _sync_block_io { };
+				Generatable_request<Helper, State, Trust_anchor::Generate_key> _generate_key { };
+				Generatable_request<Helper, State, Trust_anchor::Write_hash> _write_sb_hash { };
+				Generatable_request<Helper, State, Trust_anchor::Encrypt_key> _encrypt_key { };
+				Generatable_request<Helper, State, Ft_initializer::Initialize> _init_ft { };
+				Generatable_request<Helper, State, Vbd_initializer::Initialize> _init_vbd { };
 
 			public:
 

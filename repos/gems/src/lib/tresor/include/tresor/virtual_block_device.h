@@ -81,13 +81,11 @@ class Tresor::Virtual_block_device::Rekey_vba : Noncopyable
 		Number_of_blocks _num_blks { 0 };
 		Hash _hash { };
 		bool _first_snapshot { false };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Block_io::Write> _write_block;
-			Generatable_request<Helper, State, Crypto::Encrypt> _encrypt_block;
-			Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block;
-			Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Block_io::Write> _write_block { };
+		Generatable_request<Helper, State, Crypto::Encrypt> _encrypt_block { };
+		Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block { };
+		Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas { };
 
 		bool _check_and_decode_read_blk(bool &);
 
@@ -142,10 +140,8 @@ class Tresor::Virtual_block_device::Read_vba : Noncopyable
 		Hash _hash { };
 		Block _blk { };
 		Tree_walk_pbas _new_pbas { };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block { };
 
 		bool _check_and_decode_read_blk(bool &);
 
@@ -207,13 +203,11 @@ class Tresor::Virtual_block_device::Write_vba : Noncopyable
 		Tree_walk_pbas _new_pbas { };
 		Number_of_blocks _num_blks { 0 };
 		Generation _free_gen { 0 };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block;
-			Generatable_request<Helper, State, Crypto::Encrypt> _encrypt_block;
-			Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas;
-			Generatable_request<Helper, State, Block_io::Write> _write_block;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Crypto::Decrypt> _decrypt_block { };
+		Generatable_request<Helper, State, Crypto::Encrypt> _encrypt_block { };
+		Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas { };
+		Generatable_request<Helper, State, Block_io::Write> _write_block { };
 
 		bool _check_and_decode_read_blk(bool &);
 
@@ -284,11 +278,9 @@ class Tresor::Virtual_block_device::Extend_tree : Noncopyable
 		Type_1_node_walk _t1_nodes { };
 		Block _data_blk { };
 		Generation _free_gen { 0 };
-		union {
-			Generatable_request<Helper, State, Block_io::Read> _read_block;
-			Generatable_request<Helper, State, Block_io::Write> _write_block;
-			Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas;
-		};
+		Generatable_request<Helper, State, Block_io::Read> _read_block { };
+		Generatable_request<Helper, State, Block_io::Write> _write_block { };
+		Generatable_request<Helper, State, Free_tree::Allocate_pbas> _alloc_pbas { };
 
 		void _add_new_root_lvl_to_snap();
 

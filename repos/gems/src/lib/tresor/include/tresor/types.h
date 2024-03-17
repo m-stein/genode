@@ -265,13 +265,6 @@ class Tresor::Generatable_request
 		template <typename... ARGS>
 		void generate(ARGS &&... args)
 		{
-			/*
-			 * Ensure that the constructed flag of our member is reset because
-			 * this class is used in unions with other generatable requests
-			 * that might falsely override the constructed flag of our member.
-			 */
-			construct_at<Constructible<Generated_request> >(&_generated_req);
-
 			_generated_req.construct(args...);
 		}
 
