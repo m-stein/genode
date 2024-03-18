@@ -208,7 +208,7 @@ struct Tresor_tester::Request_node : Noncopyable
 		EXTEND_FREE_TREE, DEINITIALIZE, INITIALIZE };
 
 	Operation const op;
-	Virtual_byte_range const virt_range;
+	Virtual_block_address const vba;
 	Number_of_blocks const num_blocks;
 	bool const sync;
 	bool const salt_avail;
@@ -233,10 +233,8 @@ struct Tresor_tester::Request_node : Noncopyable
 	Request_node(Xml_node const &node)
 	:
 		op(read_op_attr(node)),
-		virt_range(
-			node.attribute_value("vba", (Virtual_block_address)0) * BLOCK_SIZE,
-			node.attribute_value("count", (Number_of_blocks)0) * BLOCK_SIZE),
-		num_blocks(node.attribute_value("count", (Number_of_blocks)0)),
+		vba(node.attribute_value("vba", (Virtual_block_address)0)),
+		num_blocks(node.attribute_value("num_blocks", (Number_of_blocks)0)),
 		sync(node.attribute_value("sync", false)),
 		salt_avail(node.has_attribute("salt")),
 		salt(node.attribute_value("salt", (Salt)0)),
@@ -278,8 +276,8 @@ struct Tresor_tester::Command : Avl_node<Command>, Schedule<Command>::Item
 	Superblock_control::Deinitialize *deinit_sb_control_ptr { };
 	Superblock_control::Create_snapshot *create_snap_ptr { };
 	Superblock_control::Discard_snapshot *discard_snap_ptr { };
-	Superblock_control::Write *write_ptr { };
-	Superblock_control::Read *read_ptr { };
+	Superblock_control::Write_vbas *write_vbas_ptr { };
+	Superblock_control::Read_vbas *read_vbas_ptr { };
 	Superblock_control::Rekey *rekey_ptr { };
 	Superblock_control::Extend_vbd *extend_vbd_ptr { };
 	Superblock_control::Extend_free_tree *extend_free_tree_ptr { };
@@ -734,10 +732,10 @@ class Tresor_tester::Main : Vfs::Env::User, Client_data_interface, Crypto_key_fi
 					Request_node const &node { *cmd.request_node };
 					switch (node.op) {
 					case Request_node::WRITE:
-						cmd.write_ptr = new (_heap) Superblock_control::Write({node.virt_range, 0, cmd.id});
+						cmd.write_vbas_ptr = new (_heap) Superblock_control::Write_vbas({node.vba, node.num_blocks, 0, cmd.id});
 						break;
 					case Request_node::READ:
-						cmd.read_ptr = new (_heap) Superblock_control::Read({node.virt_range, 0, cmd.id});
+						cmd.read_vbas_ptr = new (_heap) Superblock_control::Read_vbas({node.vba, node.num_blocks, 0, cmd.id});
 						break;
 					case Request_node::SYNC:
 						cmd.sync_ptr = new (_heap) Superblock_control::Synchronize({});
@@ -771,14 +769,14 @@ class Tresor_tester::Main : Vfs::Env::User, Client_data_interface, Crypto_key_fi
 					switch (node.op) {
 					case Request_node::WRITE:
 					{
-						Superblock_control::Write &req = *cmd.write_ptr;
+						Superblock_control::Write_vbas &req = *cmd.write_vbas_ptr;
 						progress |= _sb_control->execute(req, *_vbd, *this, _block_io, *_free_tree, *_meta_tree, _crypto);
 						_try_complete_command(cmd, req, progress);
 						break;
 					}
 					case Request_node::READ:
 					{
-						Superblock_control::Read &req = *cmd.read_ptr;
+						Superblock_control::Read_vbas &req = *cmd.read_vbas_ptr;
 						progress |= _sb_control->execute(req, *_vbd, *this, _block_io, _crypto);
 						_try_complete_command(cmd, req, progress);
 						break;
