@@ -50,8 +50,8 @@ struct Tresor::Splitter : Noncopyable
 			private:
 
 				enum State {
-					INIT, COMPLETE, READ_FIRST_BLOCK, READ_FIRST_BLOCK_SUCCEEDED, READ_LAST_BLOCK, READ_LAST_BLOCK_SUCCEEDED,
-					READ_MIDDLE_BLOCKS, READ_MIDDLE_BLOCKS_SUCCEEDED };
+					INIT, COMPLETE, READ_FIRST_VBA, READ_FIRST_VBA_SUCCEEDED, READ_LAST_VBA, READ_LAST_VBA_SUCCEEDED,
+					READ_MIDDLE_VBAS, READ_MIDDLE_VBAS_SUCCEEDED };
 
 				Request_helper<Read, State> _helper;
 				Attr const _attr;
@@ -59,25 +59,25 @@ struct Tresor::Splitter : Noncopyable
 				addr_t _curr_buf_addr { };
 				Block _blk  { };
 				Generation _gen { };
-				Constructible<Superblock_control::Read> _read { };
+				Constructible<Superblock_control::Read_vbas> _read_vbas { };
 
 				Virtual_block_address _curr_vba() const { return (Virtual_block_address)(_curr_off / BLOCK_SIZE); }
 
 				void _generate_read(State target_state, bool &progress)
 				{
 					Number_of_blocks num_blocks =
-						target_state == READ_MIDDLE_BLOCKS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
+						target_state == READ_MIDDLE_VBAS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
 
-					_read.construct(Superblock_control::Read::Attr{{_curr_vba() * BLOCK_SIZE, num_blocks * BLOCK_SIZE}, 0, 0});
+					_read_vbas.construct(Superblock_control::Read_vbas::Attr{_curr_vba(), num_blocks, 0, 0});
 					_helper.state = target_state;
 					progress = true;
 				}
 
 				bool _execute_read(State succeeded_state, Execute_attr const &attr)
 				{
-					bool progress = attr.sb_control.execute(*_read, attr.vbd, attr.client_data, attr.block_io, attr.crypto);
-					if (_read->complete()) {
-						if (_read->success())
+					bool progress = attr.sb_control.execute(*_read_vbas, attr.vbd, attr.client_data, attr.block_io, attr.crypto);
+					if (_read_vbas->complete()) {
+						if (_read_vbas->success())
 							_helper.generated_req_succeeded(succeeded_state, progress);
 						else
 							_helper.generated_req_failed(progress);
@@ -104,13 +104,13 @@ struct Tresor::Splitter : Noncopyable
 						_helper.mark_succeeded(progress);
 					} else if (_curr_off % BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_read(READ_FIRST_BLOCK, progress);
+						_generate_read(READ_FIRST_VBA, progress);
 					} else if (_num_remaining_bytes() < BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_read(READ_LAST_BLOCK, progress);
+						_generate_read(READ_LAST_VBA, progress);
 					} else {
 						_curr_buf_addr = (addr_t)_attr.in_buf_start + _curr_buf_off();
-						_generate_read(READ_MIDDLE_BLOCKS, progress);
+						_generate_read(READ_MIDDLE_VBAS, progress);
 					}
 				}
 
@@ -130,8 +130,8 @@ struct Tresor::Splitter : Noncopyable
 						_advance_curr_off(_attr.in_off, progress);
 						break;
 
-					case READ_FIRST_BLOCK: progress |= _execute_read(READ_FIRST_BLOCK_SUCCEEDED, attr); break;
-					case READ_FIRST_BLOCK_SUCCEEDED:
+					case READ_FIRST_VBA: progress |= _execute_read(READ_FIRST_VBA_SUCCEEDED, attr); break;
+					case READ_FIRST_VBA_SUCCEEDED:
 					{
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
@@ -139,14 +139,14 @@ struct Tresor::Splitter : Noncopyable
 						_advance_curr_off(num_inside_bytes, progress);
 						break;
 					}
-					case READ_MIDDLE_BLOCKS: progress |= _execute_read(READ_MIDDLE_BLOCKS_SUCCEEDED, attr); break;
-					case READ_MIDDLE_BLOCKS_SUCCEEDED:
+					case READ_MIDDLE_VBAS: progress |= _execute_read(READ_MIDDLE_VBAS_SUCCEEDED, attr); break;
+					case READ_MIDDLE_VBAS_SUCCEEDED:
 
 						_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, progress);
 						break;
 
-					case READ_LAST_BLOCK: progress |= _execute_read(READ_LAST_BLOCK_SUCCEEDED, attr); break;
-					case READ_LAST_BLOCK_SUCCEEDED:
+					case READ_LAST_VBA: progress |= _execute_read(READ_LAST_VBA_SUCCEEDED, attr); break;
+					case READ_LAST_VBA_SUCCEEDED:
 
 						memcpy((void *)((addr_t)_attr.in_buf_start + _curr_buf_off()), &_blk, _num_remaining_bytes());
 						_advance_curr_off(_num_remaining_bytes(), progress);
@@ -194,9 +194,9 @@ struct Tresor::Splitter : Noncopyable
 			private:
 
 				enum State {
-					INIT, COMPLETE, READ_FIRST_BLOCK, READ_FIRST_BLOCK_SUCCEEDED, READ_LAST_BLOCK, READ_LAST_BLOCK_SUCCEEDED,
-					WRITE_FIRST_BLOCK, WRITE_FIRST_BLOCK_SUCCEEDED, WRITE_LAST_BLOCK, WRITE_LAST_BLOCK_SUCCEEDED,
-					WRITE_MIDDLE_BLOCKS, WRITE_MIDDLE_BLOCKS_SUCCEEDED };
+					INIT, COMPLETE, READ_FIRST_VBA, READ_FIRST_VBA_SUCCEEDED, READ_LAST_VBA, READ_LAST_VBA_SUCCEEDED,
+					WRITE_FIRST_VBA, WRITE_FIRST_VBA_SUCCEEDED, WRITE_LAST_VBA, WRITE_LAST_VBA_SUCCEEDED,
+					WRITE_MIDDLE_VBAS, WRITE_MIDDLE_VBAS_SUCCEEDED };
 
 
 				Request_helper<Write, State> _helper;
@@ -205,8 +205,8 @@ struct Tresor::Splitter : Noncopyable
 				addr_t _curr_buf_addr { };
 				Block _blk  { };
 				Generation _gen { };
-				Constructible<Superblock_control::Read> _read { };
-				Constructible<Superblock_control::Write> _write { };
+				Constructible<Superblock_control::Read_vbas> _read_vbas { };
+				Constructible<Superblock_control::Write_vbas> _write_vbas { };
 
 				Virtual_block_address _curr_vba() const { return (Virtual_block_address)(_curr_off / BLOCK_SIZE); }
 
@@ -225,14 +225,14 @@ struct Tresor::Splitter : Noncopyable
 				void _generate_sb_control_request(State target_state, bool &progress)
 				{
 					Number_of_blocks num_blocks =
-						target_state == WRITE_MIDDLE_BLOCKS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
+						target_state == WRITE_MIDDLE_VBAS ? _num_remaining_bytes() / BLOCK_SIZE : 1;
 
 					switch (target_state) {
-					case READ_FIRST_BLOCK:
-					case READ_LAST_BLOCK: _read.construct(Superblock_control::Read::Attr{{_curr_vba() * BLOCK_SIZE, num_blocks * BLOCK_SIZE}, 0, 0}); break;
-					case WRITE_FIRST_BLOCK:
-					case WRITE_MIDDLE_BLOCKS:
-					case WRITE_LAST_BLOCK: _write.construct(Superblock_control::Write::Attr{{_curr_vba() * BLOCK_SIZE, num_blocks * BLOCK_SIZE}, 0, 0}); break;
+					case READ_FIRST_VBA:
+					case READ_LAST_VBA: _read_vbas.construct(Superblock_control::Read_vbas::Attr{_curr_vba(), num_blocks, 0, 0}); break;
+					case WRITE_FIRST_VBA:
+					case WRITE_MIDDLE_VBAS:
+					case WRITE_LAST_VBA: _write_vbas.construct(Superblock_control::Write_vbas::Attr{_curr_vba(), num_blocks, 0, 0}); break;
 					default: ASSERT_NEVER_REACHED;
 					}
 					_helper.state = target_state;
@@ -246,21 +246,21 @@ struct Tresor::Splitter : Noncopyable
 						_helper.mark_succeeded(progress);
 					} else if (_curr_off % BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_sb_control_request(READ_FIRST_BLOCK, progress);
+						_generate_sb_control_request(READ_FIRST_VBA, progress);
 					} else if (_num_remaining_bytes() < BLOCK_SIZE) {
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_sb_control_request(READ_LAST_BLOCK, progress);
+						_generate_sb_control_request(READ_LAST_VBA, progress);
 					} else {
 						_curr_buf_addr = (addr_t)_attr.in_buf_start + _curr_buf_off();
-						_generate_sb_control_request(WRITE_MIDDLE_BLOCKS, progress);
+						_generate_sb_control_request(WRITE_MIDDLE_VBAS, progress);
 					}
 				}
 
 				bool _execute_read(State succeeded_state, Execute_attr const &attr)
 				{
-					bool progress = attr.sb_control.execute(*_read, attr.vbd, attr.client_data, attr.block_io, attr.crypto);
-					if (_read->complete()) {
-						if (_read->success())
+					bool progress = attr.sb_control.execute(*_read_vbas, attr.vbd, attr.client_data, attr.block_io, attr.crypto);
+					if (_read_vbas->complete()) {
+						if (_read_vbas->success())
 							_helper.generated_req_succeeded(succeeded_state, progress);
 						else
 							_helper.generated_req_failed(progress);
@@ -270,9 +270,9 @@ struct Tresor::Splitter : Noncopyable
 
 				bool _execute_write(State succeeded_state, Execute_attr const &attr)
 				{
-					bool progress = attr.sb_control.execute(*_write, attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto);
-					if (_write->complete()) {
-						if (_write->success())
+					bool progress = attr.sb_control.execute(*_write_vbas, attr.vbd, attr.client_data, attr.block_io, attr.free_tree, attr.meta_tree, attr.crypto);
+					if (_write_vbas->complete()) {
+						if (_write_vbas->success())
 							_helper.generated_req_succeeded(succeeded_state, progress);
 						else
 							_helper.generated_req_failed(progress);
@@ -296,40 +296,40 @@ struct Tresor::Splitter : Noncopyable
 						_advance_curr_off(_attr.in_off, progress);
 						break;
 
-					case READ_FIRST_BLOCK: progress |= _execute_read(READ_FIRST_BLOCK_SUCCEEDED, attr); break;
-					case READ_FIRST_BLOCK_SUCCEEDED:
+					case READ_FIRST_VBA: progress |= _execute_read(READ_FIRST_VBA_SUCCEEDED, attr); break;
+					case READ_FIRST_VBA_SUCCEEDED:
 					{
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
 						memcpy((void *)((addr_t)&_blk + num_outside_bytes), _attr.in_buf_start, num_inside_bytes);
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_sb_control_request(WRITE_FIRST_BLOCK, progress);
+						_generate_sb_control_request(WRITE_FIRST_VBA, progress);
 						break;
 					}
-					case WRITE_FIRST_BLOCK: progress |= _execute_write(WRITE_FIRST_BLOCK_SUCCEEDED, attr); break;
-					case WRITE_FIRST_BLOCK_SUCCEEDED:
+					case WRITE_FIRST_VBA: progress |= _execute_write(WRITE_FIRST_VBA_SUCCEEDED, attr); break;
+					case WRITE_FIRST_VBA_SUCCEEDED:
 					{
 						size_t num_outside_bytes { _curr_off % BLOCK_SIZE };
 						size_t num_inside_bytes { min(_num_remaining_bytes(), BLOCK_SIZE - num_outside_bytes) };
 						_advance_curr_off(num_inside_bytes, progress);
 						break;
 					}
-					case WRITE_MIDDLE_BLOCKS: progress |= _execute_write(WRITE_MIDDLE_BLOCKS_SUCCEEDED, attr); break;
-					case WRITE_MIDDLE_BLOCKS_SUCCEEDED:
+					case WRITE_MIDDLE_VBAS: progress |= _execute_write(WRITE_MIDDLE_VBAS_SUCCEEDED, attr); break;
+					case WRITE_MIDDLE_VBAS_SUCCEEDED:
 
 						_advance_curr_off((_num_remaining_bytes() / BLOCK_SIZE) * BLOCK_SIZE, progress);
 						break;
 
-					case READ_LAST_BLOCK: progress |= _execute_read(READ_LAST_BLOCK_SUCCEEDED, attr); break;
-					case READ_LAST_BLOCK_SUCCEEDED:
+					case READ_LAST_VBA: progress |= _execute_read(READ_LAST_VBA_SUCCEEDED, attr); break;
+					case READ_LAST_VBA_SUCCEEDED:
 
 						memcpy(&_blk, (void *)((addr_t)_attr.in_buf_start + _curr_buf_off()), _num_remaining_bytes());
 						_curr_buf_addr = (addr_t)&_blk;
-						_generate_sb_control_request(WRITE_LAST_BLOCK, progress);
+						_generate_sb_control_request(WRITE_LAST_VBA, progress);
 						break;
 
-					case WRITE_LAST_BLOCK: progress |= _execute_write(WRITE_LAST_BLOCK_SUCCEEDED, attr); break;
-					case WRITE_LAST_BLOCK_SUCCEEDED: _advance_curr_off(_num_remaining_bytes(), progress); break;
+					case WRITE_LAST_VBA: progress |= _execute_write(WRITE_LAST_VBA_SUCCEEDED, attr); break;
+					case WRITE_LAST_VBA_SUCCEEDED: _advance_curr_off(_num_remaining_bytes(), progress); break;
 					default: break;
 					}
 					return progress;
@@ -342,7 +342,7 @@ struct Tresor::Splitter : Noncopyable
 
 				Block &destination_buffer()
 				{
-					ASSERT(_helper.state == READ_FIRST_BLOCK || _helper.state == READ_LAST_BLOCK);
+					ASSERT(_helper.state == READ_FIRST_VBA || _helper.state == READ_LAST_VBA);
 					return _blk;
 				}
 
