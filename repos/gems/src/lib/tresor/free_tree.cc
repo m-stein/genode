@@ -218,7 +218,7 @@ void Free_tree::Extend_tree::_generate_write_blk_req(bool &progress)
 
 void Free_tree::Extend_tree::_add_new_root_lvl()
 {
-	ASSERT(_attr.in_out_ft.max_lvl < TREE_MAX_LEVEL);
+	ASSERT(_attr.in_out_ft.max_lvl < TREE_MAX_MAX_LEVEL);
 	_attr.in_out_ft.max_lvl++;
 	_t1_blks[_attr.in_out_ft.max_lvl] = { };
 	_t1_blks[_attr.in_out_ft.max_lvl].nodes[0] = _attr.in_out_ft.t1_node();
