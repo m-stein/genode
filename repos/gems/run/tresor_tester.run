@@ -248,7 +248,6 @@ append config {
 
 					<log string="Step 2: test synchronous write, read"/>
 
-
 					<request op="read"  vba="1"   num_blocks="1"    uninitialized_data="yes"/>
 					<request op="write" vba="1"   num_blocks="1"    salt="1234"/>
 					<request op="read"  vba="1"   num_blocks="1"    salt="1234"/>
@@ -571,7 +570,7 @@ append config {
 					<request op="sync"  vba="0"  num_blocks="256" />
 					<check/>
 
-					<log string="Step 15: check corner-case tree dimensions"/>
+					<log string="Step 15: check minimum VBD tree dimensions"/>
 
 					<request op="deinitialize"/>
 					<destruct/>
@@ -583,6 +582,9 @@ append config {
 					<construct/>
 					<request op="read" vba="0" num_blocks="1" uninitialized="yes"/>
 					<request op="write" vba="0" num_blocks="1" salt="4321"/>
+
+					<log string="Step 16: check minimum FT tree dimensions"/>
+
 					<request op="deinitialize"/>
 					<destruct/>
 					<initialize>
@@ -596,7 +598,33 @@ append config {
 					<request op="rekey" sync="yes"/>
 					<request op="write" vba="0" num_blocks="1" salt="4321"/>
 					<request op="read" vba="0" num_blocks="1" salt="4321"/>
-					<request op="create_snapshot" id="16"/>
+					<request op="create_snapshot" id="13"/>
+					<request op="write" vba="0" num_blocks="1" salt="1234"/>
+					<request op="rekey"/>
+					<request op="write" vba="0" num_blocks="1" salt="9465"/>
+					<request op="read" vba="0" num_blocks="1" salt="9465"/>
+					<request op="extend_vbd" num_blocks="61" sync="yes"/>
+					<request op="write" vba="0" num_blocks="32" sync="yes" salt="4321"/>
+					<request op="read" vba="0" num_blocks="32" salt="4321"/>
+					<check/>
+
+					<log string="Step 17: check maximum tree dimensions"/>
+
+					<check-snapshots/>
+					<destruct/>
+					<initialize>
+						<virtual-block-device max_lvl="5" degree="64" num_leaves="10000"/>
+						<free-tree max_lvl="5" degree="64" num_leaves="10000"/>
+					</initialize>
+					<construct/>
+					<check/>
+					<request op="write" vba="0" num_blocks="1" salt="1234"/>
+					<request op="read" vba="0" num_blocks="1" salt="1234"/>
+<!--
+					<request op="rekey" sync="yes"/>
+					<request op="write" vba="0" num_blocks="1" salt="4321"/>
+					<request op="read" vba="0" num_blocks="1" salt="4321"/>
+					<request op="create_snapshot" id="14"/>
 					<request op="write" vba="0" num_blocks="1" salt="1234"/>
 					<request op="rekey"/>
 					<request op="write" vba="0" num_blocks="1" salt="9465"/>
@@ -606,8 +634,8 @@ append config {
 					<request op="read" vba="0" num_blocks="32" salt="4321"/>
 					<check/>
 					<check-snapshots/>
-
-					<log string="Step 16: reinitialize Tresor device"/>
+-->
+					<log string="Step 18: reinitialize Tresor device"/>
 
 					<request op="deinitialize" />
 					<destruct/>
@@ -621,7 +649,7 @@ if {[benchmark_blk_count] > 0} {
 
 	append config {
 
-					<log string="Step 17: do read/write benchmarks"/>
+					<log string="Step 19: do read/write benchmarks"/>
 
 					<start-benchmark label="read initial data in one request"/>
 					<request op="read" vba="0" num_blocks="} [benchmark_blk_count] {" />
@@ -1061,18 +1089,18 @@ if {[benchmark_blk_count] > 0} {
 
 	append config {
 
-					<log string="Step 17: skip because benchmarks are disabled for this platform"/>
+					<log string="Step 19: skip because benchmarks are disabled for this platform"/>
 	}
 }
 append config {
 
-					<log string="Step 18: test check-snapshots command"/>
+					<log string="Step 20: test check-snapshots command"/>
 
-					<request op="create_snapshot"  id="13"/>
-					<request op="write" vba="17737" num_blocks="70"  salt="8924"/>
-					<request op="create_snapshot"  id="14"/>
-					<request op="write" vba="00129" num_blocks="30"  salt="9471"/>
 					<request op="create_snapshot"  id="15"/>
+					<request op="write" vba="17737" num_blocks="70"  salt="8924"/>
+					<request op="create_snapshot"  id="16"/>
+					<request op="write" vba="00129" num_blocks="30"  salt="9471"/>
+					<request op="create_snapshot"  id="17"/>
 					<check-snapshots/>
 
 				</commands>
