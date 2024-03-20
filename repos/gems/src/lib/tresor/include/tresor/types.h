@@ -69,8 +69,7 @@ namespace Tresor {
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
 	enum { TREE_MIN_DEGREE_LOG_2 = 1 };
 	enum { TREE_MIN_DEGREE = 1 << TREE_MIN_DEGREE_LOG_2 };
-	enum { TREE_MIN_MAX_LEVEL = 1 };
-	enum { TREE_MAX_MAX_LEVEL = 6 };
+	enum { TREE_MAX_MAX_LEVEL = 5 };
 	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_MAX_LEVEL + 1 };
 	enum { KEY_SIZE = 32 };
 	enum { MAX_NR_OF_SNAPSHOTS = 48 };
@@ -616,7 +615,6 @@ struct Tresor::Tree_configuration
 
 	void assert_valid() const
 	{
-		ASSERT(max_lvl >= TREE_MIN_MAX_LEVEL);
 		ASSERT(max_lvl <= TREE_MAX_MAX_LEVEL);
 		ASSERT(degree <= TREE_MAX_DEGREE);
 		ASSERT(degree >= TREE_MIN_DEGREE);
