@@ -16,68 +16,37 @@
 #include <dialog/widgets.h>
 #include <dialog/text_area_widget.h>
 
-namespace Dialog_test {
-	using namespace Dialog;
-	struct Main;
+using namespace Dialog;
+
+namespace Dialog
+{
+	struct Small_vgap : Sub_scope
+	{
+		static void view_sub_scope(auto &s)
+		{
+			s.node("label", [&] {
+				s.attribute("text", "");
+				s.attribute("font", "annotation/regular"); });
+		}
+
+		static void with_narrowed_at(auto const &, auto const &) { }
+	};
 }
 
+namespace File_vault_gui { class Main; }
 
-struct Dialog_test::Main : Text_area_widget::Action
+struct File_vault_gui::Main : Text_area_widget::Action
 {
-	Env &_env;
-	Heap _heap { _env.ram(), _env.rm() };
-
-	Runtime _runtime { _env, _heap };
-
 	struct Main_dialog : Top_level_dialog
 	{
-		enum class Payment { CASH, CARD } _payment = Payment::CASH;
-
-		using Payment_button = Select_button<Payment>;
-
-		struct Dishes : Widget<Vbox>
-		{
-			Id _items[4] { { "Pizza" }, { "Salad" }, { "Pasta" }, { "Soup" } };
-
-			Id selected_item { };
-
-			void view(Scope<Vbox> &s) const
-			{
-				for (Id const &id : _items) {
-					s.sub_scope<Button>(id, [&] (Scope<Vbox, Button> &s) {
-
-						bool const selected = (id == selected_item),
-						           hovered  = (s.hovered() && (!s.dragged() || selected));
-
-						if (selected) s.attribute("selected", "yes");
-						if (hovered)  s.attribute("hovered",  "yes");
-
-						s.sub_scope<Label>(id.value);
-					});
-				}
-			}
-
-			void click(Clicked_at const &at)
-			{
-				for (Id const &id : _items)
-					if (at.matches<Vbox, Button>(id))
-						selected_item = id;
-			}
-		};
-
 		Allocator &_alloc;
 		Text_area_widget::Action &_text_action;
-		Hosted<Vbox, Action_button> _inspect { Id { "Inspect" } };
-		Hosted<Vbox, Frame, Button, Float, Text_area_widget> _text { Id { "text" }, _alloc };
-		Hosted<Vbox, Deferred_action_button> _confirm { Id { "Confirm" } };
-		Hosted<Vbox, Deferred_action_button> _cancel  { Id { "Cancel"  } };
-		Hosted<Vbox, Hbox, Payment_button>
-			_cash { Id { "Cash" }, Payment::CASH },
-			_card { Id { "Card" }, Payment::CARD };
+		Hosted<Frame, Vbox, Hbox, Button, Float, Vbox, Text_area_widget> _text { Id { "text" }, _alloc };
+		Hosted<Frame, Vbox, Hbox, Action_button> _inspect { Id { "Inspect" } };
 
-		Hosted<Vbox, Frame, Dishes> _dishes { Id { "dishes" } };
-
-		Main_dialog(Name const &name, Allocator &alloc, Text_area_widget::Action &text_action) : Top_level_dialog(name), _alloc(alloc), _text_action(text_action)
+		Main_dialog(Name const &name, Allocator &alloc, Text_area_widget::Action &text_action)
+		:
+			Top_level_dialog(name), _alloc(alloc), _text_action(text_action)
 		{
 			_text.max_lines(1);
 			_text.editable(true);
@@ -87,64 +56,54 @@ struct Dialog_test::Main : Text_area_widget::Action
 
 		void view(Scope<> &s) const override
 		{
-			s.sub_scope<Vbox>([&] (Scope<Vbox> &s) {
-				s.sub_scope<Min_ex>(15);
+			s.template sub_scope<Frame>([&] (auto &s) {
+				s.template sub_scope<Vbox>([&] (auto &s) {
+					s.template sub_scope<Min_ex>(20);
+					s.template sub_scope<Hbox>([&] (auto &s) {
 
-				s.sub_scope<Frame>([&] (Scope<Vbox, Frame> &s) {
-					s.widget(_dishes); });
-
-				if (_dishes.selected_item.valid()) {
-					s.widget(_inspect);
-					s.sub_scope<Frame>([&] (Scope<Vbox, Frame> &s) {
-						s.sub_scope<Button>([&] (Scope<Vbox, Frame, Button> &s) {
+						s.template sub_scope<Button>([&] (auto &s) {
 
 							if (s.hovered())
 								s.attribute("hovered", "yes");
 
-							s.sub_scope<Float>([&] (Scope<Vbox, Frame, Button, Float> &s) {
-								s.attribute("north", "yes");
-								s.attribute("east",  "yes");
+							s.template sub_scope<Float>([&] (auto &s) {
 								s.attribute("west",  "yes");
-								s.widget(_text);
+								s.template sub_scope<Vbox>([&] (auto &s) {
+									s.template sub_scope<Min_ex>(20);
+									s.widget(_text);
+								});
 							});
 						});
+						s.template sub_scope<Small_vgap>();
+						s.widget(_inspect);
 					});
-					s.sub_scope<Hbox>([&] (Scope<Vbox, Hbox> &s) {
-						s.widget(_cash, _payment);
-						s.widget(_card, _payment);
-					});
-					s.widget(_confirm);
-					s.widget(_cancel);
-				}
+				});
 			});
 		}
 
 		void click(Clicked_at const &at) override
 		{
-			_dishes .propagate(at);
 			_inspect.propagate(at, [&] { log("inspect activated!"); });
-			_text   .propagate(at);
-			_confirm.propagate(at);
-			_cancel .propagate(at);
-			_cash   .propagate(at, [&] (Payment p) { _payment = p; });
-			_card   .propagate(at, [&] (Payment p) { _payment = p; });
+			_text.propagate(at);
 		}
 
 		void clack(Clacked_at const &at) override
 		{
 			_text.propagate(at, _text_action);
-			_confirm.propagate(at, [&] { log("confirm activated!"); });
-			_cancel .propagate(at, [&] { _dishes.selected_item = { }; });
 		}
 
-		void drag (Dragged_at const &at) override { _text.propagate(at); }
+		void drag (Dragged_at const &at) override
+		{
+			_text.propagate(at);
+		}
+	};
 
-	} _main_dialog { "main", _heap, *this };
-
-	Runtime::View _main_view { _runtime, _main_dialog };
-
-	/* handler used to respond to keyboard input */
-	Runtime::Event_handler<Main> _event_handler { _runtime, *this, &Main::_handle_event };
+	Env &env;
+	Heap heap { env.ram(), env.rm() };
+	Runtime runtime { env, heap };
+	Main_dialog main_dialog { "main", heap, *this };
+	Runtime::View main_view { runtime, main_dialog };
+	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::_handle_event };
 
 	void _handle_event(Dialog::Event const &event)
 	{
@@ -157,38 +116,27 @@ struct Dialog_test::Main : Text_area_widget::Action
 		if (ignore)
 			return;
 
-		_main_dialog._text.handle_event(event, *this);
-
-//		log("_handle_event: ", event);
+		main_dialog._text.handle_event(event, *this);
 	}
+
+	Main(Env &env) : env(env) { }
 
 	/******************************
 	 ** Text_area_widget::Action **
 	 ******************************/
 
-	void trigger_copy() override
-	{
-		log(__func__, " ", __LINE__);
-	}
+	void trigger_copy() override { }
 
-	void trigger_paste() override
-	{
-		log(__func__, " ", __LINE__);
-	}
+	void trigger_paste() override { }
 
-	void trigger_save() override
-	{
-		log(__func__, " ", __LINE__);
-	}
+	void trigger_save() override { }
 
-	void refresh_text_area() override { _main_view.refresh(); }
-
-	Main(Env &env) : _env(env) { }
+	void refresh_text_area() override { main_view.refresh(); }
 };
 
 
 void Component::construct(Genode::Env &env)
 {
-	static Dialog_test::Main main(env);
+	static File_vault_gui::Main main(env);
 }
 
