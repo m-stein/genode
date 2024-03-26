@@ -137,7 +137,7 @@ class Tresor::Free_tree::Extend_tree : Noncopyable
 
 		Helper _helper;
 		Attr const _attr;
-		Number_of_leaves _num_leaves { 0 };
+		Number_of_blocks _num_leaves { 0 };
 		Virtual_block_address _vba { };
 		Tree_walk_pbas _old_pbas { };
 		Tree_walk_generations _old_generations { };

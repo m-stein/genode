@@ -35,7 +35,6 @@ namespace Tresor {
 	using Virtual_block_address  = uint64_t;
 	using Generation             = uint64_t;
 	using Generation_string      = String<21>;
-	using Number_of_leaves       = uint64_t;
 	using Number_of_disk_bytes   = uint64_t;
 	using Number_of_blocks       = uint64_t;
 	using Tree_level_index       = uint32_t;
@@ -79,7 +78,7 @@ namespace Tresor {
 	enum { SNAPSHOT_STORAGE_SIZE = 72 };
 	enum { NR_OF_SUPERBLOCK_SLOTS = 8 };
 	enum { MAX_SUPERBLOCK_INDEX = NR_OF_SUPERBLOCK_SLOTS - 1 };
-	enum { TREE_MAX_NR_OF_LEAVES = to_the_power_of<Number_of_leaves>(TREE_MAX_DEGREE, (TREE_MAX_MAX_LEVEL - 1)) };
+	enum { TREE_MAX_NR_OF_LEAVES = to_the_power_of<Number_of_blocks>(TREE_MAX_DEGREE, (TREE_MAX_MAX_LEVEL - 1)) };
 	enum { INVALID_VBA = to_the_power_of<Virtual_block_address>(TREE_MAX_DEGREE, TREE_MAX_MAX_LEVEL - 1) };
 
 	struct Byte_range;
@@ -618,7 +617,7 @@ struct Tresor::Tree_root
 	Hash &hash;
 	Tree_level_index &max_lvl;
 	Tree_degree &degree;
-	Number_of_leaves &num_leaves;
+	Number_of_blocks &num_leaves;
 
 	Type_1_node t1_node() const { return { pba, gen, hash }; }
 
@@ -632,7 +631,7 @@ struct Tresor::Tree_configuration
 {
 	Tree_level_index const max_lvl;
 	Tree_degree const degree;
-	Number_of_leaves const num_leaves;
+	Number_of_blocks const num_leaves;
 
 	void assert_valid() const
 	{
@@ -645,14 +644,14 @@ struct Tresor::Tree_configuration
 		ASSERT(num_leaves <= tree_max_max_vba(degree, max_lvl) + 1);
 	}
 
-	Tree_configuration(Tree_level_index max_lvl, Tree_degree degree, Number_of_leaves num_leaves)
+	Tree_configuration(Tree_level_index max_lvl, Tree_degree degree, Number_of_blocks num_leaves)
 	: max_lvl(max_lvl), degree(degree), num_leaves(num_leaves) { assert_valid(); }
 
 	Tree_configuration(Xml_node const &node)
 	:
 		max_lvl(node.attribute_value("max_lvl", (Tree_level_index)0)),
 		degree(node.attribute_value("degree", (Tree_degree)0)),
-		num_leaves(node.attribute_value("num_leaves", (Number_of_leaves)0))
+		num_leaves(node.attribute_value("num_leaves", (Number_of_blocks)0))
 	{ assert_valid(); }
 
 	Number_of_blocks num_required_phys_blocks() const
@@ -707,7 +706,7 @@ struct Tresor::Superblock_configuration
 		 * simplicity reasons. As soon as the Tresor does it right we should
 		 * fix also this path.
 		 *
-		 *  Number_of_leaves const mt_num_leaves =
+		 *  Number_of_blocks const mt_num_leaves =
 		 *    ft_config.total_num_blocks() - ft_config.num_leaves;
 		 *  Number_of_blocks const mt_num_blocks =
 		 *    Tree_configuration(MT_MAX_LVL, MT_DEGREE, mt_num_leaves).total_num_blocks;
@@ -831,7 +830,7 @@ struct Tresor::Snapshot
 	Hash                   hash         { };
 	Physical_block_address pba          { INVALID_PBA };
 	Generation             gen          { MAX_GENERATION };
-	Number_of_leaves       nr_of_leaves { TREE_MAX_NR_OF_LEAVES };
+	Number_of_blocks       nr_of_leaves { TREE_MAX_NR_OF_LEAVES };
 	Tree_level_index       max_level    { TREE_MAX_MAX_LEVEL };
 	bool                   valid        { false };
 	Snapshot_id            id           { MAX_SNAP_ID };
@@ -966,7 +965,7 @@ struct Tresor::Superblock
 	State                  state                   { INVALID };         /* offset 0 */
 	Virtual_block_address  rekeying_vba            { 0 };               /* offset 1 */
 	Number_of_blocks       resizing_nr_of_pbas     { 0 };               /* offset 9 */
-	Number_of_leaves       resizing_nr_of_leaves   { 0 };               /* offset 17 */
+	Number_of_blocks       resizing_nr_of_leaves   { 0 };               /* offset 17 */
 	Key                    previous_key            { };                 /* offset 25 */
 	Key                    current_key             { };                 /* offset 61 */
 	Snapshots              snapshots               { };                 /* offset 97 */
@@ -980,13 +979,13 @@ struct Tresor::Superblock
 	Hash                   free_hash               { };                 /* offset 3601 */
 	Tree_level_index       free_max_level          { 0 };               /* offset 3633 */
 	Tree_degree            free_degree             { TREE_MIN_DEGREE }; /* offset 3637 */
-	Number_of_leaves       free_leaves             { 0 };               /* offset 3641 */
+	Number_of_blocks       free_leaves             { 0 };               /* offset 3641 */
 	Generation             meta_gen                { 0 };               /* offset 3649 */
 	Physical_block_address meta_number             { 0 };               /* offset 3657 */
 	Hash                   meta_hash               { };                 /* offset 3665 */
 	Tree_level_index       meta_max_level          { 0 };               /* offset 3697 */
 	Tree_degree            meta_degree             { TREE_MIN_DEGREE }; /* offset 3701 */
-	Number_of_leaves       meta_leaves             { 0 };               /* offset 3705 */
+	Number_of_blocks       meta_leaves             { 0 };               /* offset 3705 */
 	                                                                    /* offset 3713 */
 
 	static State decode_state(On_disc_state val)

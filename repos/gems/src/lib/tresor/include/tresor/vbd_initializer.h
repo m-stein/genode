@@ -52,7 +52,7 @@ class Tresor::Vbd_initializer : Noncopyable
 				Node_state _node_states[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { DONE };
 				bool _generated_req_success { false };
 				Block _blk { };
-				Number_of_leaves _num_remaining_leaves { };
+				Number_of_blocks _num_remaining_leaves { };
 				Generatable_request<Helper, State, Block_io::Write> _write_block { };
 
 				void _reset_level(Tree_level_index, Node_state);

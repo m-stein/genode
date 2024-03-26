@@ -351,7 +351,7 @@ bool Superblock_control::Rekey::execute(Execute_attr const &attr)
 	case REKEY_VBA: progress |= _rekey_vba.execute(attr.vbd, attr.block_io, attr.crypto, attr.free_tree, attr.meta_tree); break;
 	case REKEY_VBA_SUCCEEDED:
 	{
-		Number_of_leaves max_nr_of_leaves { 0 };
+		Number_of_blocks max_nr_of_leaves { 0 };
 		for (Snapshot const &snap : attr.sb.snapshots.items) {
 			if (snap.valid && max_nr_of_leaves < snap.nr_of_leaves)
 				max_nr_of_leaves = snap.nr_of_leaves;

@@ -622,7 +622,7 @@ bool Virtual_block_device::Extend_tree::execute(Block_io &block_io, Free_tree &f
 					log("  new snap ", _snap_idx);
 			}
 			Snapshot &new_snap = _attr.in_out_snapshots.items[_snap_idx];
-			Number_of_leaves num_leaves { snap.nr_of_leaves + _attr.out_num_leaves };
+			Number_of_blocks num_leaves { snap.nr_of_leaves + _attr.out_num_leaves };
 			new_snap = { { }, _new_pbas.pbas[_lvl], _attr.in_curr_gen, num_leaves, snap.max_level, true, 0, false };
 			calc_hash(_encoded_blk, new_snap.hash);
 			_helper.mark_succeeded(progress);

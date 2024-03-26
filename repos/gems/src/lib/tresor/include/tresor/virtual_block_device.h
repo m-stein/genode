@@ -241,7 +241,7 @@ class Tresor::Virtual_block_device::Extend_tree : Noncopyable
 
 		struct Attr
 		{
-			Number_of_leaves &out_num_leaves;
+			Number_of_blocks &out_num_leaves;
 			Snapshots &in_out_snapshots;
 			Tree_degree const in_snap_degr;
 			Generation const in_curr_gen;

@@ -626,7 +626,7 @@ class File_vault::Main
 			}
 		}
 
-		static Number_of_leaves _tresor_tree_num_leaves(Number_of_disk_bytes payload_size);
+		static Number_of_blocks _tresor_tree_num_leaves(Number_of_disk_bytes payload_size);
 
 		Superblock_configuration _superblock_config() const;
 
@@ -2346,7 +2346,7 @@ void File_vault::Main::wakeup_local_service()
 }
 
 
-Number_of_leaves Main::_tresor_tree_num_leaves(Number_of_disk_bytes payload_size)
+Number_of_blocks Main::_tresor_tree_num_leaves(Number_of_disk_bytes payload_size)
 {
 	Number_of_blocks nr_of_leaves { payload_size / Tresor::BLOCK_SIZE };
 	if (payload_size % Tresor::BLOCK_SIZE) {
