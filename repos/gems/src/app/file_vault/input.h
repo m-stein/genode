@@ -27,7 +27,7 @@ namespace File_vault {
 
 	class Input_single_line;
 	class Input_passphrase;
-	class Input_number_of_bytes;
+	class Input_number_of_virt_bytes;
 	class Input_number_of_blocks;
 }
 
@@ -181,7 +181,7 @@ class File_vault::Input_passphrase : public Input_single_line
 };
 
 
-class File_vault::Input_number_of_bytes : public Input_single_line
+class File_vault::Input_number_of_virt_bytes : public Input_single_line
 {
 	public:
 
@@ -190,7 +190,7 @@ class File_vault::Input_number_of_bytes : public Input_single_line
 			_print_characters(out);
 		}
 
-		size_t value() const
+		Number_of_disk_bytes value() const
 		{
 			String<32> const str { *this };
 			Number_of_bytes result { 0 };

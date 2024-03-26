@@ -92,10 +92,10 @@ class Vfs_tresor::Data_operation : private Noncopyable
 		Constructible<Splitter::Read> _read { };
 		Constructible<Superblock_control::Synchronize> _sync { };
 
-		bool _range_violation(Superblock_control &sb_control, uint64_t start, uint64_t num_bytes) const
+		bool _virt_range_violation(Superblock_control &sb_control, Number_of_disk_bytes start, Number_of_disk_bytes num_bytes) const
 		{
-			uint64_t last_byte = num_bytes ? start - 1 + num_bytes : start;
-			uint64_t last_file_byte = (sb_control.max_vba() * BLOCK_SIZE) + (BLOCK_SIZE - 1);
+			Number_of_disk_bytes last_byte = num_bytes ? start - 1 + num_bytes : start;
+			Number_of_disk_bytes last_file_byte = (sb_control.max_vba() * BLOCK_SIZE) + (BLOCK_SIZE - 1);
 			return last_byte > last_file_byte;
 		}
 
@@ -198,7 +198,7 @@ class Vfs_tresor::Data_operation : private Noncopyable
 			switch (_state) {
 			case WRITE_STARTED:
 
-				if (_range_violation(attr.sb_control, _seek, _src->num_bytes)) {
+				if (_virt_range_violation(attr.sb_control, _seek, _src->num_bytes)) {
 					_success = false;
 					_state = WRITE_COMPLETE;
 					progress = true;
@@ -231,7 +231,7 @@ class Vfs_tresor::Data_operation : private Noncopyable
 
 			case READ_STARTED:
 
-				if (_range_violation(attr.sb_control, _seek, _dst->num_bytes)) {
+				if (_virt_range_violation(attr.sb_control, _seek, _dst->num_bytes)) {
 					_success = false;
 					_state = READ_COMPLETE;
 					progress = true;

@@ -467,10 +467,10 @@ namespace File_vault {
 		});
 	}
 
-	void gen_truncate_file_start_node(Xml_generator     &xml,
-	                                  Child_state const &child,
-	                                  char        const *path,
-	                                  uint64_t           size)
+	void gen_truncate_file_start_node(Xml_generator        &xml,
+	                                  Child_state   const  &child,
+	                                  char          const  *path,
+	                                  Number_of_disk_bytes  size)
 	{
 		child.gen_start_node(xml, [&] () {
 
@@ -750,7 +750,7 @@ namespace File_vault {
 	void gen_resizing_fs_tool_start_node(Xml_generator     &xml,
 	                                     Child_state const &child,
 	                                     char        const *tree,
-	                                     unsigned long      nr_of_blocks)
+	                                     Number_of_blocks   nr_of_blocks)
 	{
 		child.gen_start_node(xml, [&] () {
 

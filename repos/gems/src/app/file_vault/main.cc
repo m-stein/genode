@@ -97,9 +97,7 @@ class File_vault::Main
 		enum {
 			MIN_CLIENT_FS_SIZE = 100 * 1024,
 			STATE_STRING_CAPACITY = 64,
-			TRESOR_BLOCK_SIZE = 4096,
 			MAIN_FRAME_WIDTH = 46,
-			TRESOR_NR_OF_SUPERBLOCKS = 8,
 		};
 
 		enum Version { INVALID, VERSION_21_05, VERSION_23_05 };
@@ -412,8 +410,8 @@ class File_vault::Main
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
 		Dynamic_rom_session                    _dialog                             { _env.ep(), _env.ram(), _env.rm(), *this };
 		Input_passphrase                       _setup_obtain_params_passphrase     { };
-		Input_number_of_bytes                  _client_fs_size_input               { };
-		Input_number_of_bytes                  _journaling_buf_size_input          { };
+		Input_number_of_virt_bytes             _client_fs_size_input               { };
+		Input_number_of_virt_bytes             _journaling_buf_size_input          { };
 		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
 		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_INPUT };
 		Controls_root_hover                    _controls_root_hover                { Controls_root_hover::NONE };
@@ -438,8 +436,8 @@ class File_vault::Main
 
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Resizing_type                          _resizing_type                      { Resizing_type::NONE };
-		Input_number_of_bytes                  _expand_client_fs_contingent        { };
-		Input_number_of_bytes                  _expand_snapshot_buf_contingent     { };
+		Input_number_of_virt_bytes             _expand_client_fs_contingent        { };
+		Input_number_of_virt_bytes             _expand_snapshot_buf_contingent     { };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
 		Create_snapshot_state                  _create_snap_state                  { Create_snapshot_state::INACTIVE };
 		Discard_snapshot_state                 _discard_snap_state                 { Discard_snapshot_state::INACTIVE };
@@ -479,7 +477,7 @@ class File_vault::Main
 				gen_menu_view_start_node(xml, _menu_view);
 		}
 
-		size_t _ui_client_fs_size() const
+		Number_of_disk_bytes _ui_client_fs_size() const
 		{
 			switch (_user_interface) {
 			case MENU_VIEW:         return _client_fs_size_input.value();
@@ -489,7 +487,7 @@ class File_vault::Main
 			throw Exception_1 { };
 		}
 
-		size_t _ui_journaling_buf_size() const
+		Number_of_disk_bytes _ui_journaling_buf_size() const
 		{
 			switch (_user_interface) {
 			case MENU_VIEW:         return _journaling_buf_size_input.value();
@@ -515,9 +513,9 @@ class File_vault::Main
 			return node.attribute_value("name", Node_name { }) == name;
 		}
 
-		size_t _min_journaling_buf_size() const
+		Number_of_disk_bytes _min_journaling_buf_size() const
 		{
-			size_t result { _ui_client_fs_size() >> 8 };
+			Number_of_disk_bytes result { _ui_client_fs_size() >> 8 };
 			if (result < MIN_CLIENT_FS_SIZE) {
 				result = MIN_CLIENT_FS_SIZE;
 			}
@@ -628,22 +626,9 @@ class File_vault::Main
 			}
 		}
 
-		static Number_of_blocks _tresor_tree_num_leaves(uint64_t payload_size);
+		static Number_of_leaves _tresor_tree_num_leaves(Number_of_disk_bytes payload_size);
 
-
-		static uint64_t _tree_nr_of_blocks(size_t nr_of_lvls,
-		                          size_t nr_of_children,
-		                          uint64_t nr_of_leafs);
-
-		uint64_t _tresor_size() const;
-
-		static uint64_t _tresor_nr_of_blocks(size_t nr_of_superblocks,
-		                                   size_t nr_of_vbd_lvls,
-		                                   size_t nr_of_vbd_children,
-		                                   uint64_t nr_of_vbd_leafs,
-		                                   size_t nr_of_ft_lvls,
-		                                   size_t nr_of_ft_children,
-		                                   uint64_t nr_of_ft_leafs);
+		Superblock_configuration _superblock_config() const;
 
 		template <size_t N>
 		static bool listing_file_starts_with(Xml_node  const &fs_query_listing,
@@ -960,13 +945,13 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 				switch (_resizing_type) {
 				case Resizing_type::EXPAND_CLIENT_FS:
 
-					_expand_client_fs_contingent = Input_number_of_bytes { };
+					_expand_client_fs_contingent = Input_number_of_virt_bytes { };
 					_expand_client_fs_select = Expand_client_fs_select::CONTINGENT_INPUT;
 					break;
 
 				case Resizing_type::EXPAND_SNAPSHOT_BUF:
 
-					_expand_snapshot_buf_contingent = Input_number_of_bytes { };
+					_expand_snapshot_buf_contingent = Input_number_of_virt_bytes { };
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::CONTINGENT_INPUT;
 					break;
 
@@ -1730,14 +1715,14 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				gen_info_line(xml, "info_3",
 					String<128> {
 						"Must be at least ",
-						Number_of_bytes { _min_journaling_buf_size() } }.string());
+						Number_of_disk_bytes { _min_journaling_buf_size() } }.string());
 			}
 			if (gen_image_size_info) {
 
 				gen_info_line(xml, "pad_3", "");
 				gen_info_line(
 					xml, "info_4",
-					String<256> { "Image size: ", Capacity { _tresor_size() }}.string());
+					String<256> { "Image size: ", Capacity { _superblock_config().num_required_phys_bytes() }}.string());
 			}
 			gen_info_line(xml, "pad_4", "");
 			if (gen_start_button) {
@@ -1973,10 +1958,10 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 									_expand_client_fs_select == Expand_client_fs_select::CONTINGENT_INPUT);
 
 								bool gen_start_button { true };
-								size_t const bytes {
+								Number_of_disk_bytes const bytes {
 									_expand_client_fs_contingent.value() };
 
-								size_t const effective_bytes {
+								Number_of_disk_bytes const effective_bytes {
 									bytes - (bytes % Tresor::BLOCK_SIZE) };
 
 								if (effective_bytes > 0) {
@@ -2056,11 +2041,11 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 								_expand_snapshot_buf_select == Expand_snapshot_buf_select::CONTINGENT_INPUT);
 
 							bool gen_start_button { true };
-							size_t const bytes {
+							Number_of_disk_bytes const bytes {
 								_expand_snapshot_buf_contingent.value() };
 
-							size_t const effective_bytes {
-								bytes - (bytes % TRESOR_BLOCK_SIZE) };
+							Number_of_disk_bytes const effective_bytes {
+								bytes - (bytes % Tresor::BLOCK_SIZE) };
 
 							if (effective_bytes > 0) {
 
@@ -2077,7 +2062,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 								gen_info_line(xml, "info_1",
 									String<128> {
 										"Must be at least ",
-										Number_of_bytes { TRESOR_BLOCK_SIZE } }.string());
+										Number_of_bytes { Tresor::BLOCK_SIZE } }.string());
 							}
 							gen_info_line(xml, "pad_2", "");
 							if (gen_start_button) {
@@ -2361,10 +2346,10 @@ void File_vault::Main::wakeup_local_service()
 }
 
 
-Number_of_blocks Main::_tresor_tree_num_leaves(uint64_t payload_size)
+Number_of_leaves Main::_tresor_tree_num_leaves(Number_of_disk_bytes payload_size)
 {
-	Number_of_blocks nr_of_leaves { payload_size / TRESOR_BLOCK_SIZE };
-	if (payload_size % TRESOR_BLOCK_SIZE) {
+	Number_of_blocks nr_of_leaves { payload_size / Tresor::BLOCK_SIZE };
+	if (payload_size % Tresor::BLOCK_SIZE) {
 		nr_of_leaves++;
 	}
 	return nr_of_leaves;
@@ -2438,30 +2423,17 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_truncate_file_start_node(
-			xml, _truncate_file,
-			File_path { "/tresor/", _tresor_image_file_name }.string(),
-			TRESOR_BLOCK_SIZE *
-				_tresor_nr_of_blocks(
-					TRESOR_NR_OF_SUPERBLOCKS,
-					TRESOR_VBD_MAX_LVL + 1,
-					TRESOR_VBD_DEGREE,
-					_tresor_tree_num_leaves(_ui_client_fs_size()),
-					TRESOR_FREE_TREE_MAX_LVL + 1,
-					TRESOR_FREE_TREE_DEGREE,
-					_tresor_tree_num_leaves(_ui_journaling_buf_size())));
+			xml, _truncate_file, File_path { "/tresor/", _tresor_image_file_name }.string(),
+			_superblock_config().num_required_phys_bytes());
 
 		break;
 
 	case State::SETUP_RUN_TRESOR_INIT:
 	{
-		Tresor::Superblock_configuration sb_config {
-			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, _tresor_tree_num_leaves(_ui_client_fs_size()) },
-			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, _tresor_tree_num_leaves(_ui_journaling_buf_size()) }
-		};
 		gen_parent_provides_and_report_nodes(xml);
 		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
-		gen_tresor_init_start_node(xml, _tresor_init, sb_config);
+		gen_tresor_init_start_node(xml, _tresor_init, _superblock_config());
 		break;
 	}
 	case State::SETUP_START_TRESOR_VFS:
@@ -2511,11 +2483,11 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			switch (_resizing_type) {
 			case Resizing_type::EXPAND_CLIENT_FS:
 			{
-				size_t const bytes {
+				Number_of_disk_bytes const bytes {
 					_expand_client_fs_contingent.value() };
 
-				size_t const effective_bytes {
-					bytes - (bytes % TRESOR_BLOCK_SIZE) };
+				Number_of_disk_bytes const effective_bytes {
+					bytes - (bytes % Tresor::BLOCK_SIZE) };
 
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
@@ -2526,11 +2498,11 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			}
 			case Resizing_type::EXPAND_SNAPSHOT_BUF:
 			{
-				size_t const bytes {
+				Number_of_disk_bytes const bytes {
 					_expand_snapshot_buf_contingent.value() };
 
-				size_t const effective_bytes {
-					bytes - (bytes % TRESOR_BLOCK_SIZE) };
+				Number_of_disk_bytes const effective_bytes {
+					bytes - (bytes % Tresor::BLOCK_SIZE) };
 
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
@@ -2559,7 +2531,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
-					_expand_client_fs_contingent.value() / TRESOR_BLOCK_SIZE);
+					_expand_client_fs_contingent.value() / Tresor::BLOCK_SIZE);
 
 				break;
 
@@ -2567,7 +2539,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "ft",
-					_expand_snapshot_buf_contingent.value() / TRESOR_BLOCK_SIZE);
+					_expand_snapshot_buf_contingent.value() / Tresor::BLOCK_SIZE);
 
 				break;
 
@@ -2673,81 +2645,12 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 }
 
 
-uint64_t Main::_tree_nr_of_blocks(size_t nr_of_lvls,
-                                size_t nr_of_children,
-                                uint64_t nr_of_leafs)
+Superblock_configuration Main::_superblock_config() const
 {
-	uint64_t nr_of_blks { 0 };
-	uint64_t nr_of_last_lvl_blks { nr_of_leafs };
-	for (size_t lvl_idx { 0 }; lvl_idx < nr_of_lvls; lvl_idx++) {
-		nr_of_blks += nr_of_last_lvl_blks;
-		if (nr_of_last_lvl_blks % nr_of_children) {
-			nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children + 1;
-		} else {
-			nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children;
-		}
-	}
-	return nr_of_blks;
-}
-
-
-uint64_t Main::_tresor_size() const
-{
-	return
-		_tresor_nr_of_blocks(
-			TRESOR_NR_OF_SUPERBLOCKS,
-			TRESOR_VBD_MAX_LVL + 1,
-			TRESOR_VBD_DEGREE,
-			_tresor_tree_num_leaves(_ui_client_fs_size()),
-			TRESOR_FREE_TREE_MAX_LVL + 1,
-			TRESOR_FREE_TREE_DEGREE,
-			_tresor_tree_num_leaves(_ui_journaling_buf_size()))
-		* TRESOR_BLOCK_SIZE;
-}
-
-
-uint64_t Main::_tresor_nr_of_blocks(size_t nr_of_superblocks,
-                               size_t nr_of_vbd_lvls,
-                               size_t nr_of_vbd_children,
-                               uint64_t nr_of_vbd_leafs,
-                               size_t nr_of_ft_lvls,
-                               size_t nr_of_ft_children,
-                               uint64_t nr_of_ft_leafs)
-{
-	uint64_t const nr_of_vbd_blks {
-		_tree_nr_of_blocks(
-			nr_of_vbd_lvls,
-			nr_of_vbd_children,
-			nr_of_vbd_leafs) };
-
-	uint64_t const nr_of_ft_blks {
-		_tree_nr_of_blocks(
-			nr_of_ft_lvls,
-			nr_of_ft_children,
-			nr_of_ft_leafs) };
-
-	/* FIXME
-	 *
-	 * This would be the correct way to calculate the number of MT blocks
-	 * but the Tresor still uses an MT the same size as the FT for simplicity
-	 * reasons. As soon as the Tresor does it right we should fix also this path.
-	 *
-	 *	size_t const nr_of_mt_leafs {
-	 *		nr_of_ft_blks - nr_of_ft_leafs };
-	 *
-	 *	size_t const nr_of_mt_blks {
-	 *		_tree_nr_of_blocks(
-	 *			nr_of_mt_lvls,
-	 *			nr_of_mt_children,
-	 *			nr_of_mt_leafs) };
-	 */
-	uint64_t const nr_of_mt_blks { nr_of_ft_blks };
-
-	return
-		nr_of_superblocks +
-		nr_of_vbd_blks +
-		nr_of_ft_blks +
-		nr_of_mt_blks;
+	return {
+		{ TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, _tresor_tree_num_leaves(_ui_client_fs_size()) },
+		{ TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, _tresor_tree_num_leaves(_ui_journaling_buf_size()) }
+	};
 }
 
 
@@ -3389,11 +3292,11 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 				} else if (key == Input::KEY_ENTER) {
 
-					size_t const bytes {
+					Number_of_disk_bytes const bytes {
 						_expand_client_fs_contingent.value() };
 
-					size_t const effective_bytes {
-						bytes - (bytes % TRESOR_BLOCK_SIZE) };
+					Number_of_disk_bytes const effective_bytes {
+						bytes - (bytes % Tresor::BLOCK_SIZE) };
 
 					if (effective_bytes > 0) {
 
@@ -3495,11 +3398,11 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				size_t const bytes {
+				Number_of_disk_bytes const bytes {
 					_expand_snapshot_buf_contingent.value() };
 
-				size_t const effective_bytes {
-					bytes - (bytes % TRESOR_BLOCK_SIZE) };
+				Number_of_disk_bytes const effective_bytes {
+					bytes - (bytes % Tresor::BLOCK_SIZE) };
 
 				if (effective_bytes > 0) {
 

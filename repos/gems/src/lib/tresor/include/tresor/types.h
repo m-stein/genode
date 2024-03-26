@@ -36,6 +36,7 @@ namespace Tresor {
 	using Generation             = uint64_t;
 	using Generation_string      = String<21>;
 	using Number_of_leaves       = uint64_t;
+	using Number_of_disk_bytes   = uint64_t;
 	using Number_of_blocks       = uint64_t;
 	using Tree_level_index       = uint32_t;
 	using Tree_node_index        = uint64_t;
@@ -63,8 +64,8 @@ namespace Tresor {
 	enum { MAX_GENERATION = 0xffff'ffff'ffff'ffff };
 	enum { MAX_SNAP_ID = 0xffff'ffff };
 	enum { HASH_SIZE = 32 };
-	enum { ON_DISC_NODE_SIZE = 64 };
-	enum { NUM_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)ON_DISC_NODE_SIZE };
+	enum { ON_DISK_NODE_SIZE = 64 };
+	enum { NUM_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)ON_DISK_NODE_SIZE };
 	enum { TREE_MAX_DEGREE_LOG_2 = 6 };
 	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
 	enum { TREE_MIN_DEGREE_LOG_2 = 1 };
@@ -160,6 +161,26 @@ namespace Tresor {
 	                                              Virtual_block_address vbd_leaf_vba)
 	{
 		return vbd_node_num_vbas(vbd_degr_log_2, vbd_lvl) - 1 + vbd_node_min_vba(vbd_degr_log_2, vbd_lvl, vbd_leaf_vba);
+	}
+
+	inline size_t ascii_to(const char *s, Number_of_disk_bytes &result)
+	{
+		Number_of_disk_bytes res = 0;
+
+		/* convert numeric part of string */
+		size_t i = ascii_to(s, res);
+
+		/* handle suffixes */
+		if (i > 0)
+			switch (s[i]) {
+			case 'G': res *= 1024*1024*1024; i++; break;
+			case 'M': res *= 1024*1024;      i++; break;
+			case 'K': res *= 1024;           i++; break;
+			default: break;
+			}
+
+		result = res;
+		return i;
 	}
 }
 
@@ -634,6 +655,21 @@ struct Tresor::Tree_configuration
 		degree(node.attribute_value("degree", (Tree_degree)0)),
 		num_leaves(node.attribute_value("num_leaves", (Number_of_leaves)0))
 	{ assert_valid(); }
+
+	Number_of_blocks num_required_phys_blocks() const
+	{
+		Number_of_blocks result { 0 };
+		Number_of_blocks num_last_lvl_blks { num_leaves };
+		for (Tree_level_index lvl = 0; lvl <= max_lvl; lvl++) {
+			result += num_last_lvl_blks;
+			if (num_last_lvl_blks % degree) {
+				num_last_lvl_blks = num_last_lvl_blks / degree + 1;
+			} else {
+				num_last_lvl_blks = num_last_lvl_blks / degree;
+			}
+		}
+		return result;
+	}
 };
 
 
@@ -660,6 +696,30 @@ struct Tresor::Superblock_configuration
 			xml.attribute("degree", free_tree.degree);
 			xml.attribute("num_leaves", free_tree.num_leaves);
 		});
+	}
+
+	Number_of_blocks num_required_phys_blocks() const
+	{
+		/*
+		 * FIXME
+		 *
+		 * This would be the correct way to calculate the number of MT blocks
+		 * but the Tresor still uses an MT the same size as the FT for
+		 * simplicity reasons. As soon as the Tresor does it right we should
+		 * fix also this path.
+		 *
+		 *  Number_of_leaves const mt_num_leaves =
+		 *    ft_config.total_num_blocks() - ft_config.num_leaves;
+		 *  Number_of_blocks const mt_num_blocks =
+		 *    Tree_configuration(MT_MAX_LVL, MT_DEGREE, mt_num_leaves).total_num_blocks;
+		 */
+		return NR_OF_SUPERBLOCK_SLOTS + vbd.num_required_phys_blocks() +
+		       2 * free_tree.num_required_phys_blocks();
+	}
+
+	Number_of_disk_bytes num_required_phys_bytes() const
+	{
+		return num_required_phys_blocks() * Tresor::BLOCK_SIZE;
 	}
 };
 
