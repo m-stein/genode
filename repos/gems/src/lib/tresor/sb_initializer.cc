@@ -64,8 +64,8 @@ bool Sb_initializer::Initialize::execute(Block_io &block_io, Trust_anchor &trust
 		_sb.current_key.id = 1;
 		_sb.state = Superblock::NORMAL;
 		_sb.degree = _attr.in_sb_cfg.vbd.degree;
-		_sb.first_pba = _attr.in_out_pba_alloc.first_pba() - NR_OF_SUPERBLOCK_SLOTS;
-		_sb.nr_of_pbas = _attr.in_out_pba_alloc.num_used_pbas() + NR_OF_SUPERBLOCK_SLOTS;
+		_sb.first_pba = _attr.in_out_pba_alloc.first_pba() - MAX_NUM_SUPERBLOCKS;
+		_sb.nr_of_pbas = _attr.in_out_pba_alloc.num_used_pbas() + MAX_NUM_SUPERBLOCKS;
 		_sb.free_number = _ft_root.pba;
 		_sb.free_gen = _ft_root.gen;
 		_sb.free_hash = _ft_root.hash;
@@ -98,7 +98,7 @@ bool Sb_initializer::Initialize::execute(Block_io &block_io, Trust_anchor &trust
 	case WRITE_SB_HASH: progress |= _write_sb_hash.execute(trust_anchor); break;
 	case SB_COMPLETE:
 
-		if (_sb_idx < NR_OF_SUPERBLOCK_SLOTS - 1) {
+		if (_sb_idx < MAX_SUPERBLOCK_INDEX) {
 			_sb_idx++;
 			_sb = { };
 			_sb.encode_to_blk(_blk);

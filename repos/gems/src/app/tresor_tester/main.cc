@@ -439,7 +439,7 @@ class Tresor_tester::Main : Vfs::Env::User, Client_data_interface, Crypto_key_fi
 		Trust_anchor _trust_anchor { { _ta_decrypt_file, _ta_encrypt_file, _ta_generate_key_file, _ta_initialize_file, _ta_hash_file } };
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
 		Block_io _block_io { _block_io_file };
-		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
+		Pba_allocator _pba_alloc { MAX_NUM_SUPERBLOCKS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };
@@ -677,10 +677,10 @@ class Tresor_tester::Main : Vfs::Env::User, Client_data_interface, Crypto_key_fi
 				{
 					bool success { true };
 					Snapshots_info snap_info { _sb_control->snapshots_info() };
-					bool snap_gen_ok[MAX_NR_OF_SNAPSHOTS] { false };
+					bool snap_gen_ok[MAX_NUM_SNAPSHOTS] { false };
 					_snap_refs.for_each([&] (Snapshot_reference const &snap_ref) {
 						bool snap_ref_ok { false };
-						for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+						for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx++) {
 							if (snap_info.generations[idx] == snap_ref.gen) {
 								snap_ref_ok = true;
 								snap_gen_ok[idx] = true;
@@ -691,7 +691,7 @@ class Tresor_tester::Main : Vfs::Env::User, Client_data_interface, Crypto_key_fi
 							success = false;
 						}
 					});
-					for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+					for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx++) {
 						if (snap_info.generations[idx] != INVALID_GENERATION && !snap_gen_ok[idx]) {
 							warning("snap (idx ", idx, " gen ", snap_info.generations[idx], ") not known to tester");
 							success = false;

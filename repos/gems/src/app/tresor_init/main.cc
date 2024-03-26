@@ -63,7 +63,7 @@ class Tresor_init::Main : private Vfs::Env::User, private Crypto_key_files_inter
 		Crypto _crypto { {*this, _crypto_add_key_file, _crypto_remove_key_file} };
 		Block_io _block_io { _block_io_file };
 		Constructible<Crypto_key> _crypto_keys[2] { };
-		Pba_allocator _pba_alloc { NR_OF_SUPERBLOCK_SLOTS };
+		Pba_allocator _pba_alloc { MAX_NUM_SUPERBLOCKS };
 		Vbd_initializer _vbd_initializer { };
 		Ft_initializer _ft_initializer { };
 		Sb_initializer _sb_initializer { };

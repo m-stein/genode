@@ -609,7 +609,7 @@ Snapshots_info Superblock_control::snapshots_info() const
 {
 	Snapshots_info info { };
 	if (_sb.valid()) {
-		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+		for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx++) {
 			Snapshot const &snap { _sb.snapshots.items[idx] };
 			if (snap.valid && snap.keep)
 				info.generations[idx] = snap.gen;

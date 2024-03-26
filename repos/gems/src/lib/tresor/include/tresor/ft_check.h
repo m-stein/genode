@@ -40,7 +40,7 @@ struct Tresor::Ft_check : Noncopyable
 			Attr const _attr;
 			Type_1_node_block_walk _t1_blks { };
 			Type_2_node_block _t2_blk { };
-			bool _check_node[TREE_MAX_NR_OF_LEVELS + 1][NUM_NODES_PER_BLK] { };
+			bool _check_node[MAX_NUM_TREE_LEVELS + 1][NUM_NODES_PER_BLK] { };
 			Number_of_blocks _num_remaining_leaves { 0 };
 			Block _blk { };
 			Generatable_request<Helper, State, Block_io::Read> _read_block { };

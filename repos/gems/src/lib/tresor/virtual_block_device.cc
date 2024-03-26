@@ -135,7 +135,7 @@ void Virtual_block_device::Rekey_vba::_generate_ft_alloc_req_for_rekeying(Tree_l
 	else
 		_free_gen = snap.gen + 1;
 
-	for (Tree_level_index lvl = 0; lvl < TREE_MAX_NR_OF_LEVELS; lvl++)
+	for (Tree_level_index lvl = 0; lvl < MAX_NUM_TREE_LEVELS; lvl++)
 		if (lvl > snap.max_level) {
 			_t1_nodes.nodes[lvl] = { };
 			_new_pbas.pbas[lvl] = 0;
@@ -322,7 +322,7 @@ bool Virtual_block_device::Rekey_vba::_find_next_snap_to_rekey_vba_at(Snapshot_i
 {
 	bool result_valid { false };
 	Snapshot &curr_snap { _attr.in_out_snapshots.items[_snap_idx] };
-	for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+	for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx++) {
 		Snapshot const &snap { _attr.in_out_snapshots.items[idx] };
 		if (snap.valid && snap.contains_vba(_attr.in_vba)) {
 			if (result_valid) {
@@ -392,7 +392,7 @@ bool Virtual_block_device::Write_vba::_check_and_decode_read_blk(bool &progress)
 void Virtual_block_device::Write_vba::_set_new_pbas_and_num_blks_for_alloc()
 {
 	_num_blks = 0;
-	for (Tree_level_index lvl = 0; lvl < TREE_MAX_NR_OF_LEVELS; lvl++) {
+	for (Tree_level_index lvl = 0; lvl < MAX_NUM_TREE_LEVELS; lvl++) {
 		if (lvl > _attr.in_out_snap.max_level)
 			_new_pbas.pbas[lvl] = 0;
 		else if (lvl == _attr.in_out_snap.max_level) {
@@ -497,7 +497,7 @@ bool Virtual_block_device::Write_vba::execute(Client_data_interface &client_data
 
 void Virtual_block_device::Write_vba::_generate_ft_alloc_req_for_write_vba(bool &progress)
 {
-	for (Tree_level_index lvl = 0; lvl < TREE_MAX_NR_OF_LEVELS; lvl++)
+	for (Tree_level_index lvl = 0; lvl < MAX_NUM_TREE_LEVELS; lvl++)
 		if (lvl > _attr.in_out_snap.max_level)
 			_t1_nodes.nodes[lvl] = Type_1_node { };
 		else if (lvl == _attr.in_out_snap.max_level)
@@ -707,7 +707,7 @@ void Virtual_block_device::Extend_tree::_add_new_branch_to_snap(Tree_level_index
 void Virtual_block_device::Extend_tree::_set_new_pbas_identical_to_curr_pbas()
 {
 	Snapshot &snap = _attr.in_out_snapshots.items[_snap_idx];
-	for (Tree_level_index lvl { 0 }; lvl < TREE_MAX_NR_OF_LEVELS; lvl++)
+	for (Tree_level_index lvl { 0 }; lvl < MAX_NUM_TREE_LEVELS; lvl++)
 		if (lvl > snap.max_level)
 			_new_pbas.pbas[lvl] = 0;
 		else if (lvl == snap.max_level)
@@ -736,7 +736,7 @@ void Virtual_block_device::Extend_tree::_generate_ft_alloc_req_for_resizing(Tree
 	}
 	_num_blks = 0;
 	_free_gen = _attr.in_curr_gen;
-	for (Tree_level_index lvl = 0; lvl < TREE_MAX_NR_OF_LEVELS; lvl++) {
+	for (Tree_level_index lvl = 0; lvl < MAX_NUM_TREE_LEVELS; lvl++) {
 
 		if (lvl > snap.max_level) {
 			_new_pbas.pbas[lvl] = 0;

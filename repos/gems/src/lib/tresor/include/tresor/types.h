@@ -50,36 +50,30 @@ namespace Tresor {
 	using Passphrase             = String<64>;
 	using Error_string           = String<128>;
 
-	enum { BLOCK_SIZE = 4096 };
-	enum { INVALID_KEY_ID = 0 };
-	enum { INVALID_REQ_TAG = 0xffff'ffff };
-	enum { INVALID_SB_IDX = 0xff };
-	enum { INVALID_GENERATION = 0 };
-	enum { INITIAL_GENERATION = 0 };
-	enum { MAX_PBA = 0xffff'ffff'ffff'ffff };
-	enum { INVALID_PBA = MAX_PBA };
-	enum { INVALID_NODE_INDEX = 0xff };
-	enum { MAX_GENERATION = 0xffff'ffff'ffff'ffff };
-	enum { MAX_SNAP_ID = 0xffff'ffff };
-	enum { HASH_SIZE = 32 };
-	enum { ON_DISK_NODE_SIZE = 64 };
-	enum { NUM_NODES_PER_BLK = (size_t)BLOCK_SIZE / (size_t)ON_DISK_NODE_SIZE };
-	enum { TREE_MAX_DEGREE_LOG_2 = 6 };
-	enum { TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2 };
-	enum { TREE_MIN_DEGREE_LOG_2 = 1 };
-	enum { TREE_MIN_DEGREE = 1 << TREE_MIN_DEGREE_LOG_2 };
-	enum { TREE_MIN_MAX_LEVEL = 1 };
-	enum { TREE_MAX_MAX_LEVEL = 5 };
-	enum { TREE_MAX_NR_OF_LEVELS = TREE_MAX_MAX_LEVEL + 1 };
-	enum { KEY_SIZE = 32 };
-	enum { MAX_NR_OF_SNAPSHOTS = 48 };
-	enum { MAX_SNAP_IDX = MAX_NR_OF_SNAPSHOTS - 1 };
-	enum { INVALID_SNAP_IDX = MAX_NR_OF_SNAPSHOTS };
-	enum { SNAPSHOT_STORAGE_SIZE = 72 };
-	enum { NR_OF_SUPERBLOCK_SLOTS = 8 };
-	enum { MAX_SUPERBLOCK_INDEX = NR_OF_SUPERBLOCK_SLOTS - 1 };
-	enum { TREE_MAX_NR_OF_LEAVES = to_the_power_of<Number_of_blocks>(TREE_MAX_DEGREE, (TREE_MAX_MAX_LEVEL - 1)) };
-	enum { INVALID_VBA = to_the_power_of<Virtual_block_address>(TREE_MAX_DEGREE, TREE_MAX_MAX_LEVEL - 1) };
+	static constexpr size_t BLOCK_SIZE = 4096;
+	static constexpr Generation INVALID_GENERATION = 0;
+	static constexpr Generation INITIAL_GENERATION = 0;
+	static constexpr Physical_block_address MAX_PBA = 0xffff'ffff'ffff'ffff;
+	static constexpr Physical_block_address INVALID_PBA = MAX_PBA;
+	static constexpr Generation MAX_GENERATION = 0xffff'ffff'ffff'ffff;
+	static constexpr Snapshot_id MAX_SNAP_ID = 0xffff'ffff;
+	static constexpr size_t HASH_SIZE = 32;
+	static constexpr size_t ON_DISK_NODE_SIZE = 64;
+	static constexpr Number_of_blocks NUM_NODES_PER_BLK = BLOCK_SIZE / ON_DISK_NODE_SIZE;
+	static constexpr Tree_degree TREE_MAX_DEGREE_LOG_2 = 6;
+	static constexpr Tree_degree TREE_MAX_DEGREE = 1 << TREE_MAX_DEGREE_LOG_2;
+	static constexpr Tree_degree TREE_MIN_DEGREE_LOG_2 = 1;
+	static constexpr Tree_degree TREE_MIN_DEGREE = 1 << TREE_MIN_DEGREE_LOG_2;
+	static constexpr Tree_level_index TREE_MIN_MAX_LEVEL = 1;
+	static constexpr Tree_level_index TREE_MAX_MAX_LEVEL = 5;
+	static constexpr Number_of_blocks MAX_NUM_TREE_LEVELS = TREE_MAX_MAX_LEVEL + 1;
+	static constexpr size_t KEY_SIZE = 32;
+	static constexpr Number_of_blocks MAX_NUM_SNAPSHOTS = 48;
+	static constexpr Snapshot_index MAX_SNAP_IDX = MAX_NUM_SNAPSHOTS - 1;
+	static constexpr Snapshot_index INVALID_SNAP_IDX = MAX_NUM_SNAPSHOTS;
+	static constexpr Number_of_blocks MAX_NUM_SUPERBLOCKS = 8;
+	static constexpr Superblock_index MAX_SUPERBLOCK_INDEX = MAX_NUM_SUPERBLOCKS - 1;
+	static constexpr Number_of_blocks TREE_MAX_NR_OF_LEAVES = to_the_power_of<Number_of_blocks>(TREE_MAX_DEGREE, (TREE_MAX_MAX_LEVEL - 1));
 
 	struct Byte_range;
 	struct Key_value;
@@ -332,8 +326,8 @@ struct Tresor::Byte_range
 	void print(Output &out) const
 	{
 		using Genode::print;
-		enum { MAX_BYTES_PER_LINE = 64 };
-		enum { MAX_BYTES_PER_WORD = 4 };
+		static constexpr size_t MAX_BYTES_PER_LINE = 64;
+		static constexpr size_t MAX_BYTES_PER_WORD = 4;
 		ASSERT(size <= 0xffff);
 		if (size > MAX_BYTES_PER_LINE) {
 			for (size_t idx { 0 }; idx < size; idx++) {
@@ -551,7 +545,7 @@ template <> inline void Tresor::Block_generator::append<Tresor::Key_value>(Key_v
 struct Tresor::Key
 {
 	Key_value value { };
-	Key_id    id    { INVALID_KEY_ID };
+	Key_id    id    { };
 
 	void decode_from_blk(Block_scanner &scanner)
 	{
@@ -711,7 +705,7 @@ struct Tresor::Superblock_configuration
 		 *  Number_of_blocks const mt_num_blocks =
 		 *    Tree_configuration(MT_MAX_LVL, MT_DEGREE, mt_num_leaves).total_num_blocks;
 		 */
-		return NR_OF_SUPERBLOCK_SLOTS + vbd.num_required_phys_blocks() +
+		return MAX_NUM_SUPERBLOCKS + vbd.num_required_phys_blocks() +
 		       2 * free_tree.num_required_phys_blocks();
 	}
 
@@ -744,7 +738,7 @@ struct Tresor::Type_1_node_block
 
 struct Tresor::Type_1_node_block_walk
 {
-	Type_1_node_block items[TREE_MAX_NR_OF_LEVELS + 1] { };
+	Type_1_node_block items[MAX_NUM_TREE_LEVELS + 1] { };
 
 	Type_1_node &node(Virtual_block_address vba, Tree_level_index lvl, Tree_degree degr)
 	{
@@ -882,12 +876,12 @@ struct Tresor::Snapshot
 
 struct Tresor::Snapshots
 {
-	Snapshot items[MAX_NR_OF_SNAPSHOTS];
+	Snapshot items[MAX_NUM_SNAPSHOTS];
 
 	void print(Output &out) const
 	{
 		bool first { true };
-		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+		for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx++) {
 
 			if (!items[idx].valid)
 				continue;
@@ -912,7 +906,7 @@ struct Tresor::Snapshots
 	Snapshot_index newest_snap_idx() const
 	{
 		Snapshot_index result { INVALID_SNAP_IDX };
-		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx ++) {
+		for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx ++) {
 			if (!items[idx].valid)
 				continue;
 
@@ -932,7 +926,7 @@ struct Tresor::Snapshots
 	Snapshot_index alloc_idx(Generation curr_gen, Generation last_secured_gen) const
 	{
 		Snapshot_index result { INVALID_SNAP_IDX };
-		for (Snapshot_index idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx ++) {
+		for (Snapshot_index idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx ++) {
 
 			Snapshot const &snap { items[idx] };
 			if (!snap.valid)
@@ -959,8 +953,7 @@ struct Tresor::Superblock
 {
 	using On_disc_state = uint8_t;
 
-	enum State {
-		INVALID, NORMAL, REKEYING, EXTENDING_VBD, EXTENDING_FT };
+	enum State { INVALID, NORMAL, REKEYING, EXTENDING_VBD, EXTENDING_FT };
 
 	State                  state                   { INVALID };         /* offset 0 */
 	Virtual_block_address  rekeying_vba            { 0 };               /* offset 1 */
@@ -1147,12 +1140,12 @@ struct Tresor::Superblock
 
 struct Tresor::Type_1_node_walk
 {
-	Type_1_node nodes[TREE_MAX_NR_OF_LEVELS + 1] { };
+	Type_1_node nodes[MAX_NUM_TREE_LEVELS + 1] { };
 
 	void print(Output &out) const
 	{
 		bool first { true };
-		for (unsigned idx { 0 }; idx <= TREE_MAX_NR_OF_LEVELS + 1; idx++) {
+		for (unsigned idx { 0 }; idx <= MAX_NUM_TREE_LEVELS + 1; idx++) {
 
 			if (!nodes[idx].valid())
 				continue;
@@ -1166,12 +1159,12 @@ struct Tresor::Type_1_node_walk
 
 struct Tresor::Tree_walk_pbas
 {
-	Physical_block_address pbas[TREE_MAX_NR_OF_LEVELS + 1] { 0 };
+	Physical_block_address pbas[MAX_NUM_TREE_LEVELS + 1] { 0 };
 
 	void print(Output &out) const
 	{
 		bool first { true };
-		for (unsigned idx { 0 }; idx < TREE_MAX_NR_OF_LEVELS + 1; idx++) {
+		for (unsigned idx { 0 }; idx < MAX_NUM_TREE_LEVELS + 1; idx++) {
 
 			if (!pbas[idx])
 				continue;
@@ -1185,13 +1178,13 @@ struct Tresor::Tree_walk_pbas
 
 struct Tresor::Tree_walk_generations
 {
-	Generation items[TREE_MAX_NR_OF_LEVELS + 1] { };
+	Generation items[MAX_NUM_TREE_LEVELS + 1] { };
 };
 
 
 struct Tresor::Snapshots_info
 {
-	Generation generations[MAX_NR_OF_SNAPSHOTS] { };
+	Generation generations[MAX_NUM_SNAPSHOTS] { };
 
 	Snapshots_info()
 	{
@@ -1202,7 +1195,7 @@ struct Tresor::Snapshots_info
 	void print(Output &out) const
 	{
 		bool first { true };
-		for (unsigned idx { 0 }; idx < MAX_NR_OF_SNAPSHOTS; idx++) {
+		for (unsigned idx { 0 }; idx < MAX_NUM_SNAPSHOTS; idx++) {
 
 			if (!generations[idx])
 				continue;
@@ -1264,7 +1257,7 @@ class Tresor::Pba_allocation {
 		void print(Output &out) const
 		{
 			bool first { true };
-			for (unsigned lvl { 0 }; lvl < TREE_MAX_NR_OF_LEVELS + 1; lvl++) {
+			for (unsigned lvl { 0 }; lvl < MAX_NUM_TREE_LEVELS + 1; lvl++) {
 
 				if (_t1_node_walk.nodes[lvl].pba == _new_pbas.pbas[lvl])
 					continue;
