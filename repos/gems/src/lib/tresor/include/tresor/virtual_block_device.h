@@ -123,7 +123,7 @@ class Tresor::Virtual_block_device::Read_vba : Noncopyable
 			Virtual_block_address const in_vba;
 			Key_id const in_key_id;
 			Tree_degree const in_vbd_degree;
-			Request_offset const in_client_req_offset;
+			Number_of_disk_bytes const in_client_req_offset;
 			Request_tag const in_client_req_tag;
 		};
 
@@ -176,7 +176,7 @@ class Tresor::Virtual_block_device::Write_vba : Noncopyable
 			Key_id const in_prev_key_id;
 			Tree_degree const in_vbd_degree;
 			Virtual_block_address const in_vbd_highest_vba;
-			Request_offset const in_client_req_offset;
+			Number_of_disk_bytes const in_client_req_offset;
 			Request_tag const in_client_req_tag;
 			Generation const in_curr_gen;
 			Generation const in_last_secured_gen;

@@ -93,7 +93,7 @@ class Tresor::Superblock_control : Noncopyable
 				{
 					Virtual_block_address const in_first_vba;
 					Number_of_blocks const in_num_vbas;
-					Request_offset const in_client_req_offset;
+					Number_of_disk_bytes const in_client_req_offset;
 					Request_tag const in_client_req_tag;
 				};
 
@@ -309,7 +309,7 @@ class Tresor::Superblock_control : Noncopyable
 				{
 					Virtual_block_address const in_first_vba;
 					Number_of_blocks const in_num_vbas;
-					Request_offset const in_client_req_offset;
+					Number_of_disk_bytes const in_client_req_offset;
 					Request_tag const in_client_req_tag;
 				};
 

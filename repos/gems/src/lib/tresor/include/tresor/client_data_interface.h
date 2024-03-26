@@ -23,7 +23,7 @@ struct Tresor::Client_data_interface : Interface
 {
 	struct Obtain_data_attr
 	{
-		Request_offset const in_req_off;
+		Number_of_disk_bytes const in_req_off;
 		Request_tag const in_req_tag;
 		Physical_block_address const in_pba;
 		Virtual_block_address const in_vba;
@@ -34,7 +34,7 @@ struct Tresor::Client_data_interface : Interface
 
 	struct Supply_data_attr
 	{
-		Request_offset const in_req_off;
+		Number_of_disk_bytes const in_req_off;
 		Request_tag const in_req_tag;
 		Physical_block_address const in_pba;
 		Virtual_block_address const in_vba;

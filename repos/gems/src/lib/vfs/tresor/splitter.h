@@ -32,7 +32,7 @@ struct Tresor::Splitter : Noncopyable
 
 				struct Attr
 				{
-					Request_offset const in_virt_off;
+					Number_of_disk_bytes const in_virt_off;
 					Generation const in_gen;
 					char *const in_buf_start;
 					size_t const in_buf_num_bytes;
@@ -174,7 +174,7 @@ struct Tresor::Splitter : Noncopyable
 
 				struct Attr
 				{
-					Request_offset const in_virt_off;
+					Number_of_disk_bytes const in_virt_off;
 					Generation const in_gen;
 					char const *const in_buf_start;
 					size_t const in_buf_num_bytes;
