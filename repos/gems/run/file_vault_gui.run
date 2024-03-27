@@ -11,7 +11,7 @@ proc jent_avail_attr { } {
 	return "no"
 }
 
-build { app/xile_vault }
+build { app/file_vault_gui }
 
 create_boot_directory
 
@@ -105,7 +105,7 @@ append config {
 				<domain name="second" layer="2" xpos="200" ypos="300" content="client" label="no" hover="always" />
 
 				<policy label_prefix="pointer" domain="pointer"/>
-				<policy label_prefix="xile_vault" domain="second"/>
+				<policy label_prefix="file_vault_gui" domain="second"/>
 				<default-policy domain="default"/>
 			</config>
 			<route>
@@ -154,7 +154,7 @@ append config {
 					</dir>
 				</vfs>
 
-				<policy label="xile_vault -> fonts" root="/fonts" />
+				<policy label="file_vault_gui -> fonts" root="/fonts" />
 			</config>
 			<route>
 				<service name="ROM" label="config"> <parent label="fonts_fs.config"/> </service>
@@ -176,8 +176,8 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="xile_vault -> data"
-				        root="/xile_vault_dir/data"
+				<policy label="file_vault_gui -> data"
+				        root="/file_vault_gui_dir/data"
 				        writeable="yes"/>
 			</config>
 			<route>
@@ -196,8 +196,8 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="xile_vault -> trust_anchor"
-				        root="/xile_vault_dir/trust_anchor"
+				<policy label="file_vault_gui -> trust_anchor"
+				        root="/file_vault_gui_dir/trust_anchor"
 				        writeable="yes"/>
 			</config>
 			<route>
@@ -224,7 +224,7 @@ if {[have_board linux]} {
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="xile_vault -> data" root="/data" writeable="yes"/>
+				<policy label="file_vault_gui -> data" root="/data" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -244,7 +244,7 @@ if {[have_board linux]} {
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="xile_vault -> trust_anchor" root="/trust_anchor" writeable="yes"/>
+				<policy label="file_vault_gui -> trust_anchor" root="/trust_anchor" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -257,7 +257,7 @@ if {[have_board linux]} {
 }
 append config {
 
-		<start name="xile_vault" caps="2000">
+		<start name="file_vault_gui" caps="2000">
 			<resource name="RAM" quantum="200M"/>
 			<config jitterentropy_available="} [jent_avail_attr] {">
 				<vfs>
@@ -267,15 +267,15 @@ append config {
 				</vfs>
 			</config>
 			<route>
-				<service name="File_system" label="fonts">                  <child name="fonts_fs"        label="xile_vault -> fonts"/> </service>
+				<service name="File_system" label="fonts">                  <child name="fonts_fs"        label="file_vault_gui -> fonts"/> </service>
 				<service name="Gui">                                                     <child name="nitpicker"/> </service>
-				<service name="File_system" label="tresor_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="xile_vault -> trust_anchor"/> </service>
-				<service name="File_system" label="tresor_init -> ">                        <child name="data_fs"         label="xile_vault -> data"/> </service>
-				<service name="File_system" label="tresor">                                 <child name="data_fs"         label="xile_vault -> data"/> </service>
-				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="xile_vault -> data"/> </service>
-				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="xile_vault -> data"/> </service>
-				<service name="File_system" label="tresor_vfs -> tresor_fs">                   <child name="data_fs"         label="xile_vault -> data"/> </service>
-				<service name="File_system" label="truncate_file -> tresor">                <child name="data_fs"         label="xile_vault -> data"/> </service>
+				<service name="File_system" label="tresor_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="file_vault_gui -> trust_anchor"/> </service>
+				<service name="File_system" label="tresor_init -> ">                        <child name="data_fs"         label="file_vault_gui -> data"/> </service>
+				<service name="File_system" label="tresor">                                 <child name="data_fs"         label="file_vault_gui -> data"/> </service>
+				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="file_vault_gui -> data"/> </service>
+				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="file_vault_gui -> data"/> </service>
+				<service name="File_system" label="tresor_vfs -> tresor_fs">                   <child name="data_fs"         label="file_vault_gui -> data"/> </service>
+				<service name="File_system" label="truncate_file -> tresor">                <child name="data_fs"         label="file_vault_gui -> data"/> </service>
 				<service name="Timer">                                                   <child name="timer"/> </service>
 				<service name="PD">                                                      <parent/> </service>
 				<service name="ROM">                                                     <parent/> </service>
@@ -291,16 +291,16 @@ append config {
 install_config $config
 
 if {[have_board linux]} {
-	exec mkdir -p bin/xile_vault_dir/data
-	exec mkdir -p bin/xile_vault_dir/trust_anchor
+	exec mkdir -p bin/file_vault_gui_dir/data
+	exec mkdir -p bin/file_vault_gui_dir/trust_anchor
 }
 
 append boot_modules [build_artifacts]
 
-lappend_if [have_board linux] boot_modules xile_vault_dir
+lappend_if [have_board linux] boot_modules file_vault_gui_dir
 
 set fd [open [run_dir]/genode/focus w]
-puts $fd "<focus label=\"xile_vault -> \"/>"
+puts $fd "<focus label=\"file_vault_gui -> \"/>"
 close $fd
 
 append qemu_args " -display gtk "
