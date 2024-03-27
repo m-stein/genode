@@ -75,19 +75,63 @@ namespace Dialog
 
 		void view(Scope<Button> &s, bool on, Text const &on_text, Text const &off_text, unsigned min_ex = 0) const
 		{
-			view(s, false, [&] (Scope<Button> &s) {
-				s.sub_scope<Centered_text>(on ? on_text : off_text, min_ex);
+			view(s, false, [&] (auto &s) {
+				s.template sub_scope<Centered_text>(on ? on_text : off_text, min_ex);
 			});
 		}
 
 		template <typename FN>
 		void click(Clicked_at const &, FN const &toggle_fn) const { toggle_fn(); }
 	};
+
+	struct One_line_prompt : Widget<Button>
+	{
+		using Action = Text_area_widget::Action;
+
+		Hosted<Button, Float, Vbox, Text_area_widget> text_area;
+
+		One_line_prompt(Allocator &alloc) : text_area(Id { "text_area" }, alloc)
+		{
+			text_area.max_lines(1);
+			text_area.editable(true);
+			text_area.clear();
+			text_area.append_newline();
+		}
+
+		void view(Scope<Button> &s, bool selected, unsigned min_ex = 0) const
+		{
+			if (s.hovered()) {
+				s.attribute("hovered", "yes");
+			}
+			if (selected)
+				s.attribute("selected", "yes");
+
+			s.template sub_scope<Float>([&] (auto &s) {
+				s.attribute("west",  "yes");
+				s.template sub_scope<Vbox>([&] (auto &s) {
+					s.template sub_scope<Min_ex>(min_ex);
+					s.widget(text_area);
+				});
+			});
+		}
+
+		void click(Clicked_at const &at, auto const &fn)
+		{
+			text_area.propagate(at);
+			fn();
+		}
+
+		void clack(Clacked_at const &at, Action &action) { text_area.propagate(at, action); }
+
+		void drag (Dragged_at const &at) { text_area.propagate(at); }
+
+		void handle_event(Dialog::Event const &event, Action &action) { text_area.handle_event(event, action); }
+	};
 }
 
 namespace File_vault_gui { class Main; }
 
-struct File_vault_gui::Main : Text_area_widget::Action
+struct File_vault_gui::Main : One_line_prompt::Action
 {
 	struct Main_dialog : Top_level_dialog
 	{
@@ -97,32 +141,17 @@ struct File_vault_gui::Main : Text_area_widget::Action
 		enum Prompt { PASSPHRASE, CAPACITY, JOURNALING_BUFFER };
 
 		Allocator &alloc;
-		Text_area_widget::Action &prompt_action;
+		One_line_prompt::Action &prompt_action;
 		bool show_passphrase = false;
 		Prompt selected_prompt = PASSPHRASE;
-		Hosted<Frame, Vbox, Hbox, Button, Float, Vbox, Text_area_widget> passphrase_prompt { Id { "passphrase" }, alloc };
+		Hosted<Frame, Vbox, Hbox, One_line_prompt> passphrase_prompt { Id { "passphrase" }, alloc };
 		Hosted<Frame, Vbox, Hbox, Switch_button> show_passphrase_button { Id { "show_passphrase" } };
-		Hosted<Frame, Vbox, Button, Float, Vbox, Text_area_widget> capacity_prompt { Id { "capacity" }, alloc };
-		Hosted<Frame, Vbox, Button, Float, Vbox, Text_area_widget> journaling_buffer_prompt { Id { "journaling_buffer" }, alloc };
+		Hosted<Frame, Vbox, One_line_prompt> capacity_prompt { Id { "capacity" }, alloc };
+		Hosted<Frame, Vbox, One_line_prompt> journaling_buffer_prompt { Id { "journaling_buffer" }, alloc };
 		Hosted<Frame, Vbox, Action_button> start_button { Id { "Start" } };
 
 		Main_dialog(Name const &name, Allocator &alloc, Text_area_widget::Action &prompt_action)
-		:
-			Top_level_dialog(name), alloc(alloc), prompt_action(prompt_action)
-		{
-			passphrase_prompt.max_lines(1);
-			passphrase_prompt.editable(true);
-			passphrase_prompt.clear();
-			passphrase_prompt.append_newline();
-			capacity_prompt.max_lines(1);
-			capacity_prompt.editable(true);
-			capacity_prompt.clear();
-			capacity_prompt.append_newline();
-			journaling_buffer_prompt.max_lines(1);
-			journaling_buffer_prompt.editable(true);
-			journaling_buffer_prompt.clear();
-			journaling_buffer_prompt.append_newline();
-		}
+		: Top_level_dialog(name), alloc(alloc), prompt_action(prompt_action) { }
 
 		void view(Scope<> &s) const override
 		{
@@ -130,62 +159,16 @@ struct File_vault_gui::Main : Text_area_widget::Action
 				s.template sub_scope<Vbox>([&] (auto &s) {
 					s.template sub_scope<Left_aligned_text>(" Passphrase:");
 					s.template sub_scope<Hbox>([&] (auto &s) {
-
-						s.template sub_scope<Button>([&] (auto &s) {
-
-							if (s.hovered())
-								s.attribute("hovered", "yes");
-
-							if (selected_prompt == PASSPHRASE)
-								s.attribute("selected", "yes");
-
-							s.template sub_scope<Float>([&] (auto &s) {
-								s.attribute("west",  "yes");
-								s.template sub_scope<Vbox>([&] (auto &s) {
-									s.template sub_scope<Min_ex>(PASSPHRASE_PROMPT_MIN_EX);
-									s.widget(passphrase_prompt);
-								});
-							});
-						});
+						s.widget(passphrase_prompt, selected_prompt == PASSPHRASE, PASSPHRASE_PROMPT_MIN_EX);
 						s.template sub_scope<Small_vgap>();
 						s.widget(show_passphrase_button, show_passphrase, "Hide", "Show", PASSPHRASE_BUTTON_MIN_EX);
 					});
 					s.template sub_scope<Left_aligned_text>("");
 					s.template sub_scope<Left_aligned_text>(" Capacity:");
-					s.template sub_scope<Button>([&] (auto &s) {
-
-						if (s.hovered())
-							s.attribute("hovered", "yes");
-
-						if (selected_prompt == CAPACITY)
-							s.attribute("selected", "yes");
-
-						s.template sub_scope<Float>([&] (auto &s) {
-							s.attribute("west",  "yes");
-							s.template sub_scope<Vbox>([&] (auto &s) {
-								s.template sub_scope<Min_ex>(PROMPT_MIN_EX);
-								s.widget(capacity_prompt);
-							});
-						});
-					});
+					s.widget(capacity_prompt, selected_prompt == CAPACITY, PROMPT_MIN_EX);
 					s.template sub_scope<Left_aligned_text>("");
 					s.template sub_scope<Left_aligned_text>(" Journaling buffer:");
-					s.template sub_scope<Button>([&] (auto &s) {
-
-						if (s.hovered())
-							s.attribute("hovered", "yes");
-
-						if (selected_prompt == JOURNALING_BUFFER)
-							s.attribute("selected", "yes");
-
-						s.template sub_scope<Float>([&] (auto &s) {
-							s.attribute("west",  "yes");
-							s.template sub_scope<Vbox>([&] (auto &s) {
-								s.template sub_scope<Min_ex>(PROMPT_MIN_EX);
-								s.widget(journaling_buffer_prompt);
-							});
-						});
-					});
+					s.widget(journaling_buffer_prompt, selected_prompt == JOURNALING_BUFFER, PROMPT_MIN_EX);
 					s.template sub_scope<Left_aligned_text>("");
 					s.template sub_scope<Left_aligned_text>(" Image size: 128M");
 					s.template sub_scope<Left_aligned_text>("");
@@ -196,10 +179,10 @@ struct File_vault_gui::Main : Text_area_widget::Action
 
 		void click(Clicked_at const &at) override
 		{
-			passphrase_prompt.propagate(at);
+			passphrase_prompt.propagate(at, [&] { selected_prompt = PASSPHRASE; });
 			show_passphrase_button.propagate(at, [&] { show_passphrase = !show_passphrase; });
-			capacity_prompt.propagate(at);
-			journaling_buffer_prompt.propagate(at);
+			capacity_prompt.propagate(at, [&] { selected_prompt = CAPACITY; });
+			journaling_buffer_prompt.propagate(at, [&] { selected_prompt = JOURNALING_BUFFER; });
 		}
 
 		void clack(Clacked_at const &at) override
