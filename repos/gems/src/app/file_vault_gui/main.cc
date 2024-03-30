@@ -133,7 +133,7 @@ namespace File_vault_gui { class Main; }
 
 struct File_vault_gui::Main : One_line_prompt::Action
 {
-	struct Main_dialog : Top_level_dialog
+	struct Setup_dialog : Top_level_dialog
 	{
 		enum { PASSPHRASE_PROMPT_MIN_EX = 20 };
 		enum { PASSPHRASE_BUTTON_MIN_EX = 10 };
@@ -149,8 +149,7 @@ struct File_vault_gui::Main : One_line_prompt::Action
 		Hosted<Frame, Vbox, One_line_prompt> journaling_buffer_prompt { Id { "journaling_buffer" }, main.heap };
 		Hosted<Frame, Vbox, Action_button> start_button { Id { "Start" } };
 
-		Main_dialog(Name const &name, Main &main)
-		: Top_level_dialog(name), main(main) { }
+		Setup_dialog(Name const &name, Main &main) : Top_level_dialog(name), main(main) { }
 
 		void view(Scope<> &s) const override
 		{
@@ -232,13 +231,13 @@ struct File_vault_gui::Main : One_line_prompt::Action
 	Env &env;
 	Heap heap { env.ram(), env.rm() };
 	Runtime runtime { env, heap };
-	Main_dialog main_dialog { "main", *this };
-	Runtime::View main_view { runtime, main_dialog };
+	Setup_dialog setup_dialog { "setup", *this };
+	Runtime::View main_view { runtime, setup_dialog };
 	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::_handle_event };
 
 	void _handle_event(Dialog::Event const &event)
 	{
-		main_dialog.handle_event(event);
+		setup_dialog.handle_event(event);
 	}
 
 	Main(Env &env) : env(env) { }
