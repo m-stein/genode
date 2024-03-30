@@ -140,18 +140,17 @@ struct File_vault_gui::Main : One_line_prompt::Action
 		enum { PROMPT_MIN_EX = 20 };
 		enum Prompt { PASSPHRASE, CAPACITY, JOURNALING_BUFFER };
 
-		Allocator &alloc;
-		One_line_prompt::Action &prompt_action;
+		Main &main;
 		bool show_passphrase = false;
 		Prompt selected_prompt = PASSPHRASE;
-		Hosted<Frame, Vbox, Hbox, One_line_prompt> passphrase_prompt { Id { "passphrase" }, alloc };
+		Hosted<Frame, Vbox, Hbox, One_line_prompt> passphrase_prompt { Id { "passphrase" }, main.heap };
 		Hosted<Frame, Vbox, Hbox, Switch_button> show_passphrase_button { Id { "show_passphrase" } };
-		Hosted<Frame, Vbox, One_line_prompt> capacity_prompt { Id { "capacity" }, alloc };
-		Hosted<Frame, Vbox, One_line_prompt> journaling_buffer_prompt { Id { "journaling_buffer" }, alloc };
+		Hosted<Frame, Vbox, One_line_prompt> capacity_prompt { Id { "capacity" }, main.heap };
+		Hosted<Frame, Vbox, One_line_prompt> journaling_buffer_prompt { Id { "journaling_buffer" }, main.heap };
 		Hosted<Frame, Vbox, Action_button> start_button { Id { "Start" } };
 
-		Main_dialog(Name const &name, Allocator &alloc, Text_area_widget::Action &prompt_action)
-		: Top_level_dialog(name), alloc(alloc), prompt_action(prompt_action) { }
+		Main_dialog(Name const &name, Main &main)
+		: Top_level_dialog(name), main(main) { }
 
 		void view(Scope<> &s) const override
 		{
@@ -187,9 +186,9 @@ struct File_vault_gui::Main : One_line_prompt::Action
 
 		void clack(Clacked_at const &at) override
 		{
-			passphrase_prompt.propagate(at, prompt_action);
-			capacity_prompt.propagate(at, prompt_action);
-			journaling_buffer_prompt.propagate(at, prompt_action);
+			passphrase_prompt.propagate(at, main);
+			capacity_prompt.propagate(at, main);
+			journaling_buffer_prompt.propagate(at, main);
 		}
 
 		void drag (Dragged_at const &at) override
@@ -206,15 +205,15 @@ struct File_vault_gui::Main : One_line_prompt::Action
 			case CAPACITY: selected_prompt = JOURNALING_BUFFER; break;
 			case JOURNALING_BUFFER: selected_prompt = PASSPHRASE; break;
 			}
-			prompt_action.refresh_text_area();
+			main.refresh_text_area();
 		}
 
 		void forward_to_selected_prompt(Dialog::Event const &event)
 		{
 			switch (selected_prompt) {
-			case PASSPHRASE: passphrase_prompt.handle_event(event, prompt_action); break;
-			case CAPACITY: capacity_prompt.handle_event(event, prompt_action); break;
-			case JOURNALING_BUFFER: journaling_buffer_prompt.handle_event(event, prompt_action); break;
+			case PASSPHRASE: passphrase_prompt.handle_event(event, main); break;
+			case CAPACITY: capacity_prompt.handle_event(event, main); break;
+			case JOURNALING_BUFFER: journaling_buffer_prompt.handle_event(event, main); break;
 			}
 		}
 
@@ -233,7 +232,7 @@ struct File_vault_gui::Main : One_line_prompt::Action
 	Env &env;
 	Heap heap { env.ram(), env.rm() };
 	Runtime runtime { env, heap };
-	Main_dialog main_dialog { "main", heap, *this };
+	Main_dialog main_dialog { "main", *this };
 	Runtime::View main_view { runtime, main_dialog };
 	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::_handle_event };
 
