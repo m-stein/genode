@@ -12,6 +12,7 @@
  */
 
 #include <base/component.h>
+#include <os/reporter.h>
 #include <dialog/runtime.h>
 #include <dialog/widgets.h>
 #include <dialog/text_area_widget.h>
@@ -87,6 +88,7 @@ namespace Dialog
 	struct One_line_prompt : Widget<Button>
 	{
 		using Action = Text_area_widget::Action;
+		using Content_string = String<64>;
 
 		Hosted<Button, Float, Vbox, Text_area_widget> text_area;
 
@@ -126,6 +128,18 @@ namespace Dialog
 		void drag (Dragged_at const &at) { text_area.propagate(at); }
 
 		void handle_event(Dialog::Event const &event, Action &action) { text_area.handle_event(event, action); }
+
+		template <typename FN>
+		void with_content(FN && fn)
+		{
+			Constructible<Content_string> content;
+			auto write = [&] (char const *str) { content.construct(str); };
+			{
+				Buffered_output<Content_string::size(), decltype(write)> out(write);
+				text_area.for_each_character([&] (Codepoint c) { print(out, c); });
+			}
+			fn(*content);
+		}
 	};
 }
 
@@ -146,7 +160,7 @@ struct File_vault_gui::Main : One_line_prompt::Action
 		Hosted<Frame, Vbox, Hbox, One_line_prompt> passphrase_prompt { Id { "passphrase" }, main.heap };
 		Hosted<Frame, Vbox, Hbox, Switch_button> show_passphrase_button { Id { "show_passphrase" } };
 		Hosted<Frame, Vbox, One_line_prompt> capacity_prompt { Id { "capacity" }, main.heap };
-		Hosted<Frame, Vbox, One_line_prompt> journaling_buffer_prompt { Id { "journaling_buffer" }, main.heap };
+		Hosted<Frame, Vbox, One_line_prompt> journal_buf_prompt { Id { "journal_buf" }, main.heap };
 		Hosted<Frame, Vbox, Action_button> start_button { Id { "Start" } };
 
 		Setup_dialog(Name const &name, Main &main) : Top_level_dialog(name), main(main) { }
@@ -166,7 +180,7 @@ struct File_vault_gui::Main : One_line_prompt::Action
 					s.widget(capacity_prompt, selected_prompt == CAPACITY, PROMPT_MIN_EX);
 					s.template sub_scope<Left_aligned_text>("");
 					s.template sub_scope<Left_aligned_text>(" Journaling buffer:");
-					s.widget(journaling_buffer_prompt, selected_prompt == JOURNALING_BUFFER, PROMPT_MIN_EX);
+					s.widget(journal_buf_prompt, selected_prompt == JOURNALING_BUFFER, PROMPT_MIN_EX);
 					s.template sub_scope<Left_aligned_text>("");
 					s.template sub_scope<Left_aligned_text>(" Image size: 128M");
 					s.template sub_scope<Left_aligned_text>("");
@@ -180,21 +194,21 @@ struct File_vault_gui::Main : One_line_prompt::Action
 			passphrase_prompt.propagate(at, [&] { selected_prompt = PASSPHRASE; });
 			show_passphrase_button.propagate(at, [&] { show_passphrase = !show_passphrase; });
 			capacity_prompt.propagate(at, [&] { selected_prompt = CAPACITY; });
-			journaling_buffer_prompt.propagate(at, [&] { selected_prompt = JOURNALING_BUFFER; });
+			journal_buf_prompt.propagate(at, [&] { selected_prompt = JOURNALING_BUFFER; });
 		}
 
 		void clack(Clacked_at const &at) override
 		{
 			passphrase_prompt.propagate(at, main);
 			capacity_prompt.propagate(at, main);
-			journaling_buffer_prompt.propagate(at, main);
+			journal_buf_prompt.propagate(at, main);
 		}
 
 		void drag (Dragged_at const &at) override
 		{
 			passphrase_prompt.propagate(at);
 			capacity_prompt.propagate(at);
-			journaling_buffer_prompt.propagate(at);
+			journal_buf_prompt.propagate(at);
 		}
 
 		void select_next_prompt()
@@ -212,7 +226,7 @@ struct File_vault_gui::Main : One_line_prompt::Action
 			switch (selected_prompt) {
 			case PASSPHRASE: passphrase_prompt.handle_event(event, main); break;
 			case CAPACITY: capacity_prompt.handle_event(event, main); break;
-			case JOURNALING_BUFFER: journaling_buffer_prompt.handle_event(event, main); break;
+			case JOURNALING_BUFFER: journal_buf_prompt.handle_event(event, main); break;
 			}
 		}
 
@@ -220,7 +234,7 @@ struct File_vault_gui::Main : One_line_prompt::Action
 		{
 			event.event.handle_press([&] (Input::Keycode key, Codepoint) {
 				switch (key) {
-				case Input::KEY_ENTER: break;
+				case Input::KEY_ENTER: main.apply_setup(); break;
 				case Input::KEY_TAB: select_next_prompt(); break;
 				default: forward_to_selected_prompt(event); break;
 				}
@@ -228,16 +242,36 @@ struct File_vault_gui::Main : One_line_prompt::Action
 		}
 	};
 
+	struct Config_version { uint64_t value { 0 }; };
+
 	Env &env;
 	Heap heap { env.ram(), env.rm() };
 	Runtime runtime { env, heap };
+	Config_version ui_config_version { };
 	Setup_dialog setup_dialog { "setup", *this };
 	Runtime::View main_view { runtime, setup_dialog };
-	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::_handle_event };
+	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::handle_event };
+	Expanding_reporter ui_config_reporter { env, "ui_config", "ui_config" };
 
-	void _handle_event(Dialog::Event const &event)
+	void handle_event(Dialog::Event const &event)
 	{
 		setup_dialog.handle_event(event);
+	}
+
+	void apply_setup()
+	{
+		ui_config_reporter.generate([&] (Xml_generator &xml) {
+			xml.attribute("version", ui_config_version.value++);
+			setup_dialog.passphrase_prompt.with_content([&] (auto const &str) {
+				xml.attribute("passphrase", str);
+			});
+			setup_dialog.capacity_prompt.with_content([&] (auto const &str) {
+				xml.attribute("client_fs_size", str);
+			});
+			setup_dialog.journal_buf_prompt.with_content([&] (auto const &str) {
+				xml.attribute("journaling_buf_size", str);
+			});
+		});
 	}
 
 	Main(Env &env) : env(env) { }
