@@ -19,10 +19,12 @@ append archives "
 	[depot_user]/src/[base_src]
 	[depot_user]/src/init
 	[depot_user]/src/libc
+	[depot_user]/src/file_vault
 	[depot_user]/src/zlib
 	[depot_user]/src/fs_query
 	[depot_user]/src/tresor
 	[depot_user]/src/vfs_block
+	[depot_user]/src/report_rom
 	[depot_user]/src/vfs
 	[depot_user]/src/openssl
 	[depot_user]/src/fs_tool
@@ -176,7 +178,7 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="file_vault_gui -> data"
+				<policy label="file_vault -> data"
 				        root="/file_vault_gui_dir/data"
 				        writeable="yes"/>
 			</config>
@@ -196,7 +198,7 @@ if {[have_board linux]} {
 				<service name="File_system"/>
 			</provides>
 			<config>
-				<policy label="file_vault_gui -> trust_anchor"
+				<policy label="file_vault -> trust_anchor"
 				        root="/file_vault_gui_dir/trust_anchor"
 				        writeable="yes"/>
 			</config>
@@ -224,7 +226,7 @@ if {[have_board linux]} {
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="file_vault_gui -> data" root="/data" writeable="yes"/>
+				<policy label="file_vault -> data" root="/data" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -244,7 +246,7 @@ if {[have_board linux]} {
 						<ram/>
 					</dir>
 				</vfs>
-				<policy label="file_vault_gui -> trust_anchor" root="/trust_anchor" writeable="yes"/>
+				<policy label="file_vault -> trust_anchor" root="/trust_anchor" writeable="yes"/>
 			</config>
 			<route>
 				<service name="PD">  <parent/> </service>
@@ -257,8 +259,51 @@ if {[have_board linux]} {
 }
 append config {
 
-		<start name="file_vault_gui" caps="2000">
+		<start name="report_rom" caps="100">
+			<resource name="RAM" quantum="1M"/>
+			<provides> <service name="Report"/> <service name="ROM"/> </provides>
+			<config verbose="yes">
+				<policy label="file_vault_gui -> ui_report" report="file_vault -> ui_report"/>
+				<policy label="file_vault -> ui_config" report="file_vault_gui -> ui_config"/>
+			</config>
+			<route>
+				<service name="PD">  <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+			</route>
+		</start>
+
+		<start name="file_vault" caps="2000">
 			<resource name="RAM" quantum="200M"/>
+			<config user_interface="config_and_report" jitterentropy_available="} [jent_avail_attr] {">
+				<vfs>
+					<dir name="tresor">
+						<fs label="tresor"/>
+					</dir>
+				</vfs>
+			</config>
+			<route>
+				<service name="ROM"         label="ui_config">                           <child name="report_rom"/> </service>
+				<service name="Report"      label="ui_report">                           <child name="report_rom"/> </service>
+				<service name="File_system" label="tresor_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="file_vault -> trust_anchor"/> </service>
+				<service name="File_system" label="tresor_init -> ">                        <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="tresor">                                 <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="tresor_vfs -> tresor_fs">                   <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="File_system" label="truncate_file -> tresor">                <child name="data_fs"         label="file_vault -> data"/> </service>
+				<service name="Timer">                                                   <child name="timer"/> </service>
+				<service name="PD">                                                      <parent/> </service>
+				<service name="ROM">                                                     <parent/> </service>
+				<service name="CPU">                                                     <parent/> </service>
+				<service name="LOG">                                                     <parent/> </service>
+				<service name="RM">                                                      <parent/> </service>
+			</route>
+		</start>
+
+		<start name="file_vault_gui" caps="400">
+			<resource name="RAM" quantum="8M"/>
 			<config jitterentropy_available="} [jent_avail_attr] {">
 				<vfs>
 					<dir name="tresor">
@@ -267,21 +312,16 @@ append config {
 				</vfs>
 			</config>
 			<route>
-				<service name="File_system" label="fonts">                  <child name="fonts_fs"        label="file_vault_gui -> fonts"/> </service>
-				<service name="Gui">                                                     <child name="nitpicker"/> </service>
-				<service name="File_system" label="tresor_trust_anchor_vfs -> storage_dir"> <child name="trust_anchor_fs" label="file_vault_gui -> trust_anchor"/> </service>
-				<service name="File_system" label="tresor_init -> ">                        <child name="data_fs"         label="file_vault_gui -> data"/> </service>
-				<service name="File_system" label="tresor">                                 <child name="data_fs"         label="file_vault_gui -> data"/> </service>
-				<service name="File_system" label="fs_query -> ">                        <child name="data_fs"         label="file_vault_gui -> data"/> </service>
-				<service name="File_system" label="image_fs_query -> ">                  <child name="data_fs"         label="file_vault_gui -> data"/> </service>
-				<service name="File_system" label="tresor_vfs -> tresor_fs">                   <child name="data_fs"         label="file_vault_gui -> data"/> </service>
-				<service name="File_system" label="truncate_file -> tresor">                <child name="data_fs"         label="file_vault_gui -> data"/> </service>
-				<service name="Timer">                                                   <child name="timer"/> </service>
-				<service name="PD">                                                      <parent/> </service>
-				<service name="ROM">                                                     <parent/> </service>
-				<service name="CPU">                                                     <parent/> </service>
-				<service name="LOG">                                                     <parent/> </service>
-				<service name="RM">                                                      <parent/> </service>
+				<service name="File_system" label_last="fonts"> <child name="fonts_fs"/> </service>
+				<service name="Gui"> <child name="nitpicker"/> </service>
+				<service name="ROM" label="ui_report"> <child name="report_rom"/> </service>
+				<service name="Report" label="ui_config"> <child name="report_rom"/> </service>
+				<service name="Timer"> <child name="timer"/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="RM"> <parent/> </service>
 			</route>
 		</start>
 
