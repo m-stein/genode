@@ -20,209 +20,181 @@
 
 using namespace Dialog;
 
-namespace Dialog
+struct Operation_id
 {
-	struct Small_vgap : Sub_scope
+	static constexpr uint64_t INVALID = 0;
+
+	uint64_t value { INVALID };
+};
+
+struct Back_button : Widget<Float>
+{
+	void view(Scope<Float> &s) const
 	{
-		static void view_sub_scope(auto &s)
-		{
-			s.node("label", [&] {
-				s.attribute("text", "");
-				s.attribute("font", "annotation/regular"); });
-		}
+		s.sub_scope<Button>([&] (Scope<Float, Button> &s) {
+			if (s.hovered()) s.attribute("hovered", "yes");
+			s.attribute("style", "back");
+			s.sub_scope<Hbox>();
+		});
+	}
 
-		static void with_narrowed_at(auto const &, auto const &) { }
-	};
+	void click(Clicked_at const &, auto const &fn) { fn(); }
+};
 
-	struct Centered_text : Sub_scope
+struct Left_aligned_text : Sub_scope
+{
+	static void view_sub_scope(auto &s, auto const &text)
 	{
-		static void view_sub_scope(auto &s, auto const &text, unsigned min_ex = 0)
-		{
-			s.template sub_scope<Vbox>([&] (auto &s) {
-				s.template sub_scope<Min_ex>(min_ex);
-				s.template sub_scope<Label>(text);
-			});
-		}
+		s.node("float", [&] {
+			s.attribute("west", "yes");
+			s.named_sub_node("label", "label", [&] {
+				s.attribute("text", text); }); });
+	}
 
-		static void with_narrowed_at(auto const &, auto const &) { }
-	};
+	static void with_narrowed_at(auto const &, auto const &) { }
+};
 
-	struct Left_aligned_text : Sub_scope
+struct Switch : Widget<Button>
+{
+	using Text = String<32>;
+
+	bool &on;
+
+	Switch(bool &on) : on(on) { }
+
+	void view(Scope<Button> &s, Text const &on_text, Text const &off_text) const
 	{
-		static void view_sub_scope(auto &s, auto const &text)
-		{
-			s.node("float", [&] {
-				s.attribute("west", "yes");
-				s.named_sub_node("label", "label", [&] {
-					s.attribute("text", text); }); });
-		}
+		bool const hovered = (s.hovered() && (!s.dragged() || on));
+		if (hovered) s.attribute("hovered",  "yes");
+		s.sub_scope<Label>(on ? on_text : off_text);
+	}
 
-		static void with_narrowed_at(auto const &, auto const &) { }
-	};
+	void click(Clicked_at const &) { on = !on; }
+};
 
-	struct Switch_button : Widget<Button>
+struct Prompt : Widget<Button>
+{
+	using Action = Text_area_widget::Action;
+	using Text = String<64>;
+
+	Hosted<Button, Float, Vbox, Text_area_widget> text_area;
+	bool show_text;
+
+	void reset()
 	{
-		using Text = String<16>;
+		text_area.clear();
+		text_area.append_newline();
+	}
 
-		template <typename FN>
-		void view(Scope<Button> &s, bool selected, FN const &fn) const
-		{
-			bool const hovered = (s.hovered() && (!s.dragged() || selected));
-
-			if (selected) s.attribute("selected", "yes");
-			if (hovered)  s.attribute("hovered",  "yes");
-
-			fn(s);
-		}
-
-		void view(Scope<Button> &s, bool on, Text const &on_text, Text const &off_text, unsigned min_ex = 0) const
-		{
-			view(s, false, [&] (auto &s) {
-				s.template sub_scope<Centered_text>(on ? on_text : off_text, min_ex);
-			});
-		}
-
-		template <typename FN>
-		void click(Clicked_at const &, FN const &toggle_fn) const { toggle_fn(); }
-	};
-
-	struct One_line_prompt : Widget<Button>
+	Prompt(Allocator &alloc, bool show_text) : text_area(Id { "text_area" }, alloc), show_text(show_text)
 	{
-		using Action = Text_area_widget::Action;
-		using Content_string = String<64>;
+		text_area.max_lines(1);
+		text_area.editable(true);
+		reset();
+	}
 
-		Hosted<Button, Float, Vbox, Text_area_widget> text_area;
+	void view(Scope<Button> &s, bool selected) const
+	{
+		static constexpr char bullet_utf8[4] { (char)0xe2, (char)0x80, (char)0xa2, 0 };
+		if (s.hovered())
+			s.attribute("hovered", "yes");
+		if (selected)
+			s.attribute("selected", "yes");
 
-		void reset()
-		{
-			text_area.clear();
-			text_area.append_newline();
-		}
-
-		One_line_prompt(Allocator &alloc) : text_area(Id { "text_area" }, alloc)
-		{
-			text_area.max_lines(1);
-			text_area.editable(true);
-			reset();
-		}
-
-		void view(Scope<Button> &s, bool selected, unsigned min_ex = 0) const
-		{
-			if (s.hovered()) {
-				s.attribute("hovered", "yes");
-			}
-			if (selected)
-				s.attribute("selected", "yes");
-
-			s.template sub_scope<Float>([&] (auto &s) {
-				s.attribute("west",  "yes");
-				s.template sub_scope<Vbox>([&] (auto &s) {
-					s.template sub_scope<Min_ex>(min_ex);
+		s.sub_scope<Float>([&] (Scope<Button, Float> &s) {
+			s.attribute("west",  "yes");
+			s.sub_scope<Vbox>([&] (Scope<Button, Float, Vbox> &s) {
+				s.sub_scope<Min_ex>(20);
+				if (show_text)
 					s.widget(text_area);
-				});
+				else {
+					Constructible<Text> text;
+					auto write = [&] (char const *str) { text.construct(str); };
+					{
+						Buffered_output<Text::size(), decltype(write)> out(write);
+						text_area.for_each_character([&] (Codepoint) { print(out, bullet_utf8); });
+					}
+					s.sub_scope<Left_aligned_text>(*text);
+				}
 			});
-		}
+		});
+	}
 
-		void click(Clicked_at const &at, auto const &fn)
+	void click(Clicked_at const &, auto const &fn) { fn(); }
+
+	void handle_event(Dialog::Event const &event, Action &action) { text_area.handle_event(event, action); }
+
+	void with_text(auto const &fn) const
+	{
+		Constructible<Text> text;
+		auto write = [&] (char const *str) { text.construct(str); };
 		{
-			text_area.propagate(at);
-			fn();
+			Buffered_output<Text::size(), decltype(write)> out(write);
+			text_area.for_each_character([&] (Codepoint c) { print(out, c); });
 		}
+		fn(*text);
+	}
 
-		void clack(Clacked_at const &at, Action &action) { text_area.propagate(at, action); }
+	void with_text_as_num_bytes(auto const &fn) const
+	{
+		with_text([&] (auto const &str) {
+			Number_of_bytes num_bytes { 0 };
+			ascii_to(str.string(), num_bytes);
+			fn(num_bytes);
+		});
+	}
 
-		void drag (Dragged_at const &at) { text_area.propagate(at); }
+	size_t text_length() const
+	{
+		size_t size { };
+		text_area.for_each_character([&] (Codepoint) { size++; });
+		return size;
+	}
+};
 
-		void handle_event(Dialog::Event const &event, Action &action) { text_area.handle_event(event, action); }
-
-		template <typename FN>
-		void with_content(FN && fn) const
-		{
-			Constructible<Content_string> content;
-			auto write = [&] (char const *str) { content.construct(str); };
-			{
-				Buffered_output<Content_string::size(), decltype(write)> out(write);
-				text_area.for_each_character([&] (Codepoint c) { print(out, c); });
-			}
-			fn(*content);
-		}
-
-		template <typename FN>
-		void with_content_as_num_bytes(FN && fn) const
-		{
-			with_content([&] (auto const &str) {
-				Number_of_bytes num_bytes { 0 };
-				ascii_to(str.string(), num_bytes);
-				fn(num_bytes);
-			});
-		}
-
-		size_t content_length() const
-		{
-			size_t size { };
-			text_area.for_each_character([&] (Codepoint) { size++; });
-			return size;
-		}
-	};
-}
-
-namespace File_vault_gui { class Main; }
-
-struct File_vault_gui::Main : One_line_prompt::Action
+struct Main : Prompt::Action
 {
 	using Ui_state_string = String<64>;
 
 	enum Dialog_type { NONE, SETUP, WAIT, CONTROLS, UNLOCK };
 
-	enum { PASSPHRASE_PROMPT_MIN_EX = 20 };
-	enum { PASSPHRASE_BUTTON_MIN_EX = 10 };
 	enum { MIN_PASSPHRASE_LENGHT = 8 };
 
 	struct Unlock_frame : Widget<Frame>
 	{
 		Main &main;
-		bool show_passphrase = false;
-		Hosted<Frame, Vbox, Hbox, One_line_prompt> passphrase_prompt { Id { "passphrase" }, main.heap };
-		Hosted<Frame, Vbox, Hbox, Switch_button> show_passphrase_button { Id { "show_passphrase" } };
+		Hosted<Frame, Vbox, Hbox, Prompt> passphrase { Id { "Passphrase" }, main.heap, false };
+		Hosted<Frame, Vbox, Hbox, Switch> show_passphrase { Id { "Show Passphrase" }, passphrase.show_text };
 		Hosted<Frame, Vbox, Action_button> unlock_button { Id { "Unlock" } };
 
 		Unlock_frame(Main &main) : main(main) { }
 
-		bool ready_for_unlock() const
-		{
-			return passphrase_prompt.content_length() >= MIN_PASSPHRASE_LENGHT;
-		}
+		bool ready_to_unlock() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGHT; }
 
 		void view(Scope<Frame> &s) const
 		{
-			s.template sub_scope<Vbox>([&] (auto &s) {
-				s.template sub_scope<Left_aligned_text>(" Passphrase:");
-				s.template sub_scope<Hbox>([&] (auto &s) {
-					s.widget(passphrase_prompt, true, PASSPHRASE_PROMPT_MIN_EX);
-					s.template sub_scope<Small_vgap>();
-					s.widget(show_passphrase_button, show_passphrase, "Hide", "Show", PASSPHRASE_BUTTON_MIN_EX);
+			s.sub_scope<Vbox>([&] (Scope<Frame, Vbox> &s) {
+				s.sub_scope<Left_aligned_text>(" Passphrase:");
+				s.sub_scope<Hbox>([&] (Scope<Frame, Vbox, Hbox> &s) {
+					s.widget(passphrase, true);
+					s.widget(show_passphrase, "Hide", "Show");
 				});
-				if (ready_for_unlock())
+				if (ready_to_unlock())
 					s.widget(unlock_button);
 			});
 		}
 
 		void click(Clicked_at const &at)
 		{
-			passphrase_prompt.propagate(at, [&] { });
-			show_passphrase_button.propagate(at, [&] { show_passphrase = !show_passphrase; });
-			if (ready_for_unlock())
-				unlock_button.propagate(at, [&] { main.unlock(*this); });
+			passphrase.propagate(at, [&] { });
+			show_passphrase.propagate(at);
+			unlock_button.propagate(at, [&] { unlock(); });
 		}
 
-		void clack(Clacked_at const &at)
+		void unlock()
 		{
-			passphrase_prompt.propagate(at, main);
-		}
-
-		void drag(Dragged_at const &at)
-		{
-			passphrase_prompt.propagate(at);
+			main.unlock(*this);
+			passphrase.reset();
 		}
 
 		void handle_event(Dialog::Event const &event)
@@ -231,15 +203,12 @@ struct File_vault_gui::Main : One_line_prompt::Action
 				switch (key) {
 				case Input::KEY_ENTER:
 
-					if (!ready_for_unlock())
-						break;
-
-					main.unlock(*this);
-					passphrase_prompt.reset();
+					if (ready_to_unlock())
+						unlock();
 					break;
 
 				case Input::KEY_TAB: break;
-				default: passphrase_prompt.handle_event(event, main); break;
+				default: passphrase.handle_event(event, main); break;
 				}
 			});
 		}
@@ -247,18 +216,16 @@ struct File_vault_gui::Main : One_line_prompt::Action
 
 	struct Setup_frame : Widget<Frame>
 	{
-		enum { PROMPT_MIN_EX = 20 };
 		enum { MIN_CAPACITY = 100 * 1024 };
 
-		enum Prompt { PASSPHRASE, CAPACITY, JOURNALING_BUFFER };
+		enum Prompt_type { PASSPHRASE, CAPACITY, JOURNALING_BUFFER };
 
 		Main &main;
-		bool show_passphrase = false;
-		Prompt selected_prompt = PASSPHRASE;
-		Hosted<Frame, Vbox, Hbox, One_line_prompt> passphrase_prompt { Id { "passphrase" }, main.heap };
-		Hosted<Frame, Vbox, Hbox, Switch_button> show_passphrase_button { Id { "show_passphrase" } };
-		Hosted<Frame, Vbox, One_line_prompt> capacity_prompt { Id { "capacity" }, main.heap };
-		Hosted<Frame, Vbox, One_line_prompt> journal_buf_prompt { Id { "journal_buf" }, main.heap };
+		Prompt_type selected = PASSPHRASE;
+		Hosted<Frame, Vbox, Hbox, Prompt> passphrase { Id { "Passphrase" }, main.heap, false };
+		Hosted<Frame, Vbox, Hbox, Switch> show_passphrase { Id { "Show Passphrase" }, passphrase.show_text };
+		Hosted<Frame, Vbox, Prompt> capacity { Id { "Capacity" }, main.heap, true };
+		Hosted<Frame, Vbox, Prompt> journal_buf { Id { "Journaling Buffer" }, main.heap, true };
 		Hosted<Frame, Vbox, Action_button> start_button { Id { "Start" } };
 
 		Setup_frame(Main &main) : main(main) { }
@@ -272,14 +239,14 @@ struct File_vault_gui::Main : One_line_prompt::Action
 			return result;
 		}
 
-		bool ready_for_setup() const
+		bool ready_to_setup() const
 		{
-			if (passphrase_prompt.content_length() < MIN_PASSPHRASE_LENGHT)
+			if (passphrase.text_length() < MIN_PASSPHRASE_LENGHT)
 				return false;
 
 			bool result = false;
-			capacity_prompt.with_content_as_num_bytes([&] (auto capacity) {
-				journal_buf_prompt.with_content_as_num_bytes([&] (auto journal_buf) {
+			capacity.with_text_as_num_bytes([&] (auto capacity) {
+				journal_buf.with_text_as_num_bytes([&] (auto journal_buf) {
 					result =
 						capacity >= MIN_CAPACITY &&
 						journal_buf >= min_journal_buf(capacity);
@@ -290,68 +257,60 @@ struct File_vault_gui::Main : One_line_prompt::Action
 
 		void view(Scope<Frame> &s) const
 		{
-			s.template sub_scope<Vbox>([&] (auto &s) {
-				s.template sub_scope<Left_aligned_text>(" Passphrase:");
-				s.template sub_scope<Hbox>([&] (auto &s) {
-					s.widget(passphrase_prompt, selected_prompt == PASSPHRASE, PASSPHRASE_PROMPT_MIN_EX);
-					s.template sub_scope<Small_vgap>();
-					s.widget(show_passphrase_button, show_passphrase, "Hide", "Show", PASSPHRASE_BUTTON_MIN_EX);
+			s.sub_scope<Vbox>([&] (Scope<Frame, Vbox> &s) {
+				s.sub_scope<Left_aligned_text>(" Passphrase:");
+				s.sub_scope<Hbox>([&] (Scope<Frame, Vbox, Hbox> &s) {
+					s.widget(passphrase, selected == PASSPHRASE);
+					s.widget(show_passphrase, "Hide", "Show");
 				});
-				s.template sub_scope<Left_aligned_text>("");
-				s.template sub_scope<Left_aligned_text>(" Capacity:");
-				s.widget(capacity_prompt, selected_prompt == CAPACITY, PROMPT_MIN_EX);
-				s.template sub_scope<Left_aligned_text>("");
-				s.template sub_scope<Left_aligned_text>(" Journaling buffer:");
-				s.widget(journal_buf_prompt, selected_prompt == JOURNALING_BUFFER, PROMPT_MIN_EX);
-				s.template sub_scope<Left_aligned_text>("");
-				s.template sub_scope<Left_aligned_text>(" Image size: 128M");
-				s.template sub_scope<Left_aligned_text>("");
-				if (ready_for_setup())
+				s.sub_scope<Left_aligned_text>("");
+				s.sub_scope<Left_aligned_text>(" Capacity:");
+				s.widget(capacity, selected == CAPACITY);
+				s.sub_scope<Left_aligned_text>("");
+				s.sub_scope<Left_aligned_text>(" Journaling buffer:");
+				s.widget(journal_buf, selected == JOURNALING_BUFFER);
+				s.sub_scope<Left_aligned_text>("");
+				s.sub_scope<Left_aligned_text>(" Image size: 128M");
+				s.sub_scope<Left_aligned_text>("");
+				if (ready_to_setup())
 					s.widget(start_button);
 			});
 		}
 
 		void click(Clicked_at const &at)
 		{
-			passphrase_prompt.propagate(at, [&] { selected_prompt = PASSPHRASE; });
-			show_passphrase_button.propagate(at, [&] { show_passphrase = !show_passphrase; });
-			capacity_prompt.propagate(at, [&] { selected_prompt = CAPACITY; });
-			journal_buf_prompt.propagate(at, [&] { selected_prompt = JOURNALING_BUFFER; });
-			if (ready_for_setup())
-				start_button.propagate(at, [&] { main.setup(*this); });
+			passphrase.propagate(at, [&] { selected = PASSPHRASE; });
+			show_passphrase.propagate(at);
+			capacity.propagate(at, [&] { selected = CAPACITY; });
+			journal_buf.propagate(at, [&] { selected = JOURNALING_BUFFER; });
+			start_button.propagate(at, [&] { setup(); });
 		}
 
-		void clack(Clacked_at const &at)
+		void select_next()
 		{
-			passphrase_prompt.propagate(at, main);
-			capacity_prompt.propagate(at, main);
-			journal_buf_prompt.propagate(at, main);
-		}
-
-		void drag(Dragged_at const &at)
-		{
-			passphrase_prompt.propagate(at);
-			capacity_prompt.propagate(at);
-			journal_buf_prompt.propagate(at);
-		}
-
-		void select_next_prompt()
-		{
-			switch (selected_prompt) {
-			case PASSPHRASE: selected_prompt = CAPACITY; break;
-			case CAPACITY: selected_prompt = JOURNALING_BUFFER; break;
-			case JOURNALING_BUFFER: selected_prompt = PASSPHRASE; break;
+			switch (selected) {
+			case PASSPHRASE: selected = CAPACITY; break;
+			case CAPACITY: selected = JOURNALING_BUFFER; break;
+			case JOURNALING_BUFFER: selected = PASSPHRASE; break;
 			}
 			main.refresh_text_area();
 		}
 
-		void forward_to_selected_prompt(Dialog::Event const &event)
+		void forward_to_selected(Dialog::Event const &event)
 		{
-			switch (selected_prompt) {
-			case PASSPHRASE: passphrase_prompt.handle_event(event, main); break;
-			case CAPACITY: capacity_prompt.handle_event(event, main); break;
-			case JOURNALING_BUFFER: journal_buf_prompt.handle_event(event, main); break;
+			switch (selected) {
+			case PASSPHRASE: passphrase.handle_event(event, main); break;
+			case CAPACITY: capacity.handle_event(event, main); break;
+			case JOURNALING_BUFFER: journal_buf.handle_event(event, main); break;
 			}
+		}
+
+		void setup()
+		{
+			main.setup(*this);
+			passphrase.reset();
+			capacity.reset();
+			journal_buf.reset();
 		}
 
 		void handle_event(Dialog::Event const &event)
@@ -360,17 +319,12 @@ struct File_vault_gui::Main : One_line_prompt::Action
 				switch (key) {
 				case Input::KEY_ENTER:
 
-					if (!ready_for_setup())
-						break;
-
-					main.setup(*this);
-					passphrase_prompt.reset();
-					capacity_prompt.reset();
-					journal_buf_prompt.reset();
+					if (ready_to_setup())
+						setup();
 					break;
 
-				case Input::KEY_TAB: select_next_prompt(); break;
-				default: forward_to_selected_prompt(event); break;
+				case Input::KEY_TAB: select_next(); break;
+				default: forward_to_selected(event); break;
 				}
 			});
 		}
@@ -380,34 +334,173 @@ struct File_vault_gui::Main : One_line_prompt::Action
 	{
 		void view(Scope<Frame> &s) const
 		{
-			s.template sub_scope<Label>(" Please wait ... ");
+			s.sub_scope<Label>(" Please wait ... ");
 		}
 	};
 
 	struct Controls_frame : Widget<Frame>
 	{
+		enum Tab { HOME, ENCRYPTION_KEY, CAPACITY, JOURNALING_BUFFER };
+
+		struct Navigation_bar : Widget<Hbox>
+		{
+			Controls_frame &controls;
+			Hosted<Hbox, Back_button> back_button { Id { "Back" } };
+
+			Navigation_bar(Controls_frame &controls) : controls(controls) { }
+
+			void view(Scope<Hbox> &s, String<32> const &text) const
+			{
+				s.widget(back_button);
+				s.node("float", [&] {
+					s.attribute("west", "yes");
+					s.named_sub_node("label", "label", [&] {
+						s.attribute("font", "title/regular");
+						s.attribute("text", text); }); });
+			}
+
+			void click(Clicked_at const &at) { back_button.propagate(at, [&] { controls.visible_tab = HOME; }); }
+		};
+
+		struct Home : Widget<Vbox>
+		{
+			Controls_frame &controls;
+			Hosted<Vbox, Action_button> capacity_button { Id { "Capacity..." } };
+			Hosted<Vbox, Action_button> journal_buf_button { Id { "Journaling Buffer..." } };
+			Hosted<Vbox, Action_button> encrypt_key_button { Id { "Encryption Key..." } };
+
+			Home(Controls_frame &controls) : controls(controls) { }
+
+			void view(Scope<Vbox> &s) const
+			{
+				s.widget(capacity_button);
+				s.widget(journal_buf_button);
+				s.widget(encrypt_key_button);
+			}
+
+			void click(Clicked_at const &at)
+			{
+				capacity_button.propagate(at, [&] { controls.visible_tab = CAPACITY; });
+				journal_buf_button.propagate(at, [&] { controls.visible_tab = JOURNALING_BUFFER; });
+				encrypt_key_button.propagate(at, [&] { controls.visible_tab = ENCRYPTION_KEY; });
+			}
+		};
+
+		struct Capacity : Widget<Vbox>
+		{
+			Controls_frame &controls;
+			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
+			Hosted<Vbox, Action_button> extend_button { Id { "Extend" } };
+
+			Capacity(Controls_frame &controls) : controls(controls) { }
+
+			void view(Scope<Vbox> &s) const
+			{
+				s.widget(navigation_bar, "Capacity ");
+				if (controls.main.ready_to_extend())
+					s.widget(extend_button);
+			}
+
+			void extend()
+			{
+				controls.main.extend_capacity(*this);
+			}
+
+			void click(Clicked_at const &at)
+			{
+				navigation_bar.propagate(at);
+				extend_button.propagate(at, [&] { extend(); });
+			}
+		};
+
+		struct Journaling_buffer : Widget<Vbox>
+		{
+			Controls_frame &controls;
+			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
+			Hosted<Vbox, Action_button> extend_button { Id { "Extend" } };
+
+			Journaling_buffer(Controls_frame &controls) : controls(controls) { }
+
+			void view(Scope<Vbox> &s) const
+			{
+				s.widget(navigation_bar, "Journaling Buffer ");
+				if (controls.main.ready_to_extend())
+					s.widget(extend_button);
+			}
+
+			void extend()
+			{
+				controls.main.extend_journaling_buffer(*this);
+			}
+
+			void click(Clicked_at const &at)
+			{
+				navigation_bar.propagate(at);
+				extend_button.propagate(at, [&] { extend(); });
+			}
+		};
+
+		struct Encryption_key : Widget<Vbox>
+		{
+			Controls_frame &controls;
+			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
+			Hosted<Vbox, Action_button> replace_button { Id { "Replace" } };
+
+			Encryption_key(Controls_frame &controls) : controls(controls) { }
+
+			void view(Scope<Vbox> &s) const
+			{
+				s.widget(navigation_bar, "Encryption Key ");
+				if (controls.main.ready_to_rekey())
+					s.widget(replace_button);
+				else
+					s.sub_scope<Left_aligned_text>(" Please wait ... ");
+			}
+
+			void click(Clicked_at const &at)
+			{
+				navigation_bar.propagate(at);
+				replace_button.propagate(at, [&] { controls.main.rekey(); });
+			}
+		};
+
 		Main &main;
-		Hosted<Frame, Vbox, Action_button> dimensions_button { Id { "Dimensions..." } };
-		Hosted<Frame, Vbox, Action_button> security_button { Id { "Security..." } };
+		Tab visible_tab { HOME };
+		Hosted<Frame, Vbox, Home> home { Id { "Home" }, *this };
+		Hosted<Frame, Vbox, Capacity> capacity { Id { "Capacity" }, *this };
+		Hosted<Frame, Vbox, Journaling_buffer> journal_buf { Id { "Journaling Buffer" }, *this };
+		Hosted<Frame, Vbox, Encryption_key> encryption_key { Id { "Encryption Key" }, *this };
 		Hosted<Frame, Vbox, Action_button> lock_button { Id { "Lock" } };
 
 		Controls_frame(Main &main) : main(main) { }
 
 		void view(Scope<Frame> &s) const
 		{
-			s.template sub_scope<Vbox>([&] (auto &s) {
-				s.template sub_scope<Label>(" Controls ");
-				s.widget(dimensions_button);
-				s.widget(security_button);
-				s.template sub_scope<Label>(" Image: 4,5 MiB ");
-				s.template sub_scope<Label>(" Capacity: 1,2 MiB ");
-				s.template sub_scope<Label>(" Clients: 12 ");
+			s.sub_scope<Vbox>([&] (Scope<Frame, Vbox> &s) {
+
+				switch (visible_tab) {
+				case HOME: s.widget(home); break;
+				case ENCRYPTION_KEY: s.widget(encryption_key); break;
+				case CAPACITY: s.widget(capacity); break;
+				case JOURNALING_BUFFER: s.widget(journal_buf); break;
+				}
+				s.sub_scope<Left_aligned_text>("");
+				s.sub_scope<Left_aligned_text>(" Image: 4,5 MiB ");
+				s.sub_scope<Left_aligned_text>(" Capacity: 1,2 MiB ");
+				s.sub_scope<Left_aligned_text>(" Clients: 12 ");
 				s.widget(lock_button);
 			});
 		}
 
 		void click(Clicked_at const &at)
 		{
+			switch (visible_tab) {
+			case HOME: home.propagate(at); break;
+			case ENCRYPTION_KEY: encryption_key.propagate(at); break;
+			case CAPACITY: capacity.propagate(at); break;
+			case JOURNALING_BUFFER: journal_buf.propagate(at); break;
+			default: break;
+			}
 			lock_button.propagate(at, [&] { main.lock(); });
 		}
 	};
@@ -415,13 +508,12 @@ struct File_vault_gui::Main : One_line_prompt::Action
 	struct Main_dialog : Top_level_dialog
 	{
 		Main &main;
-
-		Main_dialog(Name const &name, Main &main) : Top_level_dialog(name), main(main) { }
-
 		Hosted<Unlock_frame> unlock_frame { Id { "unlock" }, main };
 		Hosted<Setup_frame> setup_frame { Id { "setup" }, main };
 		Hosted<Wait_frame> wait_frame { Id { "wait" } };
 		Hosted<Controls_frame> controls_frame { Id { "controls" }, main };
+
+		Main_dialog(Name const &name, Main &main) : Top_level_dialog(name), main(main) { }
 
 		void view(Scope<> &s) const override
 		{
@@ -444,24 +536,6 @@ struct File_vault_gui::Main : One_line_prompt::Action
 			}
 		}
 
-		void clack(Clacked_at const &at) override
-		{
-			switch (main.active_dialog) {
-			case SETUP: setup_frame.clack(at); break;
-			case UNLOCK: unlock_frame.clack(at); break;
-			default: break;
-			}
-		}
-
-		void drag(Dragged_at const &at) override
-		{
-			switch (main.active_dialog) {
-			case SETUP: setup_frame.drag(at); break;
-			case UNLOCK: unlock_frame.drag(at); break;
-			default: break;
-			}
-		}
-
 		void handle_event(Dialog::Event const &event)
 		{
 			switch (main.active_dialog) {
@@ -476,12 +550,17 @@ struct File_vault_gui::Main : One_line_prompt::Action
 	Dialog_type active_dialog { NONE };
 	Heap heap { env.ram(), env.rm() };
 	Runtime runtime { env, heap };
+	Operation_id remote_extend_id { };
+	Operation_id extend_id { 1 };
+	Operation_id remote_rekey_id { };
+	Operation_id rekey_id { 1 };
 	Main_dialog main_dialog { "main", *this };
 	Runtime::View main_view { runtime, main_dialog };
 	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::handle_event };
 	Expanding_reporter ui_config_reporter { env, "ui_config", "ui_config" };
 	Attached_rom_dataspace ui_report_rom { env, "ui_report" };
 	Signal_handler<Main> signal_handler { env.ep(), *this, &Main::handle_signal };
+	Constructible<Prompt::Text> passphrase { };
 
 	void handle_event(Dialog::Event const &event)
 	{
@@ -490,31 +569,55 @@ struct File_vault_gui::Main : One_line_prompt::Action
 
 	void setup(Setup_frame const &setup_frame)
 	{
-		ui_config_reporter.generate([&] (Xml_generator &xml) {
-			setup_frame.passphrase_prompt.with_content([&] (auto const &str) {
-				xml.attribute("passphrase", str);
-			});
-			setup_frame.capacity_prompt.with_content_as_num_bytes([&] (auto num_bytes) {
-				xml.attribute("client_fs_size", num_bytes);
-			});
-			setup_frame.journal_buf_prompt.with_content_as_num_bytes([&] (auto num_bytes) {
-				xml.attribute("journaling_buf_size", num_bytes);
-			});
-		});
+		setup_frame.passphrase.with_text([&] (auto const &str) { passphrase.construct(str); });
+		gen_unlocked_ui_config([&] (Xml_generator &xml) {
+			setup_frame.capacity.with_text_as_num_bytes([&] (auto num_bytes) {
+				xml.attribute("client_fs_size", num_bytes); });
+			setup_frame.journal_buf.with_text_as_num_bytes([&] (auto num_bytes) {
+				xml.attribute("journaling_buf_size", num_bytes); }); });
 	}
 
 	void unlock(Unlock_frame const &unlock_frame)
 	{
-		ui_config_reporter.generate([&] (Xml_generator &xml) {
-			unlock_frame.passphrase_prompt.with_content([&] (auto const &str) {
-				xml.attribute("passphrase", str);
-			});
-		});
+		unlock_frame.passphrase.with_text([&] (auto const &str) { passphrase.construct(str); });
+		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
 	void lock()
 	{
 		ui_config_reporter.generate([&] (Xml_generator &) { });
+	}
+
+	bool ready_to_extend() const { return remote_extend_id.value == extend_id.value; }
+
+	bool ready_to_rekey() const { return remote_rekey_id.value == rekey_id.value; }
+
+	void gen_unlocked_ui_config(auto const &fn)
+	{
+		ui_config_reporter.generate([&] (Xml_generator &xml) {
+			xml.attribute("passphrase", *passphrase);
+			xml.attribute("rekey_id", rekey_id.value);
+			xml.attribute("extend_id", extend_id.value);
+			fn(xml);
+		});
+	}
+
+	void rekey()
+	{
+		rekey_id.value++;
+		gen_unlocked_ui_config([&] (Xml_generator &) { });
+	}
+
+	void extend_capacity(Controls_frame::Capacity const &)
+	{
+		extend_id.value++;
+		gen_unlocked_ui_config([&] (Xml_generator &) { });
+	}
+
+	void extend_journaling_buffer(Controls_frame::Journaling_buffer const &)
+	{
+		extend_id.value++;
+		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
 	void handle_signal()
@@ -532,6 +635,8 @@ struct File_vault_gui::Main : One_line_prompt::Action
 			state == "locked" ? UNLOCK :
 			NONE;
 
+		remote_extend_id.value = ui_report.attribute_value("extend_id", Operation_id::INVALID);
+		remote_rekey_id.value = ui_report.attribute_value("rekey_id", Operation_id::INVALID);
 		if (active_dialog != dialog_type) {
 			active_dialog = dialog_type;
 			main_view.refresh();
@@ -558,8 +663,4 @@ struct File_vault_gui::Main : One_line_prompt::Action
 };
 
 
-void Component::construct(Genode::Env &env)
-{
-	static File_vault_gui::Main main(env);
-}
-
+void Component::construct(Genode::Env &env) { static Main main(env); }
