@@ -334,7 +334,7 @@ append config {
 					<request op="discard_snapshot"            id="1"/>
 					<request op="discard_snapshot"            id="2"/>
 					<check-snapshots/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="sync"/>
 					<check/>
 					<request op="write" vba="20" num_blocks="3"    salt="7384"/>
 					<request op="create_snapshot"             id="4"/>
@@ -370,7 +370,7 @@ append config {
 					<request op="read"  vba="10" num_blocks="2"    salt="3758"/>
 					<check-snapshots/>
 					<request op="discard_snapshot"            id="4"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 8: reinitialize Tresor device"/>
@@ -378,32 +378,30 @@ append config {
 					<request op="deinitialize" />
 					<destruct/>
 					<initialize>
-						<virtual-block-device max_lvl="3" degree="8" num_leaves="100" />
+						<virtual-block-device max_lvl="3" degree="8" num_leaves="30" />
 						<free-tree max_lvl="3" degree="8" num_leaves="512" />
 					</initialize>
 					<construct/>
 
 					<log string="Step 9: test synchronous rekeying"/>
 
-					<request op="read"  vba="30" num_blocks="10"   uninitialized_data="yes"/>
+					<request op="read"  vba="20" num_blocks="10"   uninitialized_data="yes"/>
 					<request op="write" vba="0"  num_blocks="1"    salt="4359"/>
 					<request op="rekey"                       sync="yes"/>
 					<request op="read"  vba="0"  num_blocks="1"    salt="4359"/>
 					<request op="write" vba="15" num_blocks="7"    salt="1742"/>
-					<request op="write" vba="20" num_blocks="13"   salt="8471"/>
-					<request op="create_snapshot"             id="10"/>
-					<request op="write" vba="33" num_blocks="5"    salt="7831"/>
-					<request op="rekey"                       sync="yes"/>
+					<request op="write" vba="20" num_blocks="10"   salt="8471"/>
+					<request op="write" vba="10" num_blocks="5"    salt="7831"/>
 					<request op="read"  vba="17" num_blocks="3"    salt="1742"/>
-					<request op="write" vba="51" num_blocks="8"    salt="8384"/>
+					<request op="write" vba="2"  num_blocks="8"    salt="8384"/>
 					<request op="read"  vba="25" num_blocks="1"    salt="8471"/>
-					<request op="write" vba="30" num_blocks="5"    salt="2837"/>
-					<request op="create_snapshot"             id="11"/>
+					<request op="write" vba="14" num_blocks="5"    salt="2837"/>
+					<request op="create_snapshot"             id="10"/>
 					<request op="rekey"                       sync="yes"/>
-					<request op="read"  vba="35" num_blocks="2"    salt="7831"/>
-					<request op="read"  vba="31" num_blocks="4"    salt="2837"/>
-					<request op="read"  vba="51" num_blocks="8"    salt="8384"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="read"  vba="12" num_blocks="2"    salt="7831"/>
+					<request op="read"  vba="15" num_blocks="4"    salt="2837"/>
+					<request op="read"  vba="2"  num_blocks="8"    salt="8384"/>
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 10: test asynchronous rekeying"/>
@@ -419,11 +417,11 @@ append config {
 					<request op="read"  vba="22" num_blocks="3"    salt="9602"/>
 					<request op="read"  vba="15" num_blocks="2"    salt="6100"/>
 					<request op="write" vba="11" num_blocks="6"    salt="1436"/>
-					<request op="create_snapshot"             id="12"/>
+					<request op="create_snapshot"             id="11"/>
 					<request op="read"  vba="17" num_blocks="5"    salt="5555"/>
 					<request op="write" vba="22" num_blocks="2"    salt="7463"/>
 					<request op="rekey"                      />
-					<request op="write" vba="25" num_blocks="11"   salt="4323"/>
+					<request op="write" vba="25" num_blocks="5"    salt="4323"/>
 					<request op="read"  vba="24" num_blocks="1"    salt="9602"/>
 					<request op="write" vba="10" num_blocks="5"    salt="3758"/>
 					<request op="write" vba="21" num_blocks="2"    salt="8094"/>
@@ -437,7 +435,7 @@ append config {
 					<request op="read"  vba="12" num_blocks="3"    salt="4455"/>
 					<request op="read"  vba="19" num_blocks="3"    salt="1931"/>
 					<request op="read"  vba="10" num_blocks="2"    salt="3758"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 11: test synchronous free tree extension"/>
@@ -459,7 +457,7 @@ append config {
 					<request op="extend_ft"      num_blocks="1"   />
 					<request op="read"  vba="15" num_blocks="2"    salt="6111"/>
 					<request op="write" vba="11" num_blocks="6"    salt="5436"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 12: test asynchronous free tree extension"/>
@@ -479,7 +477,7 @@ append config {
 					<request op="write" vba="11" num_blocks="6"     salt="4316"/>
 					<request op="read"  vba="17" num_blocks="5"     salt="5555"/>
 					<request op="write" vba="22" num_blocks="2"     salt="4673"/>
-					<request op="write" vba="25" num_blocks="11"    salt="3243"/>
+					<request op="write" vba="25" num_blocks="5"     salt="3243"/>
 					<request op="read"  vba="24" num_blocks="1"     salt="6092"/>
 					<request op="write" vba="10" num_blocks="5"     salt="7538"/>
 					<request op="extend_ft"      num_blocks="3"   />
@@ -488,7 +486,7 @@ append config {
 					<request op="write" vba="12" num_blocks="10"    salt="4545"/>
 					<request op="write" vba="26" num_blocks="4"     salt="5774"/>
 					<request op="write" vba="15" num_blocks="7"     salt="9311"/>
-					<request op="write" vba="65" num_blocks="7"     salt="4583"/>
+					<request op="write" vba="0"  num_blocks="7"     salt="4583"/>
 					<request op="read"  vba="23" num_blocks="1"     salt="4673"/>
 					<request op="read"  vba="25" num_blocks="1"     salt="3243"/>
 					<request op="read"  vba="28" num_blocks="2"     salt="5774"/>
@@ -497,11 +495,11 @@ append config {
 					<request op="read"  vba="12" num_blocks="3"     salt="4545"/>
 					<request op="read"  vba="19" num_blocks="3"     salt="9311"/>
 					<request op="read"  vba="10" num_blocks="2"     salt="7538"/>
-					<request op="read"  vba="65" num_blocks="7"     salt="4583"/>
-					<request op="write" vba="60" num_blocks="10"    salt="2725"/>
-					<request op="read"  vba="63" num_blocks="7"     salt="2725"/>
-					<request op="read"  vba="70" num_blocks="2"     salt="4583"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="read"  vba="0"  num_blocks="7"     salt="4583"/>
+					<request op="write" vba="0"  num_blocks="5"     salt="2725"/>
+					<request op="read"  vba="0"  num_blocks="4"     salt="2725"/>
+					<request op="read"  vba="5"  num_blocks="2"     salt="4583"/>
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 13: test synchronous vbd extension"/>
@@ -525,7 +523,7 @@ append config {
 					<request op="write" vba="11" num_blocks="6"    salt="3654"/>
 					<request op="write" vba="65" num_blocks="1"    salt="5346"/>
 					<request op="read"  vba="65" num_blocks="1"    salt="5346"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 14: test asynchronous vbd extension"/>
@@ -567,7 +565,7 @@ append config {
 					<request op="write" vba="60" num_blocks="10"    salt="2275"/>
 					<request op="read"  vba="63" num_blocks="7"     salt="2275"/>
 					<request op="read"  vba="70" num_blocks="2"     salt="8453"/>
-					<request op="sync"  vba="0"  num_blocks="256" />
+					<request op="sync"/>
 					<check/>
 
 					<log string="Step 15: check minimum vbd dimensions"/>
@@ -599,7 +597,7 @@ append config {
 					<request op="rekey" sync="yes"/>
 					<request op="write" vba="0" num_blocks="1" salt="4321"/>
 					<request op="read" vba="0" num_blocks="1" salt="4321"/>
-					<request op="create_snapshot" id="13"/>
+					<request op="create_snapshot" id="12"/>
 					<request op="write" vba="0" num_blocks="1" salt="1234"/>
 					<request op="rekey"/>
 					<request op="write" vba="0" num_blocks="1" salt="9465"/>
@@ -1095,11 +1093,11 @@ append config {
 
 					<log string="Step 20: test check-snapshots command"/>
 
-					<request op="create_snapshot"  id="15"/>
+					<request op="create_snapshot"  id="13"/>
 					<request op="write" vba="17737" num_blocks="70"  salt="8924"/>
-					<request op="create_snapshot"  id="16"/>
+					<request op="create_snapshot"  id="14"/>
 					<request op="write" vba="00129" num_blocks="30"  salt="9471"/>
-					<request op="create_snapshot"  id="17"/>
+					<request op="create_snapshot"  id="15"/>
 					<check-snapshots/>
 
 				</commands>
