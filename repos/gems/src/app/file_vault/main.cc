@@ -59,7 +59,6 @@ struct File_vault::Ui_config
 	Passphrase const passphrase { };
 	Number_of_bytes const client_fs_size { 0 };
 	Number_of_bytes const journaling_buf_size { 0 };
-	Constructible<Operation_id> rekey_id { };
 
 	Ui_config() { }
 
@@ -71,15 +70,12 @@ struct File_vault::Ui_config
 		client_fs_size      { node.attribute_value("client_fs_size",      Number_of_bytes { 0 }) },
 		journaling_buf_size { node.attribute_value("journaling_buf_size", Number_of_bytes { 0 }) }
 	{
-		node.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
-			rekey_id.construct(rekey.attribute_value("id", 0ULL)); });
 
 		if (verbose)
 			log("ui_config: version \"", version,
 			    "\" passphrase ", passphrase_suitable() ? "<" : "<not ",
 			    "suitable> client_fs_size ", client_fs_size,
-			    " journaling_buf_size ", journaling_buf_size,
-			    " rekey_id ", rekey_id.constructed() ? String<32>(rekey_id->value) : "<none>");
+			    " journaling_buf_size ", journaling_buf_size);
 	}
 
 	bool passphrase_suitable() const { return passphrase.length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1; }
@@ -463,6 +459,8 @@ class File_vault::Main
 		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
 		Constructible<Ui_config>               _ui_config                          { };
 		Constructible<Expanding_reporter>      _ui_report                          { };
+		Constructible<Operation_id>            _requested_rekey_id                 { };
+		Constructible<Operation_id>            _finished_rekey_id                  { };
 
 		static User_interface
 		_user_interface_from_config(Xml_node const &config)
@@ -614,6 +612,17 @@ class File_vault::Main
 
 		static char const *_reported_state_to_string(Reported_state state);
 
+		void _generate_ui_report()
+		{
+			_ui_report->generate([&] (Xml_generator &xml) {
+				xml.attribute("version", _ui_config->version);
+				xml.attribute("state",   _reported_state_to_string(_reported_state()));
+				if (_finished_rekey_id.constructed())
+					xml.node("finished-rekey", [&] {
+						xml.attribute("id", _finished_rekey_id->value); });
+			});
+		}
+
 		void _set_state(State state)
 		{
 			Reported_state old_reported_state { _reported_state() };
@@ -625,13 +634,11 @@ class File_vault::Main
 
 			if (old_reported_state != new_reported_state &&
 			    _user_interface == CONFIG_AND_REPORT) {
-
-				_ui_report->generate([&] (Xml_generator &xml) {
-					xml.attribute("version", _ui_config->version);
-					xml.attribute("state",   _reported_state_to_string(new_reported_state));
-				});
+				_generate_ui_report();
 			}
 		}
+
+		bool _try_realize_configured_rekey_request();
 
 		static Number_of_blocks _tresor_tree_num_leaves(size_t payload_size);
 
@@ -723,7 +730,10 @@ void Main::_handle_config()
 void Main::_handle_ui_config()
 {
 	_ui_config_rom->update();
-	_ui_config.construct(_ui_config_rom->xml(), _verbose_ui_config);
+	Xml_node const &ui_config = _ui_config_rom->xml();
+	_ui_config.construct(ui_config, _verbose_ui_config);
+	ui_config.with_optional_sub_node("requested-rekey", [&] (Xml_node const &rekey) {
+		_requested_rekey_id.construct(rekey.attribute_value("id", 0ULL)); });
 	_handle_ui_config_and_report();
 }
 
@@ -1056,8 +1066,11 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
+log("rekeying finished");
+				_finished_rekey_id.construct(_requested_rekey_id->value);
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
+				_generate_ui_report();
 
 			} else
 				error("failed to rekey: operation failed at tresor");
@@ -1323,6 +1336,24 @@ void Main::_handle_state()
 }
 
 
+bool Main::_try_realize_configured_rekey_request()
+{
+	if (_rekeying_state != Rekeying_state::INACTIVE)
+		return false;
+
+	if (!_requested_rekey_id.constructed())
+		return false;
+
+	if (_finished_rekey_id.constructed())
+		if (_finished_rekey_id->value == _requested_rekey_id->value)
+			return false;
+
+log("rekeying requested");
+	_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
+	return true;
+}
+
+
 void Main::_handle_ui_config_and_report()
 {
 	bool update_sandbox_config { false };
@@ -1360,7 +1391,9 @@ void Main::_handle_ui_config_and_report()
 
 			_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR);
 			update_sandbox_config = true;
+			break;
 		}
+		update_sandbox_config |= _try_realize_configured_rekey_request();
 		break;
 
 	default: break;
@@ -1595,6 +1628,7 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _rekeying_fs_tool)) {
 
 					_rekeying_state = Rekeying_state::IN_PROGRESS_AT_DEVICE;
+log("rekeying in progress");
 					update_dialog = true;
 					update_sandbox = true;
 				}
@@ -3824,7 +3858,6 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 		_dialog.trigger_update();
 	}
 }
-
 
 void File_vault::Main::_handle_hover(Xml_node const &node)
 {

@@ -51,7 +51,7 @@ namespace File_vault {
 			uint64_t nr_of_leaves()   const { return _nr_of_leaves  ; }
 	};
 
-	struct Operation_id { uint64_t value { }; };
+	struct Operation_id { uint64_t value; };
 }
 
 #endif /* _FILE_VAULT__TYPES_H_ */

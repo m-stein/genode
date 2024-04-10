@@ -24,19 +24,18 @@ using namespace File_vault;
 
 struct File_vault_operation
 {
-	Operation_id id { };
+	Constructible<Operation_id> requested_id { };
 	Constructible<Operation_id> finished_id { };
-	bool file_vault_ready { };
 
 	bool ready_to_request() const
 	{
-		if (!file_vault_ready)
-			return false;
-
-		if (!finished_id.constructed())
+		if (!requested_id.constructed())
 			return true;
 
-		return finished_id->value == id.value;
+		if (!finished_id.constructed())
+			return false;
+
+		return finished_id->value == requested_id->value;
 	}
 };
 
@@ -606,16 +605,21 @@ struct Main : Prompt::Action
 	{
 		ui_config_reporter.generate([&] (Xml_generator &xml) {
 			xml.attribute("passphrase", *passphrase);
+			if (rekey_op.requested_id.constructed())
+				xml.node("requested-rekey", [&] {
+					xml.attribute("id", rekey_op.requested_id->value); });
 			fn(xml);
 		});
 	}
 
 	void rekey()
 	{
-		rekey_op.id.value++;
-		gen_unlocked_ui_config([&] (Xml_generator &xml) {
-			xml.node("rekey", [&] {
-				xml.attribute("id", rekey_op.id.value); }); });
+		if (!rekey_op.requested_id.constructed())
+			rekey_op.requested_id.construct(0ULL);
+		else
+			rekey_op.requested_id->value++;
+
+		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
 	void extend_capacity(Controls_frame::Capacity const &)
@@ -634,7 +638,7 @@ struct Main : Prompt::Action
 		Xml_node ui_report = ui_report_rom.xml();
 log(ui_report);
 		Ui_state_string state = ui_report.attribute_value("state", Ui_state_string());
-		Dialog_type dialog_type =
+		active_dialog =
 			state == "invalid" ? WAIT :
 			state == "uninitialized" ? SETUP :
 			state == "initializing" ? WAIT :
@@ -644,15 +648,10 @@ log(ui_report);
 			state == "locked" ? UNLOCK :
 			NONE;
 
-		rekey_op.file_vault_ready = ui_report.attribute_value("ready_to_rekey", true);
-		rekey_op.finished_id.destruct();
-		if (ui_report.has_attribute("finished_rekey_id"))
-			rekey_op.finished_id.construct(ui_report.attribute_value("finished_rekey_id", 0ULL));
+		ui_report.with_optional_sub_node("finished-rekey", [&] (Xml_node const &finished_rekey) {
+			rekey_op.finished_id.construct(finished_rekey.attribute_value("id", 0ULL)); });
 
-		if (active_dialog != dialog_type) {
-			active_dialog = dialog_type;
-			main_view.refresh();
-		}
+		main_view.refresh();
 	}
 
 	Main(Env &env) : env(env)
