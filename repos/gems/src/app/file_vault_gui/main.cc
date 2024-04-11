@@ -22,23 +22,6 @@
 using namespace Dialog;
 using namespace File_vault;
 
-struct File_vault_operation
-{
-	Constructible<Operation_id> requested_id { };
-	Constructible<Operation_id> finished_id { };
-
-	bool ready_to_request() const
-	{
-		if (!requested_id.constructed())
-			return true;
-
-		if (!finished_id.constructed())
-			return false;
-
-		return finished_id->value == requested_id->value;
-	}
-};
-
 struct Back_button : Widget<Float>
 {
 	void view(Scope<Float> &s) const
@@ -562,7 +545,6 @@ struct Main : Prompt::Action
 	Dialog_type active_dialog { NONE };
 	Heap heap { env.ram(), env.rm() };
 	Runtime runtime { env, heap };
-	File_vault_operation rekey_op { };
 	Main_dialog main_dialog { "main", *this };
 	Runtime::View main_view { runtime, main_dialog };
 	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::handle_event };
@@ -570,6 +552,8 @@ struct Main : Prompt::Action
 	Attached_rom_dataspace ui_report_rom { env, "ui_report" };
 	Signal_handler<Main> signal_handler { env.ep(), *this, &Main::handle_signal };
 	Constructible<Prompt::Text> passphrase { };
+	Constructible<Rekey_config> rekey_config { };
+	Constructible<Rekey_report> rekey_report { };
 
 	void handle_event(Dialog::Event const &event)
 	{
@@ -599,25 +583,36 @@ struct Main : Prompt::Action
 
 	bool ready_to_extend() const { return false; }
 
-	bool ready_to_rekey() const { return rekey_op.ready_to_request(); }
+	bool ready_to_rekey() const
+	{
+		if (!rekey_config.constructed())
+			return true;
+
+		if (!rekey_report.constructed())
+			return false;
+
+		return rekey_report->id.value == rekey_config->id.value && rekey_report->finished;
+	}
 
 	void gen_unlocked_ui_config(auto const &fn)
 	{
 		ui_config_reporter.generate([&] (Xml_generator &xml) {
 			xml.attribute("passphrase", *passphrase);
-			if (rekey_op.requested_id.constructed())
-				xml.node("requested-rekey", [&] {
-					xml.attribute("id", rekey_op.requested_id->value); });
+			if (rekey_config.constructed())
+				xml.node("rekey", [&] { rekey_config->generate(xml); });
 			fn(xml);
 		});
 	}
 
 	void rekey()
 	{
-		if (!rekey_op.requested_id.constructed())
-			rekey_op.requested_id.construct(0ULL);
+		if (rekey_config.constructed())
+			rekey_config->id.value++;
 		else
-			rekey_op.requested_id->value++;
+			if (rekey_report.constructed())
+				rekey_config.construct(Operation_id(rekey_report->id.value + 1));
+			else
+				rekey_config.construct(Operation_id(0));
 
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
@@ -648,8 +643,8 @@ log(ui_report);
 			state == "locked" ? UNLOCK :
 			NONE;
 
-		ui_report.with_optional_sub_node("finished-rekey", [&] (Xml_node const &finished_rekey) {
-			rekey_op.finished_id.construct(finished_rekey.attribute_value("id", 0ULL)); });
+		ui_report.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
+			rekey_report.construct(rekey); });
 
 		main_view.refresh();
 	}

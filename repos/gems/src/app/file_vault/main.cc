@@ -459,8 +459,8 @@ class File_vault::Main
 		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
 		Constructible<Ui_config>               _ui_config                          { };
 		Constructible<Expanding_reporter>      _ui_report                          { };
-		Constructible<Operation_id>            _requested_rekey_id                 { };
-		Constructible<Operation_id>            _finished_rekey_id                  { };
+		Constructible<Rekey_config>            _rekey_config                       { };
+		Constructible<Rekey_report>            _rekey_report                       { };
 
 		static User_interface
 		_user_interface_from_config(Xml_node const &config)
@@ -617,9 +617,8 @@ class File_vault::Main
 			_ui_report->generate([&] (Xml_generator &xml) {
 				xml.attribute("version", _ui_config->version);
 				xml.attribute("state",   _reported_state_to_string(_reported_state()));
-				if (_finished_rekey_id.constructed())
-					xml.node("finished-rekey", [&] {
-						xml.attribute("id", _finished_rekey_id->value); });
+				if (_rekey_report.constructed())
+					xml.node("rekey", [&] { _rekey_report->generate(xml); });
 			});
 		}
 
@@ -638,7 +637,7 @@ class File_vault::Main
 			}
 		}
 
-		bool _try_realize_configured_rekey_request();
+		bool _rekey_operation_pending() const;
 
 		static Number_of_blocks _tresor_tree_num_leaves(size_t payload_size);
 
@@ -732,8 +731,8 @@ void Main::_handle_ui_config()
 	_ui_config_rom->update();
 	Xml_node const &ui_config = _ui_config_rom->xml();
 	_ui_config.construct(ui_config, _verbose_ui_config);
-	ui_config.with_optional_sub_node("requested-rekey", [&] (Xml_node const &rekey) {
-		_requested_rekey_id.construct(rekey.attribute_value("id", 0ULL)); });
+	ui_config.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
+		_rekey_config.construct(rekey); });
 	_handle_ui_config_and_report();
 }
 
@@ -1067,7 +1066,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
 log("rekeying finished");
-				_finished_rekey_id.construct(_requested_rekey_id->value);
+				_rekey_report->finished = true;
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
 				_generate_ui_report();
@@ -1336,21 +1335,15 @@ void Main::_handle_state()
 }
 
 
-bool Main::_try_realize_configured_rekey_request()
+bool Main::_rekey_operation_pending() const
 {
-	if (_rekeying_state != Rekeying_state::INACTIVE)
+	if (!_rekey_config.constructed())
 		return false;
 
-	if (!_requested_rekey_id.constructed())
-		return false;
+	if (!_rekey_report.constructed())
+		return true;
 
-	if (_finished_rekey_id.constructed())
-		if (_finished_rekey_id->value == _requested_rekey_id->value)
-			return false;
-
-log("rekeying requested");
-	_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
-	return true;
+	return _rekey_report->id.value != _rekey_config->id.value;
 }
 
 
@@ -1393,7 +1386,15 @@ void Main::_handle_ui_config_and_report()
 			update_sandbox_config = true;
 			break;
 		}
-		update_sandbox_config |= _try_realize_configured_rekey_request();
+		if (_rekeying_state == Rekeying_state::INACTIVE && _rekey_operation_pending()) {
+
+log("rekeying requested");
+
+			_rekey_report.construct(_rekey_config->id, false);
+			_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
+			_update_sandbox_config();
+			_generate_ui_report();
+		}
 		break;
 
 	default: break;
