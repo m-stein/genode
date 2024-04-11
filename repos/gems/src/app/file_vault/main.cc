@@ -461,6 +461,8 @@ class File_vault::Main
 		Constructible<Expanding_reporter>      _ui_report                          { };
 		Constructible<Rekey_config>            _rekey_config                       { };
 		Constructible<Rekey_report>            _rekey_report                       { };
+		Constructible<Extend_config>           _extend_config                      { };
+		Constructible<Extend_report>           _extend_report                      { };
 
 		static User_interface
 		_user_interface_from_config(Xml_node const &config)
@@ -507,6 +509,26 @@ class File_vault::Main
 			switch (_user_interface) {
 			case MENU_VIEW:         return _setup_obtain_params_passphrase.plaintext().string();
 			case CONFIG_AND_REPORT: return _ui_config->passphrase;
+			}
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+
+		Number_of_bytes _ui_expand_client_fs_contingent() const
+		{
+			switch (_user_interface) {
+			case MENU_VIEW:         return _expand_client_fs_contingent.value();
+			case CONFIG_AND_REPORT: return _extend_config->num_bytes;
+			}
+			class Exception_1 { };
+			throw Exception_1 { };
+		}
+
+		Number_of_bytes _ui_expand_snapshot_buf_contingent() const
+		{
+			switch (_user_interface) {
+			case MENU_VIEW:         return _expand_snapshot_buf_contingent.value();
+			case CONFIG_AND_REPORT: return _extend_config->num_bytes;
 			}
 			class Exception_1 { };
 			throw Exception_1 { };
@@ -619,6 +641,8 @@ class File_vault::Main
 				xml.attribute("state",   _reported_state_to_string(_reported_state()));
 				if (_rekey_report.constructed())
 					xml.node("rekey", [&] { _rekey_report->generate(xml); });
+				if (_extend_report.constructed())
+					xml.node("extend", [&] { _extend_report->generate(xml); });
 			});
 		}
 
@@ -638,6 +662,8 @@ class File_vault::Main
 		}
 
 		bool _rekey_operation_pending() const;
+
+		bool _extend_operation_pending() const;
 
 		static Number_of_blocks _tresor_tree_num_leaves(size_t payload_size);
 
@@ -733,6 +759,8 @@ void Main::_handle_ui_config()
 	_ui_config.construct(ui_config, _verbose_ui_config);
 	ui_config.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
 		_rekey_config.construct(rekey); });
+	ui_config.with_optional_sub_node("extend", [&] (Xml_node const &extend) {
+		_extend_config.construct(extend); });
 	_handle_ui_config_and_report();
 }
 
@@ -1063,7 +1091,6 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 		case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
-log("---listing:\n",node, "\n---");
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
 log("rekeying finished");
@@ -1348,6 +1375,18 @@ bool Main::_rekey_operation_pending() const
 }
 
 
+bool Main::_extend_operation_pending() const
+{
+	if (!_extend_config.constructed())
+		return false;
+
+	if (!_extend_report.constructed())
+		return true;
+
+	return _extend_report->id.value != _extend_config->id.value;
+}
+
+
 void Main::_handle_ui_config_and_report()
 {
 	bool update_sandbox_config { false };
@@ -1389,10 +1428,23 @@ void Main::_handle_ui_config_and_report()
 		}
 		if (_rekeying_state == Rekeying_state::INACTIVE && _rekey_operation_pending()) {
 
-log("rekeying requested");
+log("rekeying started");
 
 			_rekey_report.construct(_rekey_config->id, false);
 			_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
+			_update_sandbox_config();
+			_generate_ui_report();
+		}
+		if (_resizing_state == Resizing_state::INACTIVE && _extend_operation_pending()) {
+
+log("resizing started");
+
+			_extend_report.construct(_extend_config->id, false);
+			_resizing_state = Resizing_state::ADAPT_TRESOR_IMAGE_SIZE;
+			switch (_extend_config->tree) {
+			case Extend_config::VIRTUAL_BLOCK_DEVICE: _resizing_type = Resizing_type::EXPAND_CLIENT_FS; break;
+			case Extend_config::FREE_TREE: _resizing_type = Resizing_type::EXPAND_SNAPSHOT_BUF; break;
+			}
 			_update_sandbox_config();
 			_generate_ui_report();
 		}
@@ -1490,6 +1542,7 @@ void File_vault::Main::handle_sandbox_state()
 	};
 	bool update_sandbox { false };
 	bool update_dialog { false };
+	bool update_ui_report { false };
 	bool nr_of_clients { false };
 	sandbox_state.with_xml_node([&] (Xml_node const &sandbox_state) {
 
@@ -1614,6 +1667,10 @@ void File_vault::Main::handle_sandbox_state()
 
 					_resizing_type = Resizing_type::NONE;
 					_resizing_state = Resizing_state::INACTIVE;
+
+log("resizing finished");
+					_extend_report->finished = true;
+					update_ui_report = true;
 					update_dialog = true;
 					update_sandbox = true;
 				}
@@ -1679,12 +1736,19 @@ log("rekeying in progress");
 
 			if (_child_succeeded(sandbox_state, _lock_fs_tool)) {
 
-				if (_user_interface == CONFIG_AND_REPORT)
+				if (_user_interface == CONFIG_AND_REPORT) {
 					if (_rekey_report.constructed()) {
 						_rekey_report->finished = true;
 						_rekeying_state = Rekeying_state::INACTIVE;
 						_generate_ui_report();
 					}
+					if (_extend_report.constructed()) {
+						_extend_report->finished = true;
+						_resizing_type = Resizing_type::NONE;
+						_resizing_state = Resizing_state::INACTIVE;
+						_generate_ui_report();
+					}
+				}
 				_set_state(State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE);
 				update_dialog = true;
 				update_sandbox = true;
@@ -1716,6 +1780,8 @@ log("rekeying in progress");
 
 		_update_sandbox_config();
 	}
+	if (update_ui_report)
+		_generate_ui_report();
 }
 
 
@@ -2606,7 +2672,9 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
-					_expand_client_fs_contingent.value() / TRESOR_BLOCK_SIZE);
+					_ui_expand_client_fs_contingent() / TRESOR_BLOCK_SIZE);
+
+log("resizing in progress num_blocks=", _ui_expand_client_fs_contingent() / TRESOR_BLOCK_SIZE);
 
 				break;
 
@@ -2614,7 +2682,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "ft",
-					_expand_snapshot_buf_contingent.value() / TRESOR_BLOCK_SIZE);
+					_ui_expand_snapshot_buf_contingent() / TRESOR_BLOCK_SIZE);
 
 				break;
 

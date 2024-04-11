@@ -383,36 +383,41 @@ struct Main : Prompt::Action
 
 		struct Capacity : Widget<Vbox>
 		{
+			enum { MIN_NUM_BYTES = 4096 };
+
 			Controls_frame &controls;
 			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
-			Hosted<Vbox, Prompt> num_bytes { Id { "Number Of Bytes" }, controls.main.heap, true };
+			Hosted<Vbox, Prompt> num_bytes_prompt { Id { "Number Of Bytes" }, controls.main.heap, true };
 			Hosted<Vbox, Action_button> extend_button { Id { "Extend" } };
 
 			Capacity(Controls_frame &controls) : controls(controls) { }
 
-			bool ready_to_extend() const
+			bool arguments_valid() const
 			{
-				bool num_bytes_valid = false;
-				num_bytes.with_text_as_num_bytes([&] (auto num_bytes) {
-					size_t num_effective_bytes { num_bytes - (num_bytes % BLOCK_SIZE) };
-					if (num_effective_bytes > 0)
-						num_bytes_valid = true;
-				});
-				return num_bytes_valid && controls.main.ready_to_extend();
+				bool result = false;
+				num_bytes_prompt.with_text_as_num_bytes([&] (auto num_bytes) {
+					if (num_bytes >= MIN_NUM_BYTES)
+						result = true; });
+
+				return result;
 			}
 
 			void view(Scope<Vbox> &s) const
 			{
 				s.widget(navigation_bar, "Capacity ");
-				s.widget(num_bytes, true);
-				if (ready_to_extend())
-					s.widget(extend_button);
+				if (controls.main.ready_to_extend()) {
+					s.widget(num_bytes_prompt, true);
+					if (arguments_valid())
+						s.widget(extend_button);
+				} else
+					s.sub_scope<Left_aligned_text>(" Please wait ... ");
+
 			}
 
 			void extend()
 			{
 				controls.main.extend_capacity(*this);
-				num_bytes.reset();
+				num_bytes_prompt.reset();
 			}
 
 			void click(Clicked_at const &at)
@@ -427,12 +432,12 @@ struct Main : Prompt::Action
 					switch (key) {
 					case Input::KEY_ENTER:
 
-						if (ready_to_extend())
+						if (controls.main.ready_to_extend() && arguments_valid())
 							extend();
 						break;
 
 					case Input::KEY_TAB: break;
-					default: num_bytes.handle_event(event, controls.main); break;
+					default: num_bytes_prompt.handle_event(event, controls.main); break;
 					}
 				});
 			}
@@ -658,23 +663,17 @@ struct Main : Prompt::Action
 
 	void rekey()
 	{
-		if (rekey_config.constructed())
-			rekey_config->id.value++;
-		else
-			if (rekey_report.constructed())
-				rekey_config.construct(Operation_id(rekey_report->id.value + 1));
-			else
-				rekey_config.construct(Operation_id(0));
-
+		Operation_id id { rekey_report.constructed() ? rekey_report->id.value + 1 : 0 };
+		rekey_config.construct(id);
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
 	void extend_capacity(Controls_frame::Capacity const &capacity)
 	{
-		capacity.num_bytes.with_text_as_num_bytes([&] (auto num_bytes)
+		capacity.num_bytes_prompt.with_text_as_num_bytes([&] (auto num_bytes)
 		{
 			Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
-			extend_config.construct(id, Extend_config::VIRTUAL_BLOCK_DEVICE, num_bytes / BLOCK_SIZE);
+			extend_config.construct(id, Extend_config::VIRTUAL_BLOCK_DEVICE, num_bytes);
 		});
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
@@ -701,6 +700,9 @@ struct Main : Prompt::Action
 
 		ui_report.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
 			rekey_report.construct(rekey); });
+
+		ui_report.with_optional_sub_node("extend", [&] (Xml_node const &extend) {
+			extend_report.construct(extend); });
 
 		main_view.refresh();
 	}

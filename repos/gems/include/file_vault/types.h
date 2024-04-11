@@ -102,13 +102,12 @@ namespace File_vault {
 	struct Extend_config
 	{
 		using Tree_string = String<4>;
-		using Number_of_blocks = uint64_t;
 
 		enum Tree { VIRTUAL_BLOCK_DEVICE, FREE_TREE };
 
 		Operation_id id;
 		Tree tree;
-		Number_of_blocks num_blocks;
+		Number_of_bytes num_bytes;
 
 		static Tree string_to_tree(Tree_string const &str)
 		{
@@ -129,16 +128,16 @@ namespace File_vault {
 		:
 			id(node.attribute_value("id", 0ULL)),
 			tree(string_to_tree(node.attribute_value("tree", Tree_string()))),
-			num_blocks(node.attribute_value("id", 0ULL))
+			num_bytes(node.attribute_value("num_bytes", 0ULL))
 		{ }
 
-		Extend_config(Operation_id id, Tree tree, Number_of_blocks num_blocks) : id(id), tree(tree), num_blocks(num_blocks) { }
+		Extend_config(Operation_id id, Tree tree, Number_of_bytes num_bytes) : id(id), tree(tree), num_bytes(num_bytes) { }
 
 		void generate(Xml_generator &xml)
 		{
 			xml.attribute("id", id.value);
 			xml.attribute("tree", tree_to_string(tree));
-			xml.attribute("num_blocks", num_blocks);
+			xml.attribute("num_bytes", num_bytes);
 		}
 	};
 
