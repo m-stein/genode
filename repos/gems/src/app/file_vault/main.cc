@@ -70,7 +70,6 @@ struct File_vault::Ui_config
 		client_fs_size      { node.attribute_value("client_fs_size",      Number_of_bytes { 0 }) },
 		journaling_buf_size { node.attribute_value("journaling_buf_size", Number_of_bytes { 0 }) }
 	{
-
 		if (verbose)
 			log("ui_config: version \"", version,
 			    "\" passphrase ", passphrase_suitable() ? "<" : "<not ",

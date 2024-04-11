@@ -39,36 +39,6 @@ namespace File_vault {
 
 	using namespace Genode;
 
-	using Node_name = String<32>;
-	using File_path = String<32>;
-
-	class Tree_geometry
-	{
-		private:
-
-			uint64_t const _nr_of_levels;
-			uint64_t const _nr_of_children;
-			uint64_t const _nr_of_leaves;
-
-		public:
-
-			Tree_geometry(
-				uint64_t nr_of_levels,
-				uint64_t nr_of_children,
-				uint64_t nr_of_leaves)
-			:
-				_nr_of_levels   { nr_of_levels   },
-				_nr_of_children { nr_of_children },
-				_nr_of_leaves   { nr_of_leaves   }
-			{ }
-
-			uint64_t nr_of_levels()   const { return _nr_of_levels  ; }
-			uint64_t nr_of_children() const { return _nr_of_children; }
-			uint64_t nr_of_leaves()   const { return _nr_of_leaves  ; }
-	};
-
-	enum { BLOCK_SIZE = 4096 };
-
 	struct Operation_id { uint64_t value; };
 
 	struct Rekey_config

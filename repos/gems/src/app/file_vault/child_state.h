@@ -21,7 +21,9 @@
 #include <util/string.h>
 #include <base/registry.h>
 #include <base/quota_guard.h>
-#include <file_vault/types.h>
+
+/* local includes */
+#include <types.h>
 
 namespace File_vault {
 

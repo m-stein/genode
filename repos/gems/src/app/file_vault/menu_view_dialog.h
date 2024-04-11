@@ -16,9 +16,9 @@
 
 /* Genode includes */
 #include <util/xml_generator.h>
-#include <file_vault/types.h>
 
 /* local includes */
+#include <types.h>
 #include <input.h>
 
 namespace File_vault {

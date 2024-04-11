@@ -18,6 +18,9 @@
 /* Genode includes */
 #include <util/utf8.h>
 
+/* local includes */
+#include <types.h>
+
 namespace File_vault {
 
 	enum {
