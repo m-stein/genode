@@ -1547,7 +1547,7 @@ void File_vault::Main::handle_sandbox_state()
 	};
 	bool update_sandbox { false };
 	bool update_dialog { false };
-	bool update_ui_report { false };
+	bool generate_ui_report { false };
 	bool nr_of_clients { false };
 	sandbox_state.with_xml_node([&] (Xml_node const &sandbox_state) {
 
@@ -1676,7 +1676,7 @@ void File_vault::Main::handle_sandbox_state()
 log("resizing finished");
 					if (_user_interface == CONFIG_AND_REPORT) {
 						_extend_report->finished = true;
-						update_ui_report = true;
+						generate_ui_report = true;
 					}
 					update_dialog = true;
 					update_sandbox = true;
@@ -1747,13 +1747,13 @@ log("rekeying in progress");
 					if (_rekey_report.constructed()) {
 						_rekey_report->finished = true;
 						_rekeying_state = Rekeying_state::INACTIVE;
-						_generate_ui_report();
+						generate_ui_report = true;
 					}
 					if (_extend_report.constructed()) {
 						_extend_report->finished = true;
 						_resizing_type = Resizing_type::NONE;
 						_resizing_state = Resizing_state::INACTIVE;
-						_generate_ui_report();
+						generate_ui_report = true;
 					}
 				}
 				_set_state(State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE);
@@ -1787,7 +1787,7 @@ log("rekeying in progress");
 
 		_update_sandbox_config();
 	}
-	if (update_ui_report)
+	if (generate_ui_report)
 		_generate_ui_report();
 }
 
@@ -3941,6 +3941,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 		_dialog.trigger_update();
 	}
 }
+
 
 void File_vault::Main::_handle_hover(Xml_node const &node)
 {
