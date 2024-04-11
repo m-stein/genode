@@ -1063,6 +1063,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 		case Rekeying_state::IN_PROGRESS_AT_DEVICE:
 
+log("---listing:\n",node, "\n---");
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
 log("rekeying finished");
@@ -1678,6 +1679,12 @@ log("rekeying in progress");
 
 			if (_child_succeeded(sandbox_state, _lock_fs_tool)) {
 
+				if (_user_interface == CONFIG_AND_REPORT)
+					if (_rekey_report.constructed()) {
+						_rekey_report->finished = true;
+						_rekeying_state = Rekeying_state::INACTIVE;
+						_generate_ui_report();
+					}
 				_set_state(State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE);
 				update_dialog = true;
 				update_sandbox = true;

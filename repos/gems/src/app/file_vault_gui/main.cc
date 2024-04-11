@@ -631,7 +631,6 @@ struct Main : Prompt::Action
 	{
 		ui_report_rom.update();
 		Xml_node ui_report = ui_report_rom.xml();
-log(ui_report);
 		Ui_state_string state = ui_report.attribute_value("state", Ui_state_string());
 		active_dialog =
 			state == "invalid" ? WAIT :
