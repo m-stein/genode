@@ -1064,6 +1064,7 @@ void Main::_handle_lock_fs_query_listing(Xml_node const &node)
 
 void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 {
+	bool generate_ui_report = false;
 	switch (_state) {
 	case State::CONTROLS_ROOT:
 	case State::CONTROLS_SNAPSHOTS:
@@ -1094,10 +1095,13 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
 log("rekeying finished");
-				_rekey_report->finished = true;
+
+				if (_user_interface == CONFIG_AND_REPORT) {
+					_rekey_report->finished = true;
+					generate_ui_report = true;
+				}
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
-				_generate_ui_report();
 
 			} else
 				error("failed to rekey: operation failed at tresor");
@@ -1114,6 +1118,8 @@ log("rekeying finished");
 
 		break;
 	}
+	if (generate_ui_report)
+		_generate_ui_report();
 }
 
 
@@ -1669,8 +1675,10 @@ void File_vault::Main::handle_sandbox_state()
 					_resizing_state = Resizing_state::INACTIVE;
 
 log("resizing finished");
-					_extend_report->finished = true;
-					update_ui_report = true;
+					if (_user_interface == CONFIG_AND_REPORT) {
+						_extend_report->finished = true;
+						update_ui_report = true;
+					}
 					update_dialog = true;
 					update_sandbox = true;
 				}
