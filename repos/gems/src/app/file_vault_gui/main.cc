@@ -385,26 +385,56 @@ struct Main : Prompt::Action
 		{
 			Controls_frame &controls;
 			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
+			Hosted<Vbox, Prompt> num_bytes { Id { "Number Of Bytes" }, controls.main.heap, true };
 			Hosted<Vbox, Action_button> extend_button { Id { "Extend" } };
 
 			Capacity(Controls_frame &controls) : controls(controls) { }
 
+			bool ready_to_extend() const
+			{
+				bool num_bytes_valid = false;
+				num_bytes.with_text_as_num_bytes([&] (auto num_bytes) {
+					size_t num_effective_bytes { num_bytes - (num_bytes % BLOCK_SIZE) };
+					if (num_effective_bytes > 0)
+						num_bytes_valid = true;
+				});
+				return num_bytes_valid && controls.main.ready_to_extend();
+			}
+
 			void view(Scope<Vbox> &s) const
 			{
 				s.widget(navigation_bar, "Capacity ");
-				if (controls.main.ready_to_extend())
+				s.widget(num_bytes, true);
+				if (ready_to_extend())
 					s.widget(extend_button);
 			}
 
 			void extend()
 			{
 				controls.main.extend_capacity(*this);
+				num_bytes.reset();
 			}
 
 			void click(Clicked_at const &at)
 			{
 				navigation_bar.propagate(at);
 				extend_button.propagate(at, [&] { extend(); });
+			}
+
+			void handle_event(Dialog::Event const &event)
+			{
+				event.event.handle_press([&] (Input::Keycode key, Codepoint) {
+					switch (key) {
+					case Input::KEY_ENTER:
+
+						if (ready_to_extend())
+							extend();
+						break;
+
+					case Input::KEY_TAB: break;
+					default: num_bytes.handle_event(event, controls.main); break;
+					}
+				});
 			}
 		};
 
@@ -498,6 +528,14 @@ struct Main : Prompt::Action
 			}
 			lock_button.propagate(at, [&] { main.lock(); });
 		}
+
+		void handle_event(Dialog::Event const &event)
+		{
+			switch (visible_tab) {
+			case CAPACITY: capacity.handle_event(event); break;
+			default: break;
+			}
+		}
 	};
 
 	struct Main_dialog : Top_level_dialog
@@ -536,6 +574,7 @@ struct Main : Prompt::Action
 			switch (main.active_dialog) {
 			case SETUP: setup_frame.handle_event(event); break;
 			case UNLOCK: unlock_frame.handle_event(event); break;
+			case CONTROLS: controls_frame.handle_event(event); break;
 			default: break;
 			}
 		}
@@ -554,6 +593,8 @@ struct Main : Prompt::Action
 	Constructible<Prompt::Text> passphrase { };
 	Constructible<Rekey_config> rekey_config { };
 	Constructible<Rekey_report> rekey_report { };
+	Constructible<Extend_config> extend_config { };
+	Constructible<Extend_report> extend_report { };
 
 	void handle_event(Dialog::Event const &event)
 	{
@@ -581,7 +622,16 @@ struct Main : Prompt::Action
 		ui_config_reporter.generate([&] (Xml_generator &) { });
 	}
 
-	bool ready_to_extend() const { return false; }
+	bool ready_to_extend() const
+	{
+		if (!extend_config.constructed())
+			return true;
+
+		if (!extend_report.constructed())
+			return false;
+
+		return extend_report->id.value == extend_config->id.value && extend_report->finished;
+	}
 
 	bool ready_to_rekey() const
 	{
@@ -600,6 +650,8 @@ struct Main : Prompt::Action
 			xml.attribute("passphrase", *passphrase);
 			if (rekey_config.constructed())
 				xml.node("rekey", [&] { rekey_config->generate(xml); });
+			if (extend_config.constructed())
+				xml.node("extend", [&] { extend_config->generate(xml); });
 			fn(xml);
 		});
 	}
@@ -617,9 +669,14 @@ struct Main : Prompt::Action
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
-	void extend_capacity(Controls_frame::Capacity const &)
+	void extend_capacity(Controls_frame::Capacity const &capacity)
 	{
-		throw -1;
+		capacity.num_bytes.with_text_as_num_bytes([&] (auto num_bytes)
+		{
+			Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
+			extend_config.construct(id, Extend_config::VIRTUAL_BLOCK_DEVICE, num_bytes / BLOCK_SIZE);
+		});
+		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
 	void extend_journaling_buffer(Controls_frame::Journaling_buffer const &)
