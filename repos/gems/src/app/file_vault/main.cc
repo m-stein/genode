@@ -18,7 +18,6 @@
 #include <base/attached_rom_dataspace.h>
 #include <base/buffered_output.h>
 #include <os/buffered_xml.h>
-#include <os/dynamic_rom_session.h>
 #include <os/vfs.h>
 #include <os/reporter.h>
 #include <timer_session/connection.h>
@@ -30,11 +29,7 @@
 #include <report_session_component.h>
 #include <child_state.h>
 #include <sandbox.h>
-#include <input.h>
-#include <utf8.h>
 #include <child_exit_state.h>
-#include <const_pointer.h>
-#include <capacity.h>
 
 namespace File_vault {
 
@@ -186,9 +181,6 @@ class File_vault::Main
 		bool                                   _initial_config                     { true };
 		Signal_handler<Main>                   _config_handler                     { _env.ep(), *this, &Main::_handle_config };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
-		Input_passphrase                       _setup_obtain_params_passphrase     { };
-		Input_number_of_bytes                  _client_fs_size_input               { };
-		Input_number_of_bytes                  _journaling_buf_size_input          { };
 
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
@@ -650,7 +642,6 @@ void Main::_handle_lock_fs_query_listing(Xml_node const &node)
 
 		if (listing_file_starts_with(node, "deinitialize", String<10>("succeeded"))) {
 			_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
-			_setup_obtain_params_passphrase = Input_passphrase { };
 			Signal_transmitter(_state_handler).submit();
 		} else
 			error("failed to deinitialize: operation failed at tresor");
@@ -1019,7 +1010,6 @@ void File_vault::Main::_handle_unlock_retry_delay(Duration)
 {
 	_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
 	_ui_config.construct();
-	_setup_obtain_params_passphrase = Input_passphrase { };
 	Signal_transmitter(_state_handler).submit();
 }
 
