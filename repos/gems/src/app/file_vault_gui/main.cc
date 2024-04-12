@@ -22,6 +22,17 @@
 using namespace Dialog;
 using namespace File_vault;
 
+enum {
+	CODEPOINT_CAPITAL_C = 67,
+	CODEPOINT_CAPITAL_E = 69,
+	CODEPOINT_CAPITAL_J = 74,
+	CODEPOINT_CAPITAL_L = 76,
+	CODEPOINT_SMALL_C = 99,
+	CODEPOINT_SMALL_E = 101,
+	CODEPOINT_SMALL_J = 106,
+	CODEPOINT_SMALL_L = 108,
+};
+
 struct Back_button : Widget<Float>
 {
 	void view(Scope<Float> &s) const
@@ -288,7 +299,7 @@ struct Main : Prompt::Action
 			case CAPACITY: selected = JOURNALING_BUFFER; break;
 			case JOURNALING_BUFFER: selected = PASSPHRASE; break;
 			}
-			main.refresh_text_area();
+			main.main_view.refresh();
 		}
 
 		void forward_to_selected(Dialog::Event const &event)
@@ -362,17 +373,24 @@ struct Main : Prompt::Action
 		struct Home : Widget<Vbox>
 		{
 			Controls_frame &controls;
-			Hosted<Vbox, Action_button> capacity_button { Id { "Capacity..." } };
-			Hosted<Vbox, Action_button> journal_buf_button { Id { "Journaling Buffer..." } };
-			Hosted<Vbox, Action_button> encrypt_key_button { Id { "Encryption Key..." } };
+			Hosted<Vbox, Action_button> capacity_button { Id { "[C]apacity" } };
+			Hosted<Vbox, Action_button> journal_buf_button { Id { "[J]ournaling Buffer" } };
+			Hosted<Vbox, Action_button> encrypt_key_button { Id { "[E]ncryption Key" } };
 
 			Home(Controls_frame &controls) : controls(controls) { }
 
 			void view(Scope<Vbox> &s) const
 			{
-				s.widget(capacity_button);
+				if (!controls.main.num_clients.value)
+					s.widget(capacity_button);
+
 				s.widget(journal_buf_button);
 				s.widget(encrypt_key_button);
+
+				if (controls.main.num_clients.value) {
+					s.sub_scope<Left_aligned_text>("");
+					s.sub_scope<Left_aligned_text>(" Capacity fixed when in use!");
+				}
 			}
 
 			void click(Clicked_at const &at)
@@ -380,6 +398,21 @@ struct Main : Prompt::Action
 				capacity_button.propagate(at, [&] { controls.visible_tab = CAPACITY; });
 				journal_buf_button.propagate(at, [&] { controls.visible_tab = JOURNALING_BUFFER; });
 				encrypt_key_button.propagate(at, [&] { controls.visible_tab = ENCRYPTION_KEY; });
+			}
+
+			void handle_event(Dialog::Event const &event)
+			{
+				event.event.handle_press([&] (Input::Keycode, Codepoint code) {
+					switch (code.value) {
+					case CODEPOINT_CAPITAL_C:
+					case CODEPOINT_SMALL_C: controls.switch_to_tab(CAPACITY); break;
+					case CODEPOINT_CAPITAL_J:
+					case CODEPOINT_SMALL_J: controls.switch_to_tab(JOURNALING_BUFFER); break;
+					case CODEPOINT_CAPITAL_E:
+					case CODEPOINT_SMALL_E: controls.switch_to_tab(ENCRYPTION_KEY); break;
+					default: break;
+					}
+				});
 			}
 		};
 
@@ -443,6 +476,7 @@ struct Main : Prompt::Action
 							extend();
 						break;
 
+					case Input::KEY_ESC: controls.switch_to_tab(HOME); break;
 					case Input::KEY_TAB: break;
 					default: num_bytes_prompt.handle_event(event, controls.main); break;
 					}
@@ -472,6 +506,22 @@ struct Main : Prompt::Action
 				navigation_bar.propagate(at);
 				replace_button.propagate(at, [&] { controls.main.rekey(); });
 			}
+
+			void handle_event(Dialog::Event const &event)
+			{
+				event.event.handle_press([&] (Input::Keycode key, Codepoint) {
+					switch (key) {
+					case Input::KEY_ENTER:
+
+						if (controls.main.ready_to_rekey())
+							controls.main.rekey();
+						break;
+
+					case Input::KEY_ESC: controls.switch_to_tab(HOME); break;
+					default: break;
+					}
+				});
+			}
 		};
 
 		Main &main;
@@ -480,14 +530,19 @@ struct Main : Prompt::Action
 		Hosted<Frame, Vbox, Dimension_tab<Extend_config::VIRTUAL_BLOCK_DEVICE> > capacity { Id { "Capacity" }, *this };
 		Hosted<Frame, Vbox, Dimension_tab<Extend_config::FREE_TREE> > journal_buf { Id { "Journaling Buffer" }, *this };
 		Hosted<Frame, Vbox, Encryption_key> encryption_key { Id { "Encryption Key" }, *this };
-		Hosted<Frame, Vbox, Action_button> lock_button { Id { "Lock" } };
+		Hosted<Frame, Vbox, Action_button> lock_button { Id { "[L]ock" } };
 
 		Controls_frame(Main &main) : main(main) { }
+
+		void switch_to_tab(Tab tab)
+		{
+			visible_tab = tab;
+			main.main_view.refresh();
+		}
 
 		void view(Scope<Frame> &s) const
 		{
 			s.sub_scope<Vbox>([&] (Scope<Frame, Vbox> &s) {
-
 				switch (visible_tab) {
 				case HOME: s.widget(home); break;
 				case ENCRYPTION_KEY: s.widget(encryption_key); break;
@@ -495,11 +550,20 @@ struct Main : Prompt::Action
 				case JOURNALING_BUFFER: s.widget(journal_buf); break;
 				}
 				s.sub_scope<Left_aligned_text>("");
-				s.sub_scope<Left_aligned_text>(String<64>(" Image: ", main.image_size));
-				s.sub_scope<Left_aligned_text>(String<64>(" Capacity: ", main.capacity));
-				s.sub_scope<Left_aligned_text>(" Clients: 12 ");
+				s.sub_scope<Left_aligned_text>(String<32>(" Image: ", main.image_size));
+				s.sub_scope<Left_aligned_text>(String<32>(" Capacity: ", main.capacity));
+				s.sub_scope<Left_aligned_text>(String<32>(" Clients: ", main.num_clients.value));
+				s.sub_scope<Left_aligned_text>("");
 				s.widget(lock_button);
 			});
+		}
+
+		void lock()
+		{
+			main.lock();
+			visible_tab = HOME;
+			capacity.num_bytes_prompt.reset();
+			journal_buf.num_bytes_prompt.reset();
 		}
 
 		void click(Clicked_at const &at)
@@ -511,21 +575,32 @@ struct Main : Prompt::Action
 			case JOURNALING_BUFFER: journal_buf.propagate(at); break;
 			default: break;
 			}
-			lock_button.propagate(at, [&] {
-				main.lock();
-				visible_tab = HOME;
-				capacity.num_bytes_prompt.reset();
-				journal_buf.num_bytes_prompt.reset();
-			});
+			lock_button.propagate(at, [&] { lock(); });
 		}
 
 		void handle_event(Dialog::Event const &event)
 		{
-			switch (visible_tab) {
-			case CAPACITY: capacity.handle_event(event); break;
-			case JOURNALING_BUFFER: journal_buf.handle_event(event); break;
-			default: break;
-			}
+			event.event.handle_press([&] (Input::Keycode, Codepoint code) {
+				switch (code.value) {
+				case CODEPOINT_CAPITAL_L:
+				case CODEPOINT_SMALL_L: lock(); break;
+				default:
+
+					switch (visible_tab) {
+					case HOME: home.handle_event(event); break;
+					case CAPACITY: capacity.handle_event(event); break;
+					case JOURNALING_BUFFER: journal_buf.handle_event(event); break;
+					case ENCRYPTION_KEY: encryption_key.handle_event(event); break;
+					}
+					break;
+				}
+			});
+		}
+
+		void handle_signal()
+		{
+			if (visible_tab == CAPACITY && main.num_clients.value)
+				visible_tab = HOME;
 		}
 	};
 
@@ -569,6 +644,12 @@ struct Main : Prompt::Action
 			default: break;
 			}
 		}
+
+		void handle_signal()
+		{
+			if (main.active_dialog == CONTROLS)
+				controls_frame.handle_signal();
+		}
 	};
 
 	Env &env;
@@ -588,6 +669,7 @@ struct Main : Prompt::Action
 	Constructible<Extend_report> extend_report { };
 	Number_of_bytes image_size { };
 	Number_of_bytes capacity { };
+	Number_of_clients num_clients { };
 
 	void handle_event(Dialog::Event const &event)
 	{
@@ -684,12 +766,14 @@ struct Main : Prompt::Action
 
 		image_size = ui_report.attribute_value("image_size", Number_of_bytes());
 		capacity = ui_report.attribute_value("capacity", Number_of_bytes());
+		num_clients.value = ui_report.attribute_value("num_clients", 0ULL);
 		ui_report.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
 			rekey_report.construct(rekey); });
 
 		ui_report.with_optional_sub_node("extend", [&] (Xml_node const &extend) {
 			extend_report.construct(extend); });
 
+		main_dialog.handle_signal();
 		main_view.refresh();
 	}
 

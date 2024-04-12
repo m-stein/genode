@@ -379,7 +379,7 @@ void File_vault::gen_global_controls(Xml_generator &xml,
                                      size_t         min_width,
                                      size_t         tresor_image_size,
                                      size_t         client_fs_size,
-                                     size_t         nr_of_clients,
+                                     Number_of_clients nr_of_clients,
                                      bool           lock_button_hovered,
                                      bool           lock_button_selected)
 {
@@ -391,7 +391,7 @@ void File_vault::gen_global_controls(Xml_generator &xml,
 			", Client FS: ",
 			Capacity_string { client_fs_size },
 			", Clients: ",
-			nr_of_clients
+			nr_of_clients.value
 		}.string()
 	);
 

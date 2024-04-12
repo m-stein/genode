@@ -39,6 +39,7 @@ namespace File_vault {
 
 	using namespace Genode;
 
+	struct Number_of_clients { uint64_t value; };
 	struct Operation_id { uint64_t value; };
 
 	struct Rekey_config

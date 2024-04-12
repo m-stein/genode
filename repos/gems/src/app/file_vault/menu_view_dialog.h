@@ -180,7 +180,7 @@ namespace File_vault {
 	                         size_t         min_width,
 	                         size_t         tresor_image_size,
 	                         size_t         client_fs_size,
-	                         size_t         nr_of_clients,
+	                         Number_of_clients nr_of_clients,
 	                         bool           lock_button_hovered,
 	                         bool           lock_button_selected);
 }

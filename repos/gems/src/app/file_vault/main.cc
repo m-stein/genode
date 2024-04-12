@@ -453,7 +453,7 @@ class File_vault::Main
 		size_t                                 _tresor_image_size                  { 0 };
 		File_path                              _tresor_image_file_name             { "tresor.img" };
 		size_t                                 _client_fs_size                     { 0 };
-		bool                                   _nr_of_clients                      { 0 };
+		Number_of_clients                      _nr_of_clients                      { 0 };
 		Constructible<Attached_rom_dataspace>  _ui_config_rom                      { };
 		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
 		Constructible<Ui_config>               _ui_config                          { };
@@ -635,11 +635,14 @@ class File_vault::Main
 
 		void _generate_ui_report()
 		{
+_nr_of_clients.value = _tresor_image_size / (1024 * 1024 * 4);
+
 			_ui_report->generate([&] (Xml_generator &xml) {
 				xml.attribute("version", _ui_config->version);
 				xml.attribute("state", _reported_state_to_string(_reported_state()));
 				xml.attribute("image_size", _tresor_image_size);
 				xml.attribute("capacity", _client_fs_size);
+				xml.attribute("num_clients", _nr_of_clients.value);
 
 				if (_rekey_report.constructed())
 					xml.node("rekey", [&] { _rekey_report->generate(xml); });
@@ -1568,7 +1571,7 @@ void File_vault::Main::handle_sandbox_state()
 	bool update_sandbox { false };
 	bool update_dialog { false };
 	bool generate_ui_report { false };
-	bool nr_of_clients { false };
+	Number_of_clients nr_of_clients { 0 };
 	sandbox_state.with_xml_node([&] (Xml_node const &sandbox_state) {
 
 		switch (_state) {
@@ -1661,7 +1664,7 @@ void File_vault::Main::handle_sandbox_state()
 			if (_resizing_state == Resizing_state::INACTIVE ||
 			    _resizing_type != Resizing_type::EXPAND_CLIENT_FS)
 			{
-				nr_of_clients =
+				nr_of_clients.value =
 					_child_nr_of_provided_sessions(
 						sandbox_state, _rump_vfs, "File_system");
 			}
@@ -1794,9 +1797,11 @@ log("rekeying in progress");
 			});
 		});
 	});
-	if (_nr_of_clients != nr_of_clients) {
+	if (_nr_of_clients.value != nr_of_clients.value) {
 
-		_nr_of_clients = nr_of_clients;
+		_nr_of_clients.value = nr_of_clients.value;
+		if (_user_interface == CONFIG_AND_REPORT)
+			generate_ui_report = true;
 		update_dialog = true;
 	}
 	if (update_dialog) {
@@ -2100,7 +2105,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 						switch (_resizing_state) {
 						case Resizing_state::INACTIVE:
 						{
-							if (_nr_of_clients > 0) {
+							if (_nr_of_clients.value) {
 
 								gen_centered_info_line(xml, "Info 1", "Not possible while in use!");
 								gen_info_line(xml, "Padding 1", "");
@@ -3422,7 +3427,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 
-		if (_nr_of_clients > 0) {
+		if (_nr_of_clients.value) {
 
 			event.handle_press([&] (Input::Keycode key, Codepoint) {
 
