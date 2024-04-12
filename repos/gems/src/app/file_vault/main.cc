@@ -637,7 +637,10 @@ class File_vault::Main
 		{
 			_ui_report->generate([&] (Xml_generator &xml) {
 				xml.attribute("version", _ui_config->version);
-				xml.attribute("state",   _reported_state_to_string(_reported_state()));
+				xml.attribute("state", _reported_state_to_string(_reported_state()));
+				xml.attribute("image_size", _tresor_image_size);
+				xml.attribute("capacity", _client_fs_size);
+
 				if (_rekey_report.constructed())
 					xml.node("rekey", [&] { _rekey_report->generate(xml); });
 				if (_extend_report.constructed())
@@ -1261,6 +1264,8 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 				if (_has_name(node_1, "data")) {
 
 					_client_fs_size = node_1.attribute_value("size", (size_t)0);
+					if (_user_interface == CONFIG_AND_REPORT)
+						generate_ui_report = true;
 					_set_state(State::CONTROLS_ROOT);
 					Signal_transmitter(_state_handler).submit();
 				}
@@ -1292,6 +1297,8 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 						if (_client_fs_size != size) {
 
 							_client_fs_size = size;
+							if (_user_interface == CONFIG_AND_REPORT)
+								generate_ui_report = true;
 							_resizing_state = Resizing_state::RUN_RESIZE2FS;
 							Signal_transmitter(_state_handler).submit();
 
@@ -1328,6 +1335,7 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 void Main::_handle_image_fs_query_listing(Xml_node const &node)
 {
 	bool update_dialog { false };
+	bool generate_ui_report { false };
 
 	switch (_state) {
 	case State::CONTROLS_ROOT:
@@ -1352,6 +1360,8 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 
 			_tresor_image_size = size;
 			update_dialog = true;
+			if (_user_interface == CONFIG_AND_REPORT)
+				generate_ui_report = true;
 		}
 		break;
 	}
@@ -1362,6 +1372,8 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 	if (update_dialog) {
 		_dialog.trigger_update();
 	}
+	if (generate_ui_report)
+		_generate_ui_report();
 }
 
 

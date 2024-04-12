@@ -495,8 +495,8 @@ struct Main : Prompt::Action
 				case JOURNALING_BUFFER: s.widget(journal_buf); break;
 				}
 				s.sub_scope<Left_aligned_text>("");
-				s.sub_scope<Left_aligned_text>(" Image: 4,5 MiB ");
-				s.sub_scope<Left_aligned_text>(" Capacity: 1,2 MiB ");
+				s.sub_scope<Left_aligned_text>(String<64>(" Image: ", main.image_size));
+				s.sub_scope<Left_aligned_text>(String<64>(" Capacity: ", main.capacity));
 				s.sub_scope<Left_aligned_text>(" Clients: 12 ");
 				s.widget(lock_button);
 			});
@@ -586,6 +586,8 @@ struct Main : Prompt::Action
 	Constructible<Rekey_report> rekey_report { };
 	Constructible<Extend_config> extend_config { };
 	Constructible<Extend_report> extend_report { };
+	Number_of_bytes image_size { };
+	Number_of_bytes capacity { };
 
 	void handle_event(Dialog::Event const &event)
 	{
@@ -680,6 +682,8 @@ struct Main : Prompt::Action
 			state == "locked" ? UNLOCK :
 			NONE;
 
+		image_size = ui_report.attribute_value("image_size", Number_of_bytes());
+		capacity = ui_report.attribute_value("capacity", Number_of_bytes());
 		ui_report.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
 			rekey_report.construct(rekey); });
 
