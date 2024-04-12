@@ -1250,6 +1250,7 @@ void Main::_handle_fs_query_listing(Xml_node const &node)
 
 void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 {
+	bool generate_ui_report = false;
 	switch (_state) {
 	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:
 	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:
@@ -1298,6 +1299,11 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 							_resizing_type = Resizing_type::NONE;
 							_resizing_state = Resizing_state::INACTIVE;
+
+							if (_user_interface == CONFIG_AND_REPORT) {
+								_extend_report->finished = true;
+								generate_ui_report = true;
+							}
 							Signal_transmitter(_state_handler).submit();
 						}
 					}
@@ -1314,6 +1320,8 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 		break;
 	}
+	if (generate_ui_report)
+		_generate_ui_report();
 }
 
 
@@ -2094,7 +2102,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 								bool gen_start_button { true };
 								size_t const bytes {
-									_expand_client_fs_contingent.value() };
+									_ui_expand_client_fs_contingent() };
 
 								size_t const effective_bytes {
 									bytes - (bytes % Tresor::BLOCK_SIZE) };
@@ -2177,7 +2185,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 							bool gen_start_button { true };
 							size_t const bytes {
-								_expand_snapshot_buf_contingent.value() };
+								_ui_expand_snapshot_buf_contingent() };
 
 							size_t const effective_bytes {
 								bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -2632,7 +2640,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			case Resizing_type::EXPAND_CLIENT_FS:
 			{
 				size_t const bytes {
-					_expand_client_fs_contingent.value() };
+					_ui_expand_client_fs_contingent() };
 
 				size_t const effective_bytes {
 					bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -2647,7 +2655,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			case Resizing_type::EXPAND_SNAPSHOT_BUF:
 			{
 				size_t const bytes {
-					_expand_snapshot_buf_contingent.value() };
+					_ui_expand_snapshot_buf_contingent() };
 
 				size_t const effective_bytes {
 					bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -3512,7 +3520,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 				} else if (key == Input::KEY_ENTER) {
 
 					size_t const bytes {
-						_expand_client_fs_contingent.value() };
+						_ui_expand_client_fs_contingent() };
 
 					size_t const effective_bytes {
 						bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -3618,7 +3626,7 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 			} else if (key == Input::KEY_ENTER) {
 
 				size_t const bytes {
-					_expand_snapshot_buf_contingent.value() };
+					_ui_expand_snapshot_buf_contingent() };
 
 				size_t const effective_bytes {
 					bytes - (bytes % TRESOR_BLOCK_SIZE) };

@@ -531,7 +531,11 @@ struct Main : Prompt::Action
 			case JOURNALING_BUFFER: journal_buf.propagate(at); break;
 			default: break;
 			}
-			lock_button.propagate(at, [&] { main.lock(); });
+			lock_button.propagate(at, [&] {
+				main.lock();
+				visible_tab = HOME;
+				capacity.num_bytes_prompt.reset();
+			});
 		}
 
 		void handle_event(Dialog::Event const &event)
