@@ -33,6 +33,76 @@ enum {
 	CODEPOINT_SMALL_L = 108,
 };
 
+static size_t tresor_tree_nr_of_blocks(size_t nr_of_lvls,
+                                       size_t nr_of_children,
+                                       size_t nr_of_leafs)
+{
+	size_t nr_of_blks { 0 };
+	size_t nr_of_last_lvl_blks { nr_of_leafs };
+	for (size_t lvl_idx { 0 }; lvl_idx < nr_of_lvls; lvl_idx++) {
+		nr_of_blks += nr_of_last_lvl_blks;
+		if (nr_of_last_lvl_blks % nr_of_children) {
+			nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children + 1;
+		} else {
+			nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children;
+		}
+	}
+	return nr_of_blks;
+}
+
+static size_t tresor_nr_of_blocks(size_t nr_of_superblocks,
+                                  size_t nr_of_vbd_lvls,
+                                  size_t nr_of_vbd_children,
+                                  size_t nr_of_vbd_leafs,
+                                  size_t nr_of_ft_lvls,
+                                  size_t nr_of_ft_children,
+                                  size_t nr_of_ft_leafs)
+{
+	size_t const nr_of_vbd_blks {
+		tresor_tree_nr_of_blocks(
+			nr_of_vbd_lvls,
+			nr_of_vbd_children,
+			nr_of_vbd_leafs) };
+
+	size_t const nr_of_ft_blks {
+		tresor_tree_nr_of_blocks(
+			nr_of_ft_lvls,
+			nr_of_ft_children,
+			nr_of_ft_leafs) };
+
+	/* FIXME
+	 *
+	 * This would be the correct way to calculate the number of MT blocks
+	 * but the Tresor still uses an MT the same size as the FT for simplicity
+	 * reasons. As soon as the Tresor does it right we should fix also this path.
+	 *
+	 *	size_t const nr_of_mt_leafs {
+	 *		nr_of_ft_blks - nr_of_ft_leafs };
+	 *
+	 *	size_t const nr_of_mt_blks {
+	 *		_tree_nr_of_blocks(
+	 *			nr_of_mt_lvls,
+	 *			nr_of_mt_children,
+	 *			nr_of_mt_leafs) };
+	 */
+	size_t const nr_of_mt_blks { nr_of_ft_blks };
+
+	return
+		nr_of_superblocks +
+		nr_of_vbd_blks +
+		nr_of_ft_blks +
+		nr_of_mt_blks;
+}
+
+static Number_of_blocks tresor_tree_num_leaves(size_t payload_size)
+{
+	Number_of_blocks nr_of_leaves { payload_size / TRESOR_BLOCK_SIZE };
+	if (payload_size % TRESOR_BLOCK_SIZE) {
+		nr_of_leaves++;
+	}
+	return nr_of_leaves;
+}
+
 struct Back_button : Widget<Float>
 {
 	void view(Scope<Float> &s) const
@@ -141,13 +211,12 @@ struct Prompt : Widget<Button>
 		fn(*text);
 	}
 
-	void with_text_as_num_bytes(auto const &fn) const
+	Number_of_bytes as_num_bytes() const
 	{
+		Number_of_bytes result { };
 		with_text([&] (auto const &str) {
-			Number_of_bytes num_bytes { 0 };
-			ascii_to(str.string(), num_bytes);
-			fn(num_bytes);
-		});
+			ascii_to(str.string(), result); });
+		return result;
 	}
 
 	size_t text_length() const
@@ -164,7 +233,7 @@ struct Main : Prompt::Action
 
 	enum Dialog_type { NONE, SETUP, WAIT, CONTROLS, UNLOCK };
 
-	enum { MIN_PASSPHRASE_LENGHT = 8 };
+	enum { MIN_PASSPHRASE_LENGTH = 8 };
 
 	struct Unlock_frame : Widget<Frame>
 	{
@@ -175,7 +244,7 @@ struct Main : Prompt::Action
 
 		Unlock_frame(Main &main) : main(main) { }
 
-		bool ready_to_unlock() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGHT; }
+		bool passphrase_sufficient() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGTH; }
 
 		void view(Scope<Frame> &s) const
 		{
@@ -185,8 +254,10 @@ struct Main : Prompt::Action
 					s.widget(passphrase, true);
 					s.widget(show_passphrase, "Hide", "Show");
 				});
-				if (ready_to_unlock())
+				if (passphrase_sufficient())
 					s.widget(unlock_button);
+				else
+					s.sub_scope<Left_aligned_text>(String<64>(" Minimum length: ", (size_t)MIN_PASSPHRASE_LENGTH));
 			});
 		}
 
@@ -209,7 +280,7 @@ struct Main : Prompt::Action
 				switch (key) {
 				case Input::KEY_ENTER:
 
-					if (ready_to_unlock())
+					if (passphrase_sufficient())
 						unlock();
 					break;
 
@@ -236,29 +307,31 @@ struct Main : Prompt::Action
 
 		Setup_frame(Main &main) : main(main) { }
 
-		static size_t min_journal_buf(Number_of_bytes capacity)
+		size_t min_journal_buf() const
 		{
-			size_t result { (size_t)capacity >> 8 };
+			size_t result { (size_t)capacity.as_num_bytes() >> 8 };
 			if (result < MIN_CAPACITY)
 				result = MIN_CAPACITY;
 
 			return result;
 		}
 
-		bool ready_to_setup() const
-		{
-			if (passphrase.text_length() < MIN_PASSPHRASE_LENGHT)
-				return false;
+		bool passphrase_long_enough() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGTH; }
 
-			bool result = false;
-			capacity.with_text_as_num_bytes([&] (auto capacity) {
-				journal_buf.with_text_as_num_bytes([&] (auto journal_buf) {
-					result =
-						capacity >= MIN_CAPACITY &&
-						journal_buf >= min_journal_buf(capacity);
-				});
-			});
-			return result;
+		bool capacity_sufficient() const { return capacity.as_num_bytes() >= MIN_CAPACITY; }
+
+		bool journal_buf_sufficient() const { return journal_buf.as_num_bytes() >= min_journal_buf(); }
+
+		bool ready_to_setup() const { return passphrase_long_enough() && capacity_sufficient() && journal_buf_sufficient(); }
+
+		Number_of_bytes image_size() const
+		{
+			return
+				TRESOR_BLOCK_SIZE *
+				tresor_nr_of_blocks(
+					TRESOR_NR_OF_SUPERBLOCKS, TRESOR_VBD_MAX_LVL + 1, TRESOR_VBD_DEGREE,
+					tresor_tree_num_leaves(capacity.as_num_bytes()), TRESOR_FREE_TREE_MAX_LVL + 1,
+					TRESOR_FREE_TREE_DEGREE, tresor_tree_num_leaves(journal_buf.as_num_bytes()));
 		}
 
 		void view(Scope<Frame> &s) const
@@ -269,17 +342,29 @@ struct Main : Prompt::Action
 					s.widget(passphrase, selected == PASSPHRASE);
 					s.widget(show_passphrase, "Hide", "Show");
 				});
+				if (!passphrase_long_enough())
+					s.sub_scope<Left_aligned_text>(String<64>(" Minimum length: ", (size_t)MIN_PASSPHRASE_LENGTH));
+
 				s.sub_scope<Left_aligned_text>("");
 				s.sub_scope<Left_aligned_text>(" Capacity:");
 				s.widget(capacity, selected == CAPACITY);
+				if (!capacity_sufficient())
+					s.sub_scope<Left_aligned_text>(String<64>(" Minimum: ", Number_of_bytes(MIN_CAPACITY)));
+
 				s.sub_scope<Left_aligned_text>("");
 				s.sub_scope<Left_aligned_text>(" Journaling buffer:");
 				s.widget(journal_buf, selected == JOURNALING_BUFFER);
-				s.sub_scope<Left_aligned_text>("");
-				s.sub_scope<Left_aligned_text>(" Image size: 128M");
-				s.sub_scope<Left_aligned_text>("");
-				if (ready_to_setup())
+				if (!journal_buf_sufficient())
+					s.sub_scope<Left_aligned_text>(String<64>(" Minimum: ", min_journal_buf()));
+
+				if (capacity_sufficient() && journal_buf_sufficient()) {
+					s.sub_scope<Left_aligned_text>("");
+					s.sub_scope<Left_aligned_text>(String<64>(" Image size: ", image_size()));
+				}
+				if (ready_to_setup()) {
+					s.sub_scope<Left_aligned_text>("");
 					s.widget(start_button);
+				}
 			});
 		}
 
@@ -373,9 +458,9 @@ struct Main : Prompt::Action
 		struct Home : Widget<Vbox>
 		{
 			Controls_frame &controls;
-			Hosted<Vbox, Action_button> capacity_button { Id { "[C]apacity" } };
-			Hosted<Vbox, Action_button> journal_buf_button { Id { "[J]ournaling Buffer" } };
-			Hosted<Vbox, Action_button> encrypt_key_button { Id { "[E]ncryption Key" } };
+			Hosted<Vbox, Action_button> capacity_button { Id { "Capacity" } };
+			Hosted<Vbox, Action_button> journal_buf_button { Id { "Journaling Buffer" } };
+			Hosted<Vbox, Action_button> encrypt_key_button { Id { "Encryption Key" } };
 
 			Home(Controls_frame &controls) : controls(controls) { }
 
@@ -389,7 +474,7 @@ struct Main : Prompt::Action
 
 				if (controls.main.num_clients.value) {
 					s.sub_scope<Left_aligned_text>("");
-					s.sub_scope<Left_aligned_text>(" Capacity fixed when in use!");
+					s.sub_scope<Left_aligned_text>(" Capacity unchangeable when in use!");
 				}
 			}
 
@@ -430,12 +515,12 @@ struct Main : Prompt::Action
 
 			Dimension_tab(Controls_frame &controls) : controls(controls) { }
 
-			bool arguments_valid() const
+			bool num_bytes_sufficient() const
 			{
 				bool result = false;
-				num_bytes_prompt.with_text_as_num_bytes([&] (auto num_bytes) {
-					if (num_bytes >= MIN_NUM_BYTES)
-						result = true; });
+				
+					if (num_bytes_prompt.as_num_bytes() >= MIN_NUM_BYTES)
+						result = true;
 
 				return result;
 			}
@@ -448,8 +533,10 @@ struct Main : Prompt::Action
 
 				if (controls.main.ready_to_extend()) {
 					s.widget(num_bytes_prompt, true);
-					if (arguments_valid())
+					if (num_bytes_sufficient())
 						s.widget(extend_button);
+					else
+						s.sub_scope<Left_aligned_text>(String<64>(" Minimum: ", Number_of_bytes(MIN_NUM_BYTES)));
 				} else
 					s.sub_scope<Left_aligned_text>(" Please wait ... ");
 			}
@@ -472,7 +559,7 @@ struct Main : Prompt::Action
 					switch (key) {
 					case Input::KEY_ENTER:
 
-						if (controls.main.ready_to_extend() && arguments_valid())
+						if (controls.main.ready_to_extend() && num_bytes_sufficient())
 							extend();
 						break;
 
@@ -530,7 +617,7 @@ struct Main : Prompt::Action
 		Hosted<Frame, Vbox, Dimension_tab<Extend_config::VIRTUAL_BLOCK_DEVICE> > capacity { Id { "Capacity" }, *this };
 		Hosted<Frame, Vbox, Dimension_tab<Extend_config::FREE_TREE> > journal_buf { Id { "Journaling Buffer" }, *this };
 		Hosted<Frame, Vbox, Encryption_key> encryption_key { Id { "Encryption Key" }, *this };
-		Hosted<Frame, Vbox, Action_button> lock_button { Id { "[L]ock" } };
+		Hosted<Frame, Vbox, Action_button> lock_button { Id { "Lock" } };
 
 		Controls_frame(Main &main) : main(main) { }
 
@@ -614,6 +701,26 @@ struct Main : Prompt::Action
 
 		Main_dialog(Name const &name, Main &main) : Top_level_dialog(name), main(main) { }
 
+		void handle_event(Dialog::Event const &event)
+		{
+			switch (main.active_dialog) {
+			case SETUP: setup_frame.handle_event(event); break;
+			case UNLOCK: unlock_frame.handle_event(event); break;
+			case CONTROLS: controls_frame.handle_event(event); break;
+			default: break;
+			}
+		}
+
+		void handle_signal()
+		{
+			if (main.active_dialog == CONTROLS)
+				controls_frame.handle_signal();
+		}
+
+		/**********************
+		 ** Top_level_dialog **
+		 **********************/
+
 		void view(Scope<> &s) const override
 		{
 			switch (main.active_dialog) {
@@ -633,22 +740,6 @@ struct Main : Prompt::Action
 			case UNLOCK: unlock_frame.click(at); break;
 			default: break;
 			}
-		}
-
-		void handle_event(Dialog::Event const &event)
-		{
-			switch (main.active_dialog) {
-			case SETUP: setup_frame.handle_event(event); break;
-			case UNLOCK: unlock_frame.handle_event(event); break;
-			case CONTROLS: controls_frame.handle_event(event); break;
-			default: break;
-			}
-		}
-
-		void handle_signal()
-		{
-			if (main.active_dialog == CONTROLS)
-				controls_frame.handle_signal();
 		}
 	};
 
@@ -680,10 +771,8 @@ struct Main : Prompt::Action
 	{
 		setup_frame.passphrase.with_text([&] (auto const &str) { passphrase.construct(str); });
 		gen_unlocked_ui_config([&] (Xml_generator &xml) {
-			setup_frame.capacity.with_text_as_num_bytes([&] (auto num_bytes) {
-				xml.attribute("client_fs_size", num_bytes); });
-			setup_frame.journal_buf.with_text_as_num_bytes([&] (auto num_bytes) {
-				xml.attribute("journaling_buf_size", num_bytes); }); });
+			xml.attribute("client_fs_size", setup_frame.capacity.as_num_bytes());
+			xml.attribute("journaling_buf_size", setup_frame.journal_buf.as_num_bytes()); });
 	}
 
 	void unlock(Unlock_frame const &unlock_frame)
@@ -741,11 +830,8 @@ struct Main : Prompt::Action
 	template <Extend_config::Tree TREE>
 	void extend(Controls_frame::Dimension_tab<TREE> const &dimension_tab)
 	{
-		dimension_tab.num_bytes_prompt.with_text_as_num_bytes([&] (auto num_bytes)
-		{
-			Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
-			extend_config.construct(id, TREE, num_bytes);
-		});
+		Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
+		extend_config.construct(id, TREE, dimension_tab.num_bytes_prompt.as_num_bytes());
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 

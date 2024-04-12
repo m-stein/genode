@@ -15,32 +15,58 @@
 #define _FILE_VAULT__TYPES_H_
 
 /* Genode includes */
-#include <util/string.h>
-#include <util/xml_node.h>
-#include <util/xml_generator.h>
-#include <base/log.h>
-#include <base/sleep.h>
+#include <tresor/types.h>
 
-#define ASSERT(condition) \
-	do { \
-		if (!(condition)) { \
-			Genode::error(__FILE__, ":", __LINE__, ": ", " assertion \"", #condition, "\" failed "); \
-			Genode::sleep_forever(); \
-		} \
-	} while (false)
-
-#define ASSERT_NEVER_REACHED \
-	do { \
-		Genode::error(__FILE__, ":", __LINE__, ": ", " should have never been reached"); \
-		Genode::sleep_forever(); \
-	} while (false)
+namespace Genode { }
 
 namespace File_vault {
 
+	using namespace Tresor;
 	using namespace Genode;
+
+	using Node_name = String<32>;
+	using File_path = String<32>;
+
+	static constexpr Tree_degree TRESOR_VBD_DEGREE = 64;
+	static constexpr Tree_level_index TRESOR_VBD_MAX_LVL = 5;
+	static constexpr Tree_degree TRESOR_FREE_TREE_DEGREE = 64;
+	static constexpr Tree_level_index TRESOR_FREE_TREE_MAX_LVL = 5;
+
+	enum {
+		MIN_CLIENT_FS_SIZE = 100 * 1024,
+		STATE_STRING_CAPACITY = 64,
+		TRESOR_BLOCK_SIZE = 4096,
+		MAIN_FRAME_WIDTH = 46,
+		TRESOR_NR_OF_SUPERBLOCKS = 8,
+	};
 
 	struct Number_of_clients { uint64_t value; };
 	struct Operation_id { uint64_t value; };
+
+	class Tree_geometry
+	{
+		private:
+
+			uint64_t const _nr_of_levels;
+			uint64_t const _nr_of_children;
+			uint64_t const _nr_of_leaves;
+
+		public:
+
+			Tree_geometry(
+				uint64_t nr_of_levels,
+				uint64_t nr_of_children,
+				uint64_t nr_of_leaves)
+			:
+				_nr_of_levels   { nr_of_levels   },
+				_nr_of_children { nr_of_children },
+				_nr_of_leaves   { nr_of_leaves   }
+			{ }
+
+			uint64_t nr_of_levels()   const { return _nr_of_levels  ; }
+			uint64_t nr_of_children() const { return _nr_of_children; }
+			uint64_t nr_of_leaves()   const { return _nr_of_leaves  ; }
+	};
 
 	struct Rekey_config
 	{

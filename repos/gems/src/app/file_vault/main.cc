@@ -89,19 +89,6 @@ class File_vault::Main
 {
 	private:
 
-		static constexpr Tree_degree TRESOR_VBD_DEGREE = 64;
-		static constexpr Tree_level_index TRESOR_VBD_MAX_LVL = 5;
-		static constexpr Tree_degree TRESOR_FREE_TREE_DEGREE = 64;
-		static constexpr Tree_level_index TRESOR_FREE_TREE_MAX_LVL = 5;
-
-		enum {
-			MIN_CLIENT_FS_SIZE = 100 * 1024,
-			STATE_STRING_CAPACITY = 64,
-			TRESOR_BLOCK_SIZE = 4096,
-			MAIN_FRAME_WIDTH = 46,
-			TRESOR_NR_OF_SUPERBLOCKS = 8,
-		};
-
 		enum Version { INVALID, VERSION_21_05, VERSION_23_05 };
 
 		enum class State
@@ -635,8 +622,6 @@ class File_vault::Main
 
 		void _generate_ui_report()
 		{
-_nr_of_clients.value = _tresor_image_size / (1024 * 1024 * 4);
-
 			_ui_report->generate([&] (Xml_generator &xml) {
 				xml.attribute("version", _ui_config->version);
 				xml.attribute("state", _reported_state_to_string(_reported_state()));
