@@ -154,6 +154,66 @@ namespace File_vault {
 			xml.attribute("finished", finished);
 		}
 	};
+
+	inline size_t tresor_tree_nr_of_blocks(size_t nr_of_lvls,
+	                                       size_t nr_of_children,
+	                                       size_t nr_of_leafs)
+	{
+		size_t nr_of_blks { 0 };
+		size_t nr_of_last_lvl_blks { nr_of_leafs };
+		for (size_t lvl_idx { 0 }; lvl_idx < nr_of_lvls; lvl_idx++) {
+			nr_of_blks += nr_of_last_lvl_blks;
+			if (nr_of_last_lvl_blks % nr_of_children) {
+				nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children + 1;
+			} else {
+				nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children;
+			}
+		}
+		return nr_of_blks;
+	}
+
+	inline size_t tresor_nr_of_blocks(size_t nr_of_superblocks,
+	                                  size_t nr_of_vbd_lvls,
+	                                  size_t nr_of_vbd_children,
+	                                  size_t nr_of_vbd_leafs,
+	                                  size_t nr_of_ft_lvls,
+	                                  size_t nr_of_ft_children,
+	                                  size_t nr_of_ft_leafs)
+	{
+		size_t const nr_of_vbd_blks {
+			tresor_tree_nr_of_blocks(nr_of_vbd_lvls, nr_of_vbd_children, nr_of_vbd_leafs) };
+
+		size_t const nr_of_ft_blks {
+			tresor_tree_nr_of_blocks(nr_of_ft_lvls, nr_of_ft_children, nr_of_ft_leafs) };
+
+		/* FIXME
+		 *
+		 * This would be the correct way to calculate the number of MT blocks
+		 * but the Tresor still uses an MT the same size as the FT for simplicity
+		 * reasons. As soon as the Tresor does it right we should fix also this path.
+		 *
+		 *	size_t const nr_of_mt_leafs {
+		 *		nr_of_ft_blks - nr_of_ft_leafs };
+		 *
+		 *	size_t const nr_of_mt_blks {
+		 *		_tree_nr_of_blocks(
+		 *			nr_of_mt_lvls,
+		 *			nr_of_mt_children,
+		 *			nr_of_mt_leafs) };
+		 */
+		size_t const nr_of_mt_blks { nr_of_ft_blks };
+
+		return nr_of_superblocks + nr_of_vbd_blks + nr_of_ft_blks + nr_of_mt_blks;
+	}
+
+	inline Number_of_blocks tresor_tree_num_leaves(size_t payload_size)
+	{
+		Number_of_blocks nr_of_leaves { payload_size / TRESOR_BLOCK_SIZE };
+		if (payload_size % TRESOR_BLOCK_SIZE) {
+			nr_of_leaves++;
+		}
+		return nr_of_leaves;
+	}
 }
 
 #endif /* _FILE_VAULT__TYPES_H_ */

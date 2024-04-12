@@ -555,23 +555,6 @@ class File_vault::Main
 
 		bool _extend_operation_pending() const;
 
-		static Number_of_blocks _tresor_tree_num_leaves(size_t payload_size);
-
-
-		static size_t _tree_nr_of_blocks(size_t nr_of_lvls,
-		                          size_t nr_of_children,
-		                          size_t nr_of_leafs);
-
-		size_t _tresor_size() const;
-
-		static size_t _tresor_nr_of_blocks(size_t nr_of_superblocks,
-		                                   size_t nr_of_vbd_lvls,
-		                                   size_t nr_of_vbd_children,
-		                                   size_t nr_of_vbd_leafs,
-		                                   size_t nr_of_ft_lvls,
-		                                   size_t nr_of_ft_children,
-		                                   size_t nr_of_ft_leafs);
-
 		template <size_t N>
 		static bool listing_file_starts_with(Xml_node  const &fs_query_listing,
 		                                     char      const *file_name,
@@ -1709,16 +1692,6 @@ void File_vault::Main::wakeup_local_service()
 }
 
 
-Number_of_blocks Main::_tresor_tree_num_leaves(size_t payload_size)
-{
-	Number_of_blocks nr_of_leaves { payload_size / TRESOR_BLOCK_SIZE };
-	if (payload_size % TRESOR_BLOCK_SIZE) {
-		nr_of_leaves++;
-	}
-	return nr_of_leaves;
-}
-
-
 void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 {
 	switch (_state) {
@@ -1781,22 +1754,22 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			xml, _truncate_file,
 			File_path { "/tresor/", _tresor_image_file_name }.string(),
 			TRESOR_BLOCK_SIZE *
-				_tresor_nr_of_blocks(
+				tresor_nr_of_blocks(
 					TRESOR_NR_OF_SUPERBLOCKS,
 					TRESOR_VBD_MAX_LVL + 1,
 					TRESOR_VBD_DEGREE,
-					_tresor_tree_num_leaves(_ui_config->client_fs_size),
+					tresor_tree_num_leaves(_ui_config->client_fs_size),
 					TRESOR_FREE_TREE_MAX_LVL + 1,
 					TRESOR_FREE_TREE_DEGREE,
-					_tresor_tree_num_leaves(_ui_config->journaling_buf_size)));
+					tresor_tree_num_leaves(_ui_config->journaling_buf_size)));
 
 		break;
 
 	case State::SETUP_RUN_TRESOR_INIT:
 	{
 		Tresor::Superblock_configuration sb_config {
-			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, _tresor_tree_num_leaves(_ui_config->client_fs_size) },
-			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, _tresor_tree_num_leaves(_ui_config->journaling_buf_size) }
+			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, tresor_tree_num_leaves(_ui_config->client_fs_size) },
+			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, tresor_tree_num_leaves(_ui_config->journaling_buf_size) }
 		};
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
@@ -1896,8 +1869,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
 					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
-
-log("resizing in progress num_blocks=", _extend_config->num_bytes / TRESOR_BLOCK_SIZE);
 
 				break;
 
@@ -2006,84 +1977,6 @@ log("resizing in progress num_blocks=", _extend_config->num_bytes / TRESOR_BLOCK
 		gen_lock_fs_query_start_node(xml, _lock_fs_query);
 		break;
 	}
-}
-
-
-size_t Main::_tree_nr_of_blocks(size_t nr_of_lvls,
-                                size_t nr_of_children,
-                                size_t nr_of_leafs)
-{
-	size_t nr_of_blks { 0 };
-	size_t nr_of_last_lvl_blks { nr_of_leafs };
-	for (size_t lvl_idx { 0 }; lvl_idx < nr_of_lvls; lvl_idx++) {
-		nr_of_blks += nr_of_last_lvl_blks;
-		if (nr_of_last_lvl_blks % nr_of_children) {
-			nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children + 1;
-		} else {
-			nr_of_last_lvl_blks = nr_of_last_lvl_blks / nr_of_children;
-		}
-	}
-	return nr_of_blks;
-}
-
-
-size_t Main::_tresor_size() const
-{
-	return
-		_tresor_nr_of_blocks(
-			TRESOR_NR_OF_SUPERBLOCKS,
-			TRESOR_VBD_MAX_LVL + 1,
-			TRESOR_VBD_DEGREE,
-			_tresor_tree_num_leaves(_ui_config->client_fs_size),
-			TRESOR_FREE_TREE_MAX_LVL + 1,
-			TRESOR_FREE_TREE_DEGREE,
-			_tresor_tree_num_leaves(_ui_config->journaling_buf_size))
-		* TRESOR_BLOCK_SIZE;
-}
-
-
-size_t Main::_tresor_nr_of_blocks(size_t nr_of_superblocks,
-                               size_t nr_of_vbd_lvls,
-                               size_t nr_of_vbd_children,
-                               size_t nr_of_vbd_leafs,
-                               size_t nr_of_ft_lvls,
-                               size_t nr_of_ft_children,
-                               size_t nr_of_ft_leafs)
-{
-	size_t const nr_of_vbd_blks {
-		_tree_nr_of_blocks(
-			nr_of_vbd_lvls,
-			nr_of_vbd_children,
-			nr_of_vbd_leafs) };
-
-	size_t const nr_of_ft_blks {
-		_tree_nr_of_blocks(
-			nr_of_ft_lvls,
-			nr_of_ft_children,
-			nr_of_ft_leafs) };
-
-	/* FIXME
-	 *
-	 * This would be the correct way to calculate the number of MT blocks
-	 * but the Tresor still uses an MT the same size as the FT for simplicity
-	 * reasons. As soon as the Tresor does it right we should fix also this path.
-	 *
-	 *	size_t const nr_of_mt_leafs {
-	 *		nr_of_ft_blks - nr_of_ft_leafs };
-	 *
-	 *	size_t const nr_of_mt_blks {
-	 *		_tree_nr_of_blocks(
-	 *			nr_of_mt_lvls,
-	 *			nr_of_mt_children,
-	 *			nr_of_mt_leafs) };
-	 */
-	size_t const nr_of_mt_blks { nr_of_ft_blks };
-
-	return
-		nr_of_superblocks +
-		nr_of_vbd_blks +
-		nr_of_ft_blks +
-		nr_of_mt_blks;
 }
 
 
