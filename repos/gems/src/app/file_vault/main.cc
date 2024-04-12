@@ -33,17 +33,12 @@
 #include <input.h>
 #include <utf8.h>
 #include <child_exit_state.h>
-#include <menu_view_dialog.h>
 #include <const_pointer.h>
 #include <snapshot.h>
 #include <capacity.h>
 
 namespace File_vault {
 
-	enum { SHOW_CONTROLS_SNAPSHOTS = 0 };
-	enum { SHOW_CONTROLS_SECURITY_MASTER_KEY = 0 };
-	enum { SHOW_CONTROLS_SECURITY_USER_PASSPHRASE = 0 };
-	enum { RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER = 1 };
 	enum { PASSPHRASE_MIN_NR_OF_CHARS = 8 };
 
 	class Ui_config;
@@ -82,8 +77,7 @@ struct File_vault::Ui_config
 class File_vault::Main
 :
 	private Sandbox::Local_service_base::Wakeup,
-	private Sandbox::State_handler,
-	private Dynamic_rom_session::Xml_producer
+	private Sandbox::State_handler
 {
 	private:
 
@@ -330,7 +324,6 @@ class File_vault::Main
 		};
 
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
-		using Rom_service        = Sandbox::Local_service<Dynamic_rom_session>;
 		using Xml_report_handler = Report::Session_component::Xml_handler<Main>;
 		using State_string       = String<STATE_STRING_CAPACITY>;
 		using Snapshot_registry  = Registry<Registered<Snapshot>>;
@@ -383,7 +376,6 @@ class File_vault::Main
 		bool                                   _initial_config                     { true };
 		Signal_handler<Main>                   _config_handler                     { _env.ep(), *this, &Main::_handle_config };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
-		Dynamic_rom_session                    _dialog                             { _env.ep(), _env.ram(), _env.rm(), *this };
 		Input_passphrase                       _setup_obtain_params_passphrase     { };
 		Input_number_of_bytes                  _client_fs_size_input               { };
 		Input_number_of_bytes                  _journaling_buf_size_input          { };
@@ -617,12 +609,6 @@ class File_vault::Main
 
 		void handle_sandbox_state() override;
 
-
-		/***************************************
-		 ** Dynamic_rom_session::Xml_producer **
-		 ***************************************/
-
-		void produce_xml(Xml_generator &xml) override;
 
 	public:
 
@@ -1025,7 +1011,6 @@ void Main::_handle_snapshots_fs_query_listing(Xml_node const &node)
 	case State::CONTROLS_SECURITY_MASTER_KEY:
 	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 	{
-		bool update_dialog { false };
 		node.with_optional_sub_node("dir", [&] (Xml_node const &node_0) {
 
 			_snapshots.for_each([&] (Snapshot const &snap)
@@ -1062,7 +1047,6 @@ void Main::_handle_snapshots_fs_query_listing(Xml_node const &node)
 						_snapshots_hover = Snapshot_pointer { };
 					}
 					destroy(&_heap, &const_cast<Snapshot&>(snap));
-					update_dialog = true;
 				}
 			});
 
@@ -1085,14 +1069,9 @@ void Main::_handle_snapshots_fs_query_listing(Xml_node const &node)
 				});
 				if (!snap_already_exists) {
 					new (_heap) Registered<Snapshot>(_snapshots, generation);
-					update_dialog = true;
 				}
 			});
 		});
-		if (update_dialog) {
-			_dialog.trigger_update();
-		}
-
 		break;
 	}
 	default:
@@ -1216,7 +1195,6 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 void Main::_handle_image_fs_query_listing(Xml_node const &node)
 {
-	bool update_dialog { false };
 	bool generate_ui_report { false };
 
 	switch (_state) {
@@ -1241,7 +1219,6 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 		if (_tresor_image_size != size) {
 
 			_tresor_image_size = size;
-			update_dialog = true;
 			generate_ui_report = true;
 		}
 		break;
@@ -1249,9 +1226,6 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 	default:
 
 		break;
-	}
-	if (update_dialog) {
-		_dialog.trigger_update();
 	}
 	if (generate_ui_report)
 		_generate_ui_report();
@@ -1354,16 +1328,12 @@ log("resizing started");
 
 	default: break;
 	}
-	if (update_sandbox_config) {
+	if (update_sandbox_config)
 		_update_sandbox_config();
-	}
 }
 
 
-Main::Main(Env &env)
-:
-	Xml_producer { "dialog" },
-	_env         { env }
+Main::Main(Env &env) : _env(env)
 {
 	_config_rom.sigh(_config_handler);
 	_handle_config();
@@ -1440,7 +1410,6 @@ void File_vault::Main::handle_sandbox_state()
 		}
 	};
 	bool update_sandbox { false };
-	bool update_dialog { false };
 	bool generate_ui_report { false };
 	Number_of_clients nr_of_clients { 0 };
 	sandbox_state.with_xml_node([&] (Xml_node const &sandbox_state) {
@@ -1451,7 +1420,6 @@ void File_vault::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _tresor_init_trust_anchor)) {
 
 				_set_state(State::SETUP_RUN_TRESOR_INIT);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1461,7 +1429,6 @@ void File_vault::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _truncate_file)) {
 
 				_set_state(State::SETUP_RUN_TRESOR_INIT_TRUST_ANCHOR);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1473,7 +1440,6 @@ void File_vault::Main::handle_sandbox_state()
 				if (exit_code == 0) {
 
 					_set_state(State::UNLOCK_START_TRESOR_VFS);
-					update_dialog = true;
 					update_sandbox = true;
 
 				} else
@@ -1486,7 +1452,6 @@ void File_vault::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _tresor_init)) {
 
 				_set_state(State::SETUP_START_TRESOR_VFS);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1496,7 +1461,6 @@ void File_vault::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _sync_to_tresor_vfs_init)) {
 
 				_set_state(State::SETUP_FORMAT_TRESOR);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1506,7 +1470,6 @@ void File_vault::Main::handle_sandbox_state()
 			if (_child_succeeded(sandbox_state, _sync_to_tresor_vfs_init)) {
 
 				_set_state(State::UNLOCK_DETERMINE_CLIENT_FS_SIZE);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1517,7 +1480,6 @@ void File_vault::Main::handle_sandbox_state()
 
 				_write_to_state_file(State::UNLOCK_OBTAIN_PARAMETERS);
 				_set_state(State::SETUP_DETERMINE_CLIENT_FS_SIZE);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1545,7 +1507,6 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _truncate_file)) {
 
 					_resizing_state = Resizing_state::WAIT_TILL_DEVICE_IS_READY;
-					update_dialog = true;
 					update_sandbox = true;
 				}
 				break;
@@ -1555,7 +1516,6 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _resizing_fs_tool)) {
 
 					_resizing_state = Resizing_state::IN_PROGRESS_AT_DEVICE;
-					update_dialog = true;
 					update_sandbox = true;
 				}
 				break;
@@ -1568,7 +1528,6 @@ void File_vault::Main::handle_sandbox_state()
 					_resizing_state = Resizing_state::INACTIVE;
 					_extend_report->finished = true;
 					generate_ui_report = true;
-					update_dialog = true;
 					update_sandbox = true;
 				}
 				break;
@@ -1584,7 +1543,6 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _rekeying_fs_tool)) {
 
 					_rekeying_state = Rekeying_state::IN_PROGRESS_AT_DEVICE;
-					update_dialog = true;
 					update_sandbox = true;
 				}
 				break;
@@ -1600,7 +1558,6 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _create_snap_fs_tool)) {
 
 					_create_snap_state = Create_snapshot_state::INACTIVE;
-					update_dialog = true;
 					update_sandbox = true;
 				}
 				break;
@@ -1616,7 +1573,6 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _discard_snap_fs_tool)) {
 
 					_discard_snap_state = Discard_snapshot_state::INACTIVE;
-					update_dialog = true;
 					update_sandbox = true;
 				}
 				break;
@@ -1644,7 +1600,6 @@ void File_vault::Main::handle_sandbox_state()
 					generate_ui_report = true;
 				}
 				_set_state(State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE);
-				update_dialog = true;
 				update_sandbox = true;
 			}
 			break;
@@ -1662,589 +1617,14 @@ void File_vault::Main::handle_sandbox_state()
 		});
 	});
 	if (_nr_of_clients.value != nr_of_clients.value) {
-
 		_nr_of_clients.value = nr_of_clients.value;
 		generate_ui_report = true;
-		update_dialog = true;
 	}
-	if (update_dialog) {
-
-		_dialog.trigger_update();
-	}
-	if (update_sandbox) {
-
+	if (update_sandbox)
 		_update_sandbox_config();
-	}
+
 	if (generate_ui_report)
 		_generate_ui_report();
-}
-
-
-void File_vault::Main::produce_xml(Xml_generator &xml)
-{
-	switch (_state) {
-	case State::INVALID:
-
-		gen_info_frame(xml, _jent_avail, "1", "Please wait...", MAIN_FRAME_WIDTH);
-		break;
-
-	case State::SETUP_OBTAIN_PARAMETERS:
-
-		gen_main_frame(xml, _jent_avail, "1", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
-
-			bool gen_start_button { true };
-			bool gen_image_size_info { true };
-			gen_input_passphrase(
- 				xml, MAIN_FRAME_WIDTH,
-				_setup_obtain_params_passphrase,
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT,
-				_setup_obtain_params_hover == Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON,
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON);
-
-			if (!_ui_setup_obtain_params_passphrase_suitable()) {
-
-				gen_start_button = false;
-				gen_info_line(xml, "info_1", "Must have at least 8 characters");
-			}
-			gen_info_line(xml, "pad_1", "");
-			gen_titled_text_input(
-				xml, "Client FS Size", "Client FS size",
-				_client_fs_size_input,
-				_setup_obtain_params_select == Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT);
-
-			if (_ui_config->client_fs_size < MIN_CLIENT_FS_SIZE) {
-
-				gen_image_size_info = false;
-				gen_start_button = false;
-				gen_info_line(xml, "info_2",
-					String<128> {
-						"Must be at least ",
-						Number_of_bytes { MIN_CLIENT_FS_SIZE } }.string());
-
-			}
-			gen_info_line(xml, "pad_2", "");
-			gen_titled_text_input(
-				xml, "Snapshot Buffer Size",
-				RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
-					"Journaling buffer size" :
-					"Snapshot buffer size",
-				_journaling_buf_size_input,
-				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
-
-			if (_ui_config->journaling_buf_size < _min_journaling_buf_size()) {
-
-				gen_image_size_info = false;
-				gen_start_button = false;
-				gen_info_line(xml, "info_3",
-					String<128> {
-						"Must be at least ",
-						Number_of_bytes { _min_journaling_buf_size() } }.string());
-			}
-			if (gen_image_size_info) {
-
-				gen_info_line(xml, "pad_3", "");
-				gen_info_line(
-					xml, "info_4",
-					String<256> { "Image size: ", Capacity { _tresor_size() }}.string());
-			}
-			gen_info_line(xml, "pad_4", "");
-			if (gen_start_button) {
-
-				gen_action_button_at_bottom(
-					xml, "ok", "Start",
-					_setup_obtain_params_hover == Setup_obtain_params_hover::START_BUTTON,
-					_setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON);
-			}
-		});
-		break;
-
-	case State::UNLOCK_OBTAIN_PARAMETERS:
-
-		gen_main_frame(xml, _jent_avail, "1", MAIN_FRAME_WIDTH, [&] (Xml_generator &xml) {
-
-			bool gen_start_button { true };
-			gen_input_passphrase(
-				xml, MAIN_FRAME_WIDTH,
-				_setup_obtain_params_passphrase,
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_INPUT,
-				_setup_obtain_params_hover == Setup_obtain_params_hover::PASSPHRASE_SHOW_HIDE_BUTTON,
-				_setup_obtain_params_select == Setup_obtain_params_select::PASSPHRASE_SHOW_HIDE_BUTTON);
-
-			if (!_ui_setup_obtain_params_passphrase_suitable()) {
-
-				gen_start_button = false;
-			}
-			gen_info_line(xml, "pad_2", "");
-			if (gen_start_button) {
-
-				gen_action_button_at_bottom(
-					xml, "ok", "Unlock",
-					_setup_obtain_params_hover == Setup_obtain_params_hover::START_BUTTON,
-					_setup_obtain_params_select == Setup_obtain_params_select::START_BUTTON);
-			}
-		});
-		break;
-
-	case State::SETUP_RUN_TRESOR_INIT_TRUST_ANCHOR:
-	case State::SETUP_CREATE_TRESOR_IMAGE_FILE:
-	case State::SETUP_RUN_TRESOR_INIT:
-	case State::SETUP_START_TRESOR_VFS:
-	case State::SETUP_FORMAT_TRESOR:
-	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:
-	case State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR:
-	case State::UNLOCK_START_TRESOR_VFS:
-	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:
-
-		gen_info_frame(xml, _jent_avail, "1", "Please wait...", MAIN_FRAME_WIDTH);
-		break;
-
-	case State::CONTROLS_ROOT:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				xml.node("vbox", [&] () {
-
-					if (SHOW_CONTROLS_SNAPSHOTS) {
-
-						gen_closed_menu(
-							xml, "Snapshots", "",
-							_controls_root_hover == Controls_root_hover::SNAPSHOTS_EXPAND_BUTTON);
-					}
-					gen_closed_menu(
-						xml, "Dimensions", "",
-						_controls_root_hover == Controls_root_hover::DIMENSIONS_BUTTON);
-
-					gen_closed_menu(
-						xml, "Security", "",
-						_controls_root_hover == Controls_root_hover::SECURITY_EXPAND_BUTTON);
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_controls_root_hover  == Controls_root_hover::LOCK_BUTTON,
-				_controls_root_select == Controls_root_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_SNAPSHOTS:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				xml.node("vbox", [&] () {
-
-					if (_snapshots_select.valid()) {
-
-						Snapshot const &snap { _snapshots_select.object() };
-						String<64> const snap_str {
-							"Generation ", snap.generation() };
-
-						gen_opened_menu(
-							xml, snap_str.string(), "",
-							_controls_snapshots_hover == Controls_snapshots_hover::GENERATION_LEAVE_BUTTON,
-							[&] (Xml_generator &xml)
-						{
-							gen_info_line(xml, "pad_1", "");
-							switch(_discard_snap_state) {
-							case Discard_snapshot_state::INACTIVE:
-
-								gen_action_button(xml, "Discard", "Discard",
-									_controls_snapshots_hover  == Controls_snapshots_hover::GENERATION_DISCARD_BUTTON,
-									_controls_snapshots_select == Controls_snapshots_select::GENERATION_DISCARD_BUTTON);
-
-								break;
-
-							case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-								gen_action_button(xml, "Inactive Discard", "...",
-									_controls_snapshots_hover == Controls_snapshots_hover::GENERATION_DISCARD_BUTTON,
-									false);
-
-								break;
-							}
-						});
-					} else {
-
-						gen_opened_menu(
-							xml, "Snapshots", "",
-							_controls_snapshots_hover == Controls_snapshots_hover::LEAVE_BUTTON,
-							[&] (Xml_generator &xml)
-						{
-							xml.node("vbox", [&] () {
-								xml.attribute("name", "Generations");
-
-								_snapshots.for_each([&] (Snapshot const &snap) {
-
-									bool const hovered {
-										_snapshots_hover.valid() &&
-										_snapshots_hover.object().generation() == snap.generation() };
-
-									String<64> const snap_str {
-										"Generation ", snap.generation() };
-
-									Generation_string const gen_str { snap.generation() };
-
-									gen_multiple_choice_entry(
-										xml, gen_str.string(), snap_str.string(), hovered,
-										false);
-								});
-							});
-							gen_info_line(xml, "pad_1", "");
-							switch(_create_snap_state) {
-							case Create_snapshot_state::INACTIVE:
-
-								gen_action_button(xml, "Create", "Create",
-									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_BUTTON,
-									_controls_snapshots_select == Controls_snapshots_select::CREATE_BUTTON);
-								break;
-
-							case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-								gen_action_button(xml, "Inactive Create", "...",
-									_controls_snapshots_hover  == Controls_snapshots_hover::CREATE_BUTTON,
-									false);
-
-								break;
-							}
-						});
-					}
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_controls_snapshots_hover  == Controls_snapshots_hover::LOCK_BUTTON,
-				_controls_snapshots_select == Controls_snapshots_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_DIMENSIONS:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				gen_opened_menu(
-					xml, "Dimensions", "",
-					_dimensions_hover == Dimensions_hover::LEAVE_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					gen_closed_menu(
-						xml, "Expand Client FS", "",
-						_dimensions_hover == Dimensions_hover::EXPAND_CLIENT_FS_BUTTON);
-
-					gen_closed_menu(
-						xml,
-						RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
-							"Expand Journaling Buffer" :
-							"Expand Snapshot Buffer",
-						"",
-						_dimensions_hover == Dimensions_hover::EXPAND_SNAPSHOT_BUF_BUTTON);
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_dimensions_hover  == Dimensions_hover::LOCK_BUTTON,
-				_dimensions_select == Dimensions_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				xml.node("vbox", [&] () {
-
-					gen_opened_menu(
-						xml, "Expand Client FS", "",
-						_expand_client_fs_hover == Expand_client_fs_hover::LEAVE_BUTTON,
-						[&] (Xml_generator &xml)
-					{
-						gen_info_line(xml, "pad_1", "");
-						switch (_resizing_state) {
-						case Resizing_state::INACTIVE:
-						{
-							if (_nr_of_clients.value) {
-
-								gen_centered_info_line(xml, "Info 1", "Not possible while in use!");
-								gen_info_line(xml, "Padding 1", "");
-
-							} else {
-
-								gen_titled_text_input(
-									xml, "Contingent", "Contingent",
-									_expand_client_fs_contingent,
-									_expand_client_fs_select == Expand_client_fs_select::CONTINGENT_INPUT);
-
-								bool gen_start_button { true };
-								size_t const bytes {
-									_extend_config->num_bytes };
-
-								size_t const effective_bytes {
-									bytes - (bytes % Tresor::BLOCK_SIZE) };
-
-								if (effective_bytes > 0) {
-
-									gen_info_line(
-										xml, "inf_2",
-										String<128> {
-											"New image size: ",
-											Capacity { _tresor_image_size + effective_bytes }
-										}.string());
-
-								}  else {
-
-									gen_info_line(xml, "info_1",
-										String<128> {
-											"Must be at least ",
-											Number_of_bytes { Tresor::BLOCK_SIZE } }.string());
-
-									gen_start_button = false;
-								}
-								gen_info_line(xml, "pad_2", "");
-								if (gen_start_button) {
-
-									gen_action_button_at_bottom(
-										xml, "Start",
-										_expand_client_fs_hover  == Expand_client_fs_hover::START_BUTTON,
-										_expand_client_fs_select == Expand_client_fs_select::START_BUTTON);
-								}
-							}
-							break;
-						}
-						case Resizing_state::ADAPT_TRESOR_IMAGE_SIZE:
-						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
-						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
-						case Resizing_state::IN_PROGRESS_AT_DEVICE:
-						case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
-						case Resizing_state::RUN_RESIZE2FS:
-
-							gen_centered_info_line(xml, "inf", "Please wait...");
-							gen_info_line(xml, "pad_2", "");
-							break;
-						}
-					});
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_expand_client_fs_hover  == Expand_client_fs_hover::LOCK_BUTTON,
-				_expand_client_fs_select == Expand_client_fs_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				xml.node("vbox", [&] () {
-
-					gen_opened_menu(
-						xml,
-						RENAME_SNAPSHOT_BUFFER_JOURNALING_BUFFER ?
-							"Expand Journaling Buffer" :
-							"Expand Snapshot Buffer",
-						"",
-						_expand_snapshot_buf_hover == Expand_snapshot_buf_hover::LEAVE_BUTTON,
-						[&] (Xml_generator &xml)
-					{
-						gen_info_line(xml, "pad_1", "");
-						switch (_resizing_state) {
-						case Resizing_state::INACTIVE:
-						{
-							gen_titled_text_input(
-								xml, "Contingent", "Contingent",
-								_expand_snapshot_buf_contingent,
-								_expand_snapshot_buf_select == Expand_snapshot_buf_select::CONTINGENT_INPUT);
-
-							bool gen_start_button { true };
-							size_t const bytes {
-								_extend_config->num_bytes };
-
-							size_t const effective_bytes {
-								bytes - (bytes % TRESOR_BLOCK_SIZE) };
-
-							if (effective_bytes > 0) {
-
-								gen_info_line(
-									xml, "inf_2",
-									String<128> {
-										"New image size: ",
-										Capacity { _tresor_image_size + effective_bytes }
-									}.string());
-
-							}  else {
-
-								gen_start_button = false;
-								gen_info_line(xml, "info_1",
-									String<128> {
-										"Must be at least ",
-										Number_of_bytes { TRESOR_BLOCK_SIZE } }.string());
-							}
-							gen_info_line(xml, "pad_2", "");
-							if (gen_start_button) {
-
-								gen_action_button_at_bottom(
-									xml, "Start",
-									_expand_snapshot_buf_hover  == Expand_snapshot_buf_hover::START_BUTTON,
-									_expand_snapshot_buf_select == Expand_snapshot_buf_select::START_BUTTON);
-							}
-							break;
-						}
-						case Resizing_state::ADAPT_TRESOR_IMAGE_SIZE:
-						case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
-						case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
-						case Resizing_state::IN_PROGRESS_AT_DEVICE:
-						case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
-						case Resizing_state::RUN_RESIZE2FS:
-
-							gen_centered_info_line(xml, "inf", "Please wait...");
-							gen_info_line(xml, "pad_2", "");
-							break;
-						}
-					});
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_expand_snapshot_buf_hover  == Expand_snapshot_buf_hover::LOCK_BUTTON,
-				_expand_snapshot_buf_select == Expand_snapshot_buf_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_SECURITY:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				gen_opened_menu(
-					xml, "Security", "",
-					_controls_security_hover == Controls_security_hover::SECURITY_EXPAND_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					gen_closed_menu(
-						xml, "Block Encryption Key", "",
-						_controls_security_hover == Controls_security_hover::BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON);
-
-					if (SHOW_CONTROLS_SECURITY_MASTER_KEY) {
-
-						gen_closed_menu(
-							xml, "Master Key", "",
-							_controls_security_hover == Controls_security_hover::MASTER_KEY_EXPAND_BUTTON);
-					}
-					if (SHOW_CONTROLS_SECURITY_USER_PASSPHRASE) {
-
-						gen_closed_menu(
-							xml, "User Passphrase", "",
-							_controls_security_hover == Controls_security_hover::USER_PASSPHRASE_EXPAND_BUTTON);
-					}
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_hover  == Controls_security_hover::LOCK_BUTTON,
-				_controls_security_select == Controls_security_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				gen_opened_menu(
-					xml, "Block Encryption Key", "",
-					_controls_security_block_encryption_key_hover == Controls_security_block_encryption_key_hover::LEAVE_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					gen_info_line(xml, "pad_1", "");
-					switch(_rekeying_state) {
-					case Rekeying_state::INACTIVE:
-
-						gen_action_button(xml, "Rekey", "Replace",
-							_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::REPLACE_BUTTON,
-							_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::REPLACE_BUTTON);
-
-						break;
-
-					case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
-					case Rekeying_state::ISSUE_REQUEST_AT_DEVICE:
-					case Rekeying_state::IN_PROGRESS_AT_DEVICE:
-
-						gen_centered_info_line(xml, "inf", "Please wait...");
-						gen_info_line(xml, "pad_2", "");
-						break;
-					}
-					gen_info_line(xml, "pad_1", "");
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_block_encryption_key_hover  == Controls_security_block_encryption_key_hover::LOCK_BUTTON,
-				_controls_security_block_encryption_key_select == Controls_security_block_encryption_key_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				gen_opened_menu(
-					xml, "Master Key", "",
-					_controls_security_master_key_hover == Controls_security_master_key_hover::LEAVE_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					gen_info_line(xml, "pad_1", "");
-					gen_info_line(xml, "inf_1", "The master key cannot be replaced by now.");
-					gen_info_line(xml, "pad_2", "");
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_master_key_hover  == Controls_security_master_key_hover::LOCK_BUTTON,
-				_controls_security_master_key_select == Controls_security_master_key_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
-
-		gen_controls_frame(xml, _jent_avail, "app", [&] (Xml_generator &xml) {
-
-			xml.node("frame", [&] () {
-
-				gen_opened_menu(
-					xml, "User Passphrase", "",
-					_controls_security_user_passphrase_hover == Controls_security_user_passphrase_hover::LEAVE_BUTTON,
-					[&] (Xml_generator &xml)
-				{
-					gen_info_line(xml, "pad_1", "");
-					gen_info_line(xml, "inf_1", "The user passphrase cannot be replaced by now.");
-					gen_info_line(xml, "pad_2", "");
-				});
-			});
-			gen_global_controls(
-				xml, MAIN_FRAME_WIDTH, _tresor_image_size, _client_fs_size, _nr_of_clients,
-				_controls_security_user_passphrase_hover  == Controls_security_user_passphrase_hover::LOCK_BUTTON,
-				_controls_security_user_passphrase_select == Controls_security_user_passphrase_select::LOCK_BUTTON);
-		});
-		break;
-
-	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR:
-	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
-
-		gen_info_frame(xml, _jent_avail, "1", "Please wait...", MAIN_FRAME_WIDTH);
-		break;
-	}
 }
 
 
