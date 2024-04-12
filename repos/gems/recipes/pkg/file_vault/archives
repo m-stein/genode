@@ -1,9 +1,7 @@
 _/src/init
 _/src/libc
-_/src/libpng
 _/src/zlib
 _/src/fs_query
-_/src/menu_view
 _/src/tresor
 _/src/vfs_block
 _/src/vfs_jitterentropy

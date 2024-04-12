@@ -276,7 +276,7 @@ append config {
 
 		<start name="file_vault" caps="2000">
 			<resource name="RAM" quantum="200M"/>
-			<config user_interface="config_and_report" jitterentropy_available="} [jent_avail_attr] {">
+			<config jitterentropy_available="} [jent_avail_attr] {">
 				<vfs>
 					<dir name="tresor">
 						<fs label="tresor"/>
