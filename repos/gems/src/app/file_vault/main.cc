@@ -356,7 +356,6 @@ class File_vault::Main
 		bool                                   _jent_avail                         { _config_rom.xml().attribute_value("jitterentropy_available", true) };
 		Root_directory                         _vfs                                { _env, _heap, _config_rom.xml().sub_node("vfs") };
 		Registry<Child_state>                  _children                           { };
-		Child_state                            _menu_view                          { _children, "menu_view", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _mke2fs                             { _children, "mke2fs", Ram_quota { 100 * 1024 * 1024 }, Cap_quota { 500 } };
 		Child_state                            _resize2fs                          { _children, "resize2fs", Ram_quota { 100 * 1024 * 1024 }, Cap_quota { 500 } };
 		Child_state                            _tresor_vfs                            { _children, "tresor_vfs", "vfs", Ram_quota { 64 * 1024 * 1024 }, Cap_quota { 200 } };
@@ -388,7 +387,6 @@ class File_vault::Main
 		Xml_report_handler                     _lock_fs_query_listing_handler      { *this, &Main::_handle_lock_fs_query_listing };
 		Sandbox                                _sandbox                            { _env, *this };
 		Gui_service                            _gui_service                        { _sandbox, *this };
-		Rom_service                            _rom_service                        { _sandbox, *this };
 		Report_service                         _report_service                     { _sandbox, *this };
 		Xml_report_handler                     _hover_handler                      { *this, &Main::_handle_hover };
 		Constructible<Watch_handler<Main>>     _watch_handler                      { };
@@ -462,12 +460,6 @@ class File_vault::Main
 				return CONFIG_AND_REPORT;
 
 			return MENU_VIEW;
-		}
-
-		void _gen_menu_view_start_node_if_required(Xml_generator &xml) const
-		{
-			if (_user_interface == MENU_VIEW)
-				gen_menu_view_start_node(xml, _menu_view);
 		}
 
 		size_t _ui_client_fs_size() const
@@ -2372,14 +2364,6 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 void File_vault::Main::wakeup_local_service()
 {
-	_rom_service.for_each_requested_session([&] (Rom_service::Request &request) {
-
-		if (request.label == "menu_view -> dialog")
-			request.deliver_session(_dialog);
-		else
-			request.deny();
-	});
-
 	_report_service.for_each_requested_session([&] (Report_service::Request &request) {
 
 		if (request.label == "fs_query -> listing") {
@@ -2451,17 +2435,6 @@ void File_vault::Main::wakeup_local_service()
 		}
 	});
 
-	_report_service.for_each_requested_session([&] (Report_service::Request &request) {
-
-		if (request.label == "menu_view -> hover") {
-			Report::Session_component &session = *new (_heap)
-				Report::Session_component(_env, _hover_handler,
-				                          _env.ep(),
-				                          request.resources, "", request.diag);
-			request.deliver_session(session);
-		}
-	});
-
 	_report_service.for_each_session_to_close([&] (Report::Session_component &session) {
 
 		destroy(_heap, &session);
@@ -2507,26 +2480,22 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::INVALID:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_fs_query_start_node(xml, _fs_query);
 		break;
 
 	case State::SETUP_OBTAIN_PARAMETERS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		break;
 
 	case State::UNLOCK_OBTAIN_PARAMETERS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		break;
 
 	case State::SETUP_RUN_TRESOR_INIT_TRUST_ANCHOR:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
 			xml, _tresor_init_trust_anchor, _ui_setup_obtain_params_passphrase());
@@ -2536,7 +2505,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
 			xml, _tresor_init_trust_anchor, _ui_setup_obtain_params_passphrase());
@@ -2546,7 +2514,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::UNLOCK_START_TRESOR_VFS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_sync_to_tresor_vfs_init_start_node(xml, _sync_to_tresor_vfs_init);
@@ -2556,7 +2523,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_client_fs_fs_query_start_node(xml, _client_fs_fs_query);
@@ -2565,7 +2531,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::SETUP_CREATE_TRESOR_IMAGE_FILE:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_truncate_file_start_node(
 			xml, _truncate_file,
@@ -2589,7 +2554,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, _tresor_tree_num_leaves(_ui_journaling_buf_size()) }
 		};
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_start_node(xml, _tresor_init, sb_config);
 		break;
@@ -2597,7 +2561,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::SETUP_START_TRESOR_VFS:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_sync_to_tresor_vfs_init_start_node(xml, _sync_to_tresor_vfs_init);
@@ -2606,7 +2569,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::SETUP_FORMAT_TRESOR:
 
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
@@ -2624,7 +2586,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 	{
 		gen_parent_provides_and_report_nodes(xml);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
@@ -2782,7 +2743,6 @@ log("resizing in progress num_blocks=", _ui_expand_client_fs_contingent() / TRES
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
@@ -2794,7 +2754,6 @@ log("resizing in progress num_blocks=", _ui_expand_client_fs_contingent() / TRES
 
 		gen_parent_provides_and_report_nodes(xml);
 		gen_policy_for_child_service(xml, "File_system", _rump_vfs);
-		_gen_menu_view_start_node_if_required(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
