@@ -331,12 +331,6 @@ class File_vault::Main
 			ISSUE_REQUEST_AT_DEVICE,
 		};
 
-		enum User_interface
-		{
-			MENU_VIEW,
-			CONFIG_AND_REPORT,
-		};
-
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
 		using Gui_service        = Sandbox::Local_service<Gui::Session_component>;
 		using Rom_service        = Sandbox::Local_service<Dynamic_rom_session>;
@@ -350,7 +344,6 @@ class File_vault::Main
 		Heap                                   _heap                               { _env.ram(), _env.rm() };
 		Timer::Connection                      _timer                              { _env };
 		Attached_rom_dataspace                 _config_rom                         { _env, "config" };
-		User_interface                         _user_interface                     { _user_interface_from_config(_config_rom.xml()) };
 		bool                                   _verbose_state                      { _config_rom.xml().attribute_value("verbose_state", false) };
 		bool                                   _verbose_ui_config                  { _config_rom.xml().attribute_value("verbose_ui_config", false) };
 		bool                                   _jent_avail                         { _config_rom.xml().attribute_value("jitterentropy_available", true) };
@@ -448,70 +441,6 @@ class File_vault::Main
 		Constructible<Extend_config>           _extend_config                      { };
 		Constructible<Extend_report>           _extend_report                      { };
 
-		static User_interface
-		_user_interface_from_config(Xml_node const &config)
-		{
-			using Ui_string = String<32>;
-
-			Ui_string const ui_str {
-				config.attribute_value("user_interface", Ui_string { }) };
-
-			if (ui_str == "config_and_report")
-				return CONFIG_AND_REPORT;
-
-			return MENU_VIEW;
-		}
-
-		size_t _ui_client_fs_size() const
-		{
-			switch (_user_interface) {
-			case MENU_VIEW:         return _client_fs_size_input.value();
-			case CONFIG_AND_REPORT: return _ui_config->client_fs_size;
-			}
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-
-		size_t _ui_journaling_buf_size() const
-		{
-			switch (_user_interface) {
-			case MENU_VIEW:         return _journaling_buf_size_input.value();
-			case CONFIG_AND_REPORT: return _ui_config->journaling_buf_size;
-			}
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-
-		Passphrase _ui_setup_obtain_params_passphrase() const
-		{
-			switch (_user_interface) {
-			case MENU_VIEW:         return _setup_obtain_params_passphrase.plaintext().string();
-			case CONFIG_AND_REPORT: return _ui_config->passphrase;
-			}
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-
-		Number_of_bytes _ui_expand_client_fs_contingent() const
-		{
-			switch (_user_interface) {
-			case MENU_VIEW:         return _expand_client_fs_contingent.value();
-			case CONFIG_AND_REPORT: return _extend_config->num_bytes;
-			}
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-
-		Number_of_bytes _ui_expand_snapshot_buf_contingent() const
-		{
-			switch (_user_interface) {
-			case MENU_VIEW:         return _expand_snapshot_buf_contingent.value();
-			case CONFIG_AND_REPORT: return _extend_config->num_bytes;
-			}
-			class Exception_1 { };
-			throw Exception_1 { };
-		}
-
 		static bool _has_name(Xml_node  const &node,
 		                      Node_name const &name)
 		{
@@ -520,7 +449,7 @@ class File_vault::Main
 
 		size_t _min_journaling_buf_size() const
 		{
-			size_t result { _ui_client_fs_size() >> 8 };
+			size_t result { _ui_config->client_fs_size >> 8 };
 			if (result < MIN_CLIENT_FS_SIZE) {
 				result = MIN_CLIENT_FS_SIZE;
 			}
@@ -529,14 +458,14 @@ class File_vault::Main
 
 		bool _ui_setup_obtain_params_passphrase_suitable() const
 		{
-			return _ui_setup_obtain_params_passphrase().length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1;
+			return _ui_config->passphrase.length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1;
 		}
 
 		bool _ui_setup_obtain_params_suitable() const
 		{
 			return
-				_ui_client_fs_size() >= MIN_CLIENT_FS_SIZE &&
-				_ui_journaling_buf_size() >= _min_journaling_buf_size() &&
+				_ui_config->client_fs_size >= MIN_CLIENT_FS_SIZE &&
+				_ui_config->journaling_buf_size >= _min_journaling_buf_size() &&
 				_ui_setup_obtain_params_passphrase_suitable();
 		}
 
@@ -633,14 +562,8 @@ class File_vault::Main
 			Reported_state old_reported_state { _reported_state() };
 			_state = state;
 			Reported_state new_reported_state { _reported_state() };
-
-			if (_verbose_state)
-				log("state: ", _state_to_string(_state), " ", old_reported_state != new_reported_state, " ", _user_interface == CONFIG_AND_REPORT);
-
-			if (old_reported_state != new_reported_state &&
-			    _user_interface == CONFIG_AND_REPORT) {
+			if (old_reported_state != new_reported_state)
 				_generate_ui_report();
-			}
 		}
 
 		bool _rekey_operation_pending() const;
@@ -1078,10 +1001,8 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 log("rekeying finished");
 
-				if (_user_interface == CONFIG_AND_REPORT) {
-					_rekey_report->finished = true;
-					generate_ui_report = true;
-				}
+				_rekey_report->finished = true;
+				generate_ui_report = true;
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
 
@@ -1244,8 +1165,7 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 				if (_has_name(node_1, "data")) {
 
 					_client_fs_size = node_1.attribute_value("size", (size_t)0);
-					if (_user_interface == CONFIG_AND_REPORT)
-						generate_ui_report = true;
+					generate_ui_report = true;
 					_set_state(State::CONTROLS_ROOT);
 					Signal_transmitter(_state_handler).submit();
 				}
@@ -1277,8 +1197,7 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 						if (_client_fs_size != size) {
 
 							_client_fs_size = size;
-							if (_user_interface == CONFIG_AND_REPORT)
-								generate_ui_report = true;
+							generate_ui_report = true;
 							_resizing_state = Resizing_state::RUN_RESIZE2FS;
 							Signal_transmitter(_state_handler).submit();
 
@@ -1286,11 +1205,8 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 							_resizing_type = Resizing_type::NONE;
 							_resizing_state = Resizing_state::INACTIVE;
-
-							if (_user_interface == CONFIG_AND_REPORT) {
-								_extend_report->finished = true;
-								generate_ui_report = true;
-							}
+							_extend_report->finished = true;
+							generate_ui_report = true;
 							Signal_transmitter(_state_handler).submit();
 						}
 					}
@@ -1340,8 +1256,7 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 
 			_tresor_image_size = size;
 			update_dialog = true;
-			if (_user_interface == CONFIG_AND_REPORT)
-				generate_ui_report = true;
+			generate_ui_report = true;
 		}
 		break;
 	}
@@ -1360,11 +1275,7 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 void Main::_handle_state()
 {
 	_update_sandbox_config();
-
-	switch (_user_interface) {
-	case MENU_VIEW:         _dialog.trigger_update();       break;
-	case CONFIG_AND_REPORT: _handle_ui_config_and_report(); break;
-	}
+	_handle_ui_config_and_report();
 }
 
 
@@ -1471,14 +1382,11 @@ Main::Main(Env &env)
 	_config_rom.sigh(_config_handler);
 	_handle_config();
 	_update_sandbox_config();
-
-	if (_user_interface == CONFIG_AND_REPORT) {
-		_ui_config_rom.construct(_env, "ui_config");
-		_ui_config_rom->sigh(_ui_config_handler);
-		_ui_report.construct(_env, "ui_report", "ui_report");
-		_handle_ui_config();
-		_set_state(State::INVALID);
-	}
+	_ui_config_rom.construct(_env, "ui_config");
+	_ui_config_rom->sigh(_ui_config_handler);
+	_ui_report.construct(_env, "ui_report", "ui_report");
+	_handle_ui_config();
+	_set_state(State::INVALID);
 }
 
 
@@ -1672,12 +1580,8 @@ void File_vault::Main::handle_sandbox_state()
 
 					_resizing_type = Resizing_type::NONE;
 					_resizing_state = Resizing_state::INACTIVE;
-
-log("resizing finished");
-					if (_user_interface == CONFIG_AND_REPORT) {
-						_extend_report->finished = true;
-						generate_ui_report = true;
-					}
+					_extend_report->finished = true;
+					generate_ui_report = true;
 					update_dialog = true;
 					update_sandbox = true;
 				}
@@ -1694,7 +1598,6 @@ log("resizing finished");
 				if (_child_succeeded(sandbox_state, _rekeying_fs_tool)) {
 
 					_rekeying_state = Rekeying_state::IN_PROGRESS_AT_DEVICE;
-log("rekeying in progress");
 					update_dialog = true;
 					update_sandbox = true;
 				}
@@ -1743,18 +1646,16 @@ log("rekeying in progress");
 
 			if (_child_succeeded(sandbox_state, _lock_fs_tool)) {
 
-				if (_user_interface == CONFIG_AND_REPORT) {
-					if (_rekey_report.constructed()) {
-						_rekey_report->finished = true;
-						_rekeying_state = Rekeying_state::INACTIVE;
-						generate_ui_report = true;
-					}
-					if (_extend_report.constructed()) {
-						_extend_report->finished = true;
-						_resizing_type = Resizing_type::NONE;
-						_resizing_state = Resizing_state::INACTIVE;
-						generate_ui_report = true;
-					}
+				if (_rekey_report.constructed()) {
+					_rekey_report->finished = true;
+					_rekeying_state = Rekeying_state::INACTIVE;
+					generate_ui_report = true;
+				}
+				if (_extend_report.constructed()) {
+					_extend_report->finished = true;
+					_resizing_type = Resizing_type::NONE;
+					_resizing_state = Resizing_state::INACTIVE;
+					generate_ui_report = true;
 				}
 				_set_state(State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE);
 				update_dialog = true;
@@ -1777,8 +1678,7 @@ log("rekeying in progress");
 	if (_nr_of_clients.value != nr_of_clients.value) {
 
 		_nr_of_clients.value = nr_of_clients.value;
-		if (_user_interface == CONFIG_AND_REPORT)
-			generate_ui_report = true;
+		generate_ui_report = true;
 		update_dialog = true;
 	}
 	if (update_dialog) {
@@ -1826,7 +1726,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				_client_fs_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::CLIENT_FS_SIZE_INPUT);
 
-			if (_ui_client_fs_size() < MIN_CLIENT_FS_SIZE) {
+			if (_ui_config->client_fs_size < MIN_CLIENT_FS_SIZE) {
 
 				gen_image_size_info = false;
 				gen_start_button = false;
@@ -1845,7 +1745,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 				_journaling_buf_size_input,
 				_setup_obtain_params_select == Setup_obtain_params_select::SNAPSHOT_BUFFER_SIZE_INPUT);
 
-			if (_ui_journaling_buf_size() < _min_journaling_buf_size()) {
+			if (_ui_config->journaling_buf_size < _min_journaling_buf_size()) {
 
 				gen_image_size_info = false;
 				gen_start_button = false;
@@ -2096,7 +1996,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 								bool gen_start_button { true };
 								size_t const bytes {
-									_ui_expand_client_fs_contingent() };
+									_extend_config->num_bytes };
 
 								size_t const effective_bytes {
 									bytes - (bytes % Tresor::BLOCK_SIZE) };
@@ -2179,7 +2079,7 @@ void File_vault::Main::produce_xml(Xml_generator &xml)
 
 							bool gen_start_button { true };
 							size_t const bytes {
-								_ui_expand_snapshot_buf_contingent() };
+								_extend_config->num_bytes };
 
 							size_t const effective_bytes {
 								bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -2498,7 +2398,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
-			xml, _tresor_init_trust_anchor, _ui_setup_obtain_params_passphrase());
+			xml, _tresor_init_trust_anchor, _ui_config->passphrase);
 
 		break;
 
@@ -2507,7 +2407,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
-			xml, _tresor_init_trust_anchor, _ui_setup_obtain_params_passphrase());
+			xml, _tresor_init_trust_anchor, _ui_config->passphrase);
 
 		break;
 
@@ -2540,18 +2440,18 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 					TRESOR_NR_OF_SUPERBLOCKS,
 					TRESOR_VBD_MAX_LVL + 1,
 					TRESOR_VBD_DEGREE,
-					_tresor_tree_num_leaves(_ui_client_fs_size()),
+					_tresor_tree_num_leaves(_ui_config->client_fs_size),
 					TRESOR_FREE_TREE_MAX_LVL + 1,
 					TRESOR_FREE_TREE_DEGREE,
-					_tresor_tree_num_leaves(_ui_journaling_buf_size())));
+					_tresor_tree_num_leaves(_ui_config->journaling_buf_size)));
 
 		break;
 
 	case State::SETUP_RUN_TRESOR_INIT:
 	{
 		Tresor::Superblock_configuration sb_config {
-			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, _tresor_tree_num_leaves(_ui_client_fs_size()) },
-			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, _tresor_tree_num_leaves(_ui_journaling_buf_size()) }
+			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, _tresor_tree_num_leaves(_ui_config->client_fs_size) },
+			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, _tresor_tree_num_leaves(_ui_config->journaling_buf_size) }
 		};
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
@@ -2603,7 +2503,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			case Resizing_type::EXPAND_CLIENT_FS:
 			{
 				size_t const bytes {
-					_ui_expand_client_fs_contingent() };
+					_extend_config->num_bytes };
 
 				size_t const effective_bytes {
 					bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -2618,7 +2518,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			case Resizing_type::EXPAND_SNAPSHOT_BUF:
 			{
 				size_t const bytes {
-					_ui_expand_snapshot_buf_contingent() };
+					_extend_config->num_bytes };
 
 				size_t const effective_bytes {
 					bytes - (bytes % TRESOR_BLOCK_SIZE) };
@@ -2650,9 +2550,9 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
-					_ui_expand_client_fs_contingent() / TRESOR_BLOCK_SIZE);
+					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
 
-log("resizing in progress num_blocks=", _ui_expand_client_fs_contingent() / TRESOR_BLOCK_SIZE);
+log("resizing in progress num_blocks=", _extend_config->num_bytes / TRESOR_BLOCK_SIZE);
 
 				break;
 
@@ -2660,7 +2560,7 @@ log("resizing in progress num_blocks=", _ui_expand_client_fs_contingent() / TRES
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "ft",
-					_ui_expand_snapshot_buf_contingent() / TRESOR_BLOCK_SIZE);
+					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
 
 				break;
 
@@ -2789,10 +2689,10 @@ size_t Main::_tresor_size() const
 			TRESOR_NR_OF_SUPERBLOCKS,
 			TRESOR_VBD_MAX_LVL + 1,
 			TRESOR_VBD_DEGREE,
-			_tresor_tree_num_leaves(_ui_client_fs_size()),
+			_tresor_tree_num_leaves(_ui_config->client_fs_size),
 			TRESOR_FREE_TREE_MAX_LVL + 1,
 			TRESOR_FREE_TREE_DEGREE,
-			_tresor_tree_num_leaves(_ui_journaling_buf_size()))
+			_tresor_tree_num_leaves(_ui_config->journaling_buf_size))
 		* TRESOR_BLOCK_SIZE;
 }
 
@@ -3480,14 +3380,9 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 				} else if (key == Input::KEY_ENTER) {
 
-					size_t const bytes {
-						_ui_expand_client_fs_contingent() };
-
-					size_t const effective_bytes {
-						bytes - (bytes % TRESOR_BLOCK_SIZE) };
-
+					size_t const bytes { _extend_config->num_bytes };
+					size_t const effective_bytes { bytes - (bytes % TRESOR_BLOCK_SIZE) };
 					if (effective_bytes > 0) {
-
 						_expand_client_fs_select = Expand_client_fs_select::START_BUTTON;
 						update_dialog = true;
 					}
@@ -3586,14 +3481,9 @@ void File_vault::Main::handle_input_event(Input::Event const &event)
 
 			} else if (key == Input::KEY_ENTER) {
 
-				size_t const bytes {
-					_ui_expand_snapshot_buf_contingent() };
-
-				size_t const effective_bytes {
-					bytes - (bytes % TRESOR_BLOCK_SIZE) };
-
+				size_t const bytes { _extend_config->num_bytes };
+				size_t const effective_bytes { bytes - (bytes % TRESOR_BLOCK_SIZE) };
 				if (effective_bytes > 0) {
-
 					_expand_snapshot_buf_select = Expand_snapshot_buf_select::START_BUTTON;
 					update_dialog = true;
 				}
