@@ -34,7 +34,6 @@
 #include <utf8.h>
 #include <child_exit_state.h>
 #include <const_pointer.h>
-#include <snapshot.h>
 #include <capacity.h>
 
 namespace File_vault {
@@ -98,7 +97,6 @@ class File_vault::Main
 			UNLOCK_START_TRESOR_VFS,
 			UNLOCK_DETERMINE_CLIENT_FS_SIZE,
 			CONTROLS_ROOT,
-			CONTROLS_SNAPSHOTS,
 			CONTROLS_DIMENSIONS,
 			CONTROLS_EXPAND_CLIENT_FS,
 			CONTROLS_EXPAND_SNAPSHOT_BUF,
@@ -121,177 +119,6 @@ class File_vault::Main
 			LOCKING
 		};
 
-		enum class Setup_obtain_params_hover
-		{
-			NONE,
-			PASSPHRASE_INPUT,
-			PASSPHRASE_SHOW_HIDE_BUTTON,
-			CLIENT_FS_SIZE_INPUT,
-			SNAPSHOT_BUFFER_SIZE_INPUT,
-			START_BUTTON
-		};
-
-		enum class Setup_obtain_params_select
-		{
-			NONE,
-			PASSPHRASE_INPUT,
-			PASSPHRASE_SHOW_HIDE_BUTTON,
-			CLIENT_FS_SIZE_INPUT,
-			SNAPSHOT_BUFFER_SIZE_INPUT,
-			START_BUTTON
-		};
-
-		enum class Controls_root_select
-		{
-			NONE,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_root_hover
-		{
-			NONE,
-			SNAPSHOTS_EXPAND_BUTTON,
-			DIMENSIONS_BUTTON,
-			SECURITY_EXPAND_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_snapshots_select
-		{
-			NONE,
-			LOCK_BUTTON,
-			CREATE_BUTTON,
-			GENERATION_DISCARD_BUTTON,
-		};
-
-		enum class Controls_snapshots_hover
-		{
-			NONE,
-			LOCK_BUTTON,
-			LEAVE_BUTTON,
-			CREATE_BUTTON,
-			GENERATION_LEAVE_BUTTON,
-			GENERATION_DISCARD_BUTTON,
-		};
-
-		enum class Dimensions_select
-		{
-			NONE,
-			EXPAND_CLIENT_FS_EXPAND_BUTTON,
-			EXPAND_SNAP_BUF_EXPAND_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Dimensions_hover
-		{
-			NONE,
-			LEAVE_BUTTON,
-			EXPAND_CLIENT_FS_BUTTON,
-			EXPAND_SNAPSHOT_BUF_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Expand_client_fs_select
-		{
-			NONE,
-			CONTINGENT_INPUT,
-			START_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Expand_client_fs_hover
-		{
-			NONE,
-			LEAVE_BUTTON,
-			CONTINGENT_INPUT,
-			START_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Expand_snapshot_buf_select
-		{
-			NONE,
-			CONTINGENT_INPUT,
-			START_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Expand_snapshot_buf_hover
-		{
-			NONE,
-			LEAVE_BUTTON,
-			CONTINGENT_INPUT,
-			START_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_block_encryption_key_select
-		{
-			NONE,
-			REPLACE_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_block_encryption_key_hover
-		{
-			NONE,
-			LEAVE_BUTTON,
-			REPLACE_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_master_key_select
-		{
-			NONE,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_master_key_hover
-		{
-			NONE,
-			LEAVE_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_user_passphrase_select
-		{
-			NONE,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_user_passphrase_hover
-		{
-			NONE,
-			LEAVE_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_select
-		{
-			NONE,
-			BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON,
-			MASTER_KEY_EXPAND_BUTTON,
-			USER_PASSPHRASE_EXPAND_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Controls_security_hover
-		{
-			NONE,
-			SECURITY_EXPAND_BUTTON,
-			BLOCK_ENCRYPTION_KEY_EXPAND_BUTTON,
-			MASTER_KEY_EXPAND_BUTTON,
-			USER_PASSPHRASE_EXPAND_BUTTON,
-			LOCK_BUTTON,
-		};
-
-		enum class Resizing_type
-		{
-			NONE,
-			EXPAND_CLIENT_FS,
-			EXPAND_SNAPSHOT_BUF,
-		};
-
 		enum class Resizing_state
 		{
 			INACTIVE,
@@ -311,23 +138,10 @@ class File_vault::Main
 			IN_PROGRESS_AT_DEVICE,
 		};
 
-		enum class Create_snapshot_state
-		{
-			INACTIVE,
-			ISSUE_REQUEST_AT_DEVICE,
-		};
-
-		enum class Discard_snapshot_state
-		{
-			INACTIVE,
-			ISSUE_REQUEST_AT_DEVICE,
-		};
-
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
 		using Xml_report_handler = Report::Session_component::Xml_handler<Main>;
 		using State_string       = String<STATE_STRING_CAPACITY>;
 		using Snapshot_registry  = Registry<Registered<Snapshot>>;
-		using Snapshot_pointer   = Const_pointer<Snapshot>;
 
 		Env                                   &_env;
 		State                                  _state                              { State::INVALID };
@@ -352,19 +166,15 @@ class File_vault::Main
 		Child_state                            _client_fs_fs_query                 { _children, "client_fs_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _tresor_init_trust_anchor              { _children, "tresor_init_trust_anchor", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _tresor_init                           { _children, "tresor_init", Ram_quota { 4 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _snapshots_fs_query                 { _children, "snapshots_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _resizing_fs_tool                   { _children, "resizing_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _resizing_fs_query                  { _children, "resizing_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _rekeying_fs_tool                   { _children, "rekeying_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _rekeying_fs_query                  { _children, "rekeying_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
 		Child_state                            _lock_fs_tool                       { _children, "lock_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Child_state                            _lock_fs_query                      { _children, "lock_fs_query", "fs_query", Ram_quota { 1 * 1024 * 1024 }, Cap_quota { 100 } };
-		Child_state                            _create_snap_fs_tool                { _children, "create_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
-		Child_state                            _discard_snap_fs_tool               { _children, "discard_snap_fs_tool", "fs_tool", Ram_quota { 5 * 1024 * 1024 }, Cap_quota { 200 } };
 		Xml_report_handler                     _fs_query_listing_handler           { *this, &Main::_handle_fs_query_listing };
 		Xml_report_handler                     _image_fs_query_listing_handler     { *this, &Main::_handle_image_fs_query_listing };
 		Xml_report_handler                     _client_fs_fs_query_listing_handler { *this, &Main::_handle_client_fs_fs_query_listing };
-		Xml_report_handler                     _snapshots_fs_query_listing_handler { *this, &Main::_handle_snapshots_fs_query_listing };
 		Xml_report_handler                     _resizing_fs_query_listing_handler  { *this, &Main::_handle_resizing_fs_query_listing };
 		Xml_report_handler                     _rekeying_fs_query_listing_handler  { *this, &Main::_handle_rekeying_fs_query_listing };
 		Xml_report_handler                     _lock_fs_query_listing_handler      { *this, &Main::_handle_lock_fs_query_listing };
@@ -379,41 +189,9 @@ class File_vault::Main
 		Input_passphrase                       _setup_obtain_params_passphrase     { };
 		Input_number_of_bytes                  _client_fs_size_input               { };
 		Input_number_of_bytes                  _journaling_buf_size_input          { };
-		Setup_obtain_params_hover              _setup_obtain_params_hover          { Setup_obtain_params_hover::NONE };
-		Setup_obtain_params_select             _setup_obtain_params_select         { Setup_obtain_params_select::PASSPHRASE_INPUT };
-		Controls_root_hover                    _controls_root_hover                { Controls_root_hover::NONE };
-		Controls_root_select                   _controls_root_select               { Controls_root_select::NONE };
-		Controls_snapshots_hover               _controls_snapshots_hover           { Controls_snapshots_hover::NONE };
-		Controls_snapshots_select              _controls_snapshots_select          { Controls_snapshots_select::NONE };
-		Dimensions_hover                       _dimensions_hover                   { Dimensions_hover::NONE };
-		Dimensions_select                      _dimensions_select                  { Dimensions_select::NONE };
-		Expand_client_fs_hover                 _expand_client_fs_hover             { Expand_client_fs_hover::NONE };
-		Expand_client_fs_select                _expand_client_fs_select            { Expand_client_fs_select::NONE };
-		Expand_snapshot_buf_hover              _expand_snapshot_buf_hover          { Expand_snapshot_buf_hover::NONE };
-		Expand_snapshot_buf_select             _expand_snapshot_buf_select         { Expand_snapshot_buf_select::NONE };
-		Controls_security_hover                _controls_security_hover            { Controls_security_hover::NONE };
-		Controls_security_select               _controls_security_select           { Controls_security_select::NONE };
-
-		Controls_security_master_key_hover             _controls_security_master_key_hover            { Controls_security_master_key_hover::NONE };
-		Controls_security_master_key_select            _controls_security_master_key_select           { Controls_security_master_key_select::NONE };
-		Controls_security_block_encryption_key_hover   _controls_security_block_encryption_key_hover  { Controls_security_block_encryption_key_hover::NONE };
-		Controls_security_block_encryption_key_select  _controls_security_block_encryption_key_select { Controls_security_block_encryption_key_select::NONE };
-		Controls_security_user_passphrase_hover        _controls_security_user_passphrase_hover       { Controls_security_user_passphrase_hover::NONE };
-		Controls_security_user_passphrase_select       _controls_security_user_passphrase_select      { Controls_security_user_passphrase_select::NONE };
 
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
-		Resizing_type                          _resizing_type                      { Resizing_type::NONE };
-		Input_number_of_bytes                  _expand_client_fs_contingent        { };
-		Input_number_of_bytes                  _expand_snapshot_buf_contingent     { };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
-		Create_snapshot_state                  _create_snap_state                  { Create_snapshot_state::INACTIVE };
-		Discard_snapshot_state                 _discard_snap_state                 { Discard_snapshot_state::INACTIVE };
-		Generation                             _discard_snap_gen                   { INVALID_GENERATION };
-		Snapshot_registry                      _snapshots                          { };
-		Snapshot_pointer                       _snapshots_hover                    { };
-		Snapshot_pointer                       _snapshots_select                   { };
-		bool                                   _snapshots_expanded                 { false };
-		bool                                   _dimensions_expanded                { false };
 		Timer::One_shot_timeout<Main>          _unlock_retry_delay                 { _timer, *this, &Main::_handle_unlock_retry_delay };
 		size_t                                 _tresor_image_size                  { 0 };
 		File_path                              _tresor_image_file_name             { "tresor.img" };
@@ -501,8 +279,6 @@ class File_vault::Main
 		void _handle_image_fs_query_listing(Xml_node const &node);
 
 		void _handle_client_fs_fs_query_listing(Xml_node const &node);
-
-		void _handle_snapshots_fs_query_listing(Xml_node const &node);
 
 		void _handle_resizing_fs_query_listing(Xml_node const &node);
 
@@ -668,7 +444,6 @@ Main::State Main::_state_and_version_from_string(State_string const &str,
 	if (str == "setup_format_tresor") { return State::SETUP_FORMAT_TRESOR; }
 	if (str == "setup_determine_client_fs_size") { return State::SETUP_DETERMINE_CLIENT_FS_SIZE; }
 	if (str == "controls_root") { return State::CONTROLS_ROOT; }
-	if (str == "controls_snapshots") { return State::CONTROLS_SNAPSHOTS; }
 	if (str == "controls_dimensions") { return State::CONTROLS_DIMENSIONS; }
 	if (str == "controls_expand_client_fs") { return State::CONTROLS_EXPAND_CLIENT_FS; }
 	if (str == "controls_expand_snapshot_buf") { return State::CONTROLS_EXPAND_SNAPSHOT_BUF; }
@@ -703,7 +478,6 @@ Main::State_string Main::_state_to_string(State state)
 	case State::SETUP_FORMAT_TRESOR:                    return "setup_format_tresor";
 	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return "setup_determine_client_fs_size";
 	case State::CONTROLS_ROOT:                          return "controls_root";
-	case State::CONTROLS_SNAPSHOTS:                     return "controls_snapshots";
 	case State::CONTROLS_DIMENSIONS:                    return "controls_dimensions";
 	case State::CONTROLS_EXPAND_CLIENT_FS:              return "controls_expand_client_fs";
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:           return "controls_expand_snapshot_buf";
@@ -751,7 +525,6 @@ Main::Reported_state Main::_reported_state() const
 	case State::SETUP_FORMAT_TRESOR:                    return Reported_state::INITIALIZING;
 	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return Reported_state::INITIALIZING;
 	case State::CONTROLS_ROOT:                          return Reported_state::UNLOCKED;
-	case State::CONTROLS_SNAPSHOTS:                     return Reported_state::UNLOCKED;
 	case State::CONTROLS_DIMENSIONS:                    return Reported_state::UNLOCKED;
 	case State::CONTROLS_EXPAND_CLIENT_FS:              return Reported_state::UNLOCKED;
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:           return Reported_state::UNLOCKED;
@@ -832,7 +605,6 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
 	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -849,7 +621,6 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 
 				_resizing_state = Resizing_state::ISSUE_REQUEST_AT_DEVICE;
 				Signal_transmitter(_state_handler).submit();
-
 			} else
 				error("failed to extend: tresor not ready");
 
@@ -858,42 +629,16 @@ void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 		case Resizing_state::IN_PROGRESS_AT_DEVICE:
 
 			if (listing_file_starts_with(node, "extend", String<10>("succeeded"))) {
-
-				switch (_resizing_type) {
-				case Resizing_type::EXPAND_CLIENT_FS:
-
-					_expand_client_fs_contingent = Input_number_of_bytes { };
-					_expand_client_fs_select = Expand_client_fs_select::CONTINGENT_INPUT;
-					break;
-
-				case Resizing_type::EXPAND_SNAPSHOT_BUF:
-
-					_expand_snapshot_buf_contingent = Input_number_of_bytes { };
-					_expand_snapshot_buf_select = Expand_snapshot_buf_select::CONTINGENT_INPUT;
-					break;
-
-				default:
-
-					class Unexpected_resizing_type { };
-					throw Unexpected_resizing_type { };
-					break;
-				}
 				_resizing_state = Resizing_state::DETERMINE_CLIENT_FS_SIZE;
 				Signal_transmitter(_state_handler).submit();
-
 			} else
 				error("failed to extend: operation failed at tresor");
-
 			break;
 
-		default:
-
-			break;
+		default: break;
 		}
 
-	default:
-
-		break;
+	default: break;
 	}
 }
 
@@ -904,20 +649,14 @@ void Main::_handle_lock_fs_query_listing(Xml_node const &node)
 	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:
 
 		if (listing_file_starts_with(node, "deinitialize", String<10>("succeeded"))) {
-
 			_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
 			_setup_obtain_params_passphrase = Input_passphrase { };
-			_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 			Signal_transmitter(_state_handler).submit();
-
 		} else
 			error("failed to deinitialize: operation failed at tresor");
-
 		break;
 
-	default:
-
-		break;
+	default: break;
 	}
 }
 
@@ -927,7 +666,6 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 	bool generate_ui_report = false;
 	switch (_state) {
 	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -954,8 +692,6 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
-log("rekeying finished");
-
 				_rekey_report->finished = true;
 				generate_ui_report = true;
 				_rekeying_state = Rekeying_state::INACTIVE;
@@ -978,89 +714,6 @@ log("rekeying finished");
 	}
 	if (generate_ui_report)
 		_generate_ui_report();
-}
-
-
-void Main::_handle_snapshots_fs_query_listing(Xml_node const &node)
-{
-	switch (_state) {
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
-	{
-		node.with_optional_sub_node("dir", [&] (Xml_node const &node_0) {
-
-			_snapshots.for_each([&] (Snapshot const &snap)
-			{
-				bool snap_still_exists { false };
-				node_0.for_each_sub_node("dir", [&] (Xml_node const &node_1) {
-
-					if (snap_still_exists) {
-						return;
-					}
-					Generation const generation {
-						node_1.attribute_value(
-							"name", Generation { INVALID_GENERATION }) };
-
-					if (generation == INVALID_GENERATION) {
-						warning("skipping snapshot file with invalid generation number");
-						return;
-					}
-					if (generation == snap.generation()) {
-						snap_still_exists = true;
-						return;
-					}
-				});
-				if (!snap_still_exists) {
-
-					if (_snapshots_select.valid() &&
-					    &_snapshots_select.object() == &snap) {
-
-						_snapshots_select = Snapshot_pointer { };
-					}
-					if (_snapshots_hover.valid() &&
-					    &_snapshots_hover.object() == &snap) {
-
-						_snapshots_hover = Snapshot_pointer { };
-					}
-					destroy(&_heap, &const_cast<Snapshot&>(snap));
-				}
-			});
-
-			node_0.for_each_sub_node("dir", [&] (Xml_node const &node_1) {
-
-				Generation const generation {
-					node_1.attribute_value(
-						"name", Generation { INVALID_GENERATION }) };
-
-				if (generation == INVALID_GENERATION) {
-					warning("skipping snapshot file with invalid generation number");
-					return;
-				}
-				bool snap_already_exists { false };
-				_snapshots.for_each([&] (Snapshot const &snap)
-				{
-					if (generation == snap.generation()) {
-						snap_already_exists = true;
-					}
-				});
-				if (!snap_already_exists) {
-					new (_heap) Registered<Snapshot>(_snapshots, generation);
-				}
-			});
-		});
-		break;
-	}
-	default:
-
-		break;
-	}
 }
 
 
@@ -1122,7 +775,6 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 		break;
 
 	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -1151,7 +803,6 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 						} else {
 
-							_resizing_type = Resizing_type::NONE;
 							_resizing_state = Resizing_state::INACTIVE;
 							_extend_report->finished = true;
 							generate_ui_report = true;
@@ -1182,7 +833,6 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 
 	switch (_state) {
 	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -1270,7 +920,6 @@ void Main::_handle_ui_config_and_report()
 		break;
 
 	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -1287,8 +936,6 @@ void Main::_handle_ui_config_and_report()
 		}
 		if (_rekeying_state == Rekeying_state::INACTIVE && _rekey_operation_pending()) {
 
-log("rekeying started");
-
 			_rekey_report.construct(_rekey_config->id, false);
 			_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
 			_update_sandbox_config();
@@ -1296,14 +943,8 @@ log("rekeying started");
 		}
 		if (_resizing_state == Resizing_state::INACTIVE && _extend_operation_pending()) {
 
-log("resizing started");
-
 			_extend_report.construct(_extend_config->id, false);
 			_resizing_state = Resizing_state::ADAPT_TRESOR_IMAGE_SIZE;
-			switch (_extend_config->tree) {
-			case Extend_config::VIRTUAL_BLOCK_DEVICE: _resizing_type = Resizing_type::EXPAND_CLIENT_FS; break;
-			case Extend_config::FREE_TREE: _resizing_type = Resizing_type::EXPAND_SNAPSHOT_BUF; break;
-			}
 			_update_sandbox_config();
 			_generate_ui_report();
 		}
@@ -1379,7 +1020,6 @@ void File_vault::Main::_handle_unlock_retry_delay(Duration)
 	_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
 	_ui_config.construct();
 	_setup_obtain_params_passphrase = Input_passphrase { };
-	_setup_obtain_params_select = Setup_obtain_params_select::PASSPHRASE_INPUT;
 	Signal_transmitter(_state_handler).submit();
 }
 
@@ -1468,7 +1108,6 @@ void File_vault::Main::handle_sandbox_state()
 			break;
 
 		case State::CONTROLS_ROOT:
-		case State::CONTROLS_SNAPSHOTS:
 		case State::CONTROLS_DIMENSIONS:
 		case State::CONTROLS_EXPAND_CLIENT_FS:
 		case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -1478,7 +1117,7 @@ void File_vault::Main::handle_sandbox_state()
 		case State::CONTROLS_SECURITY_USER_PASSPHRASE:
 
 			if (_resizing_state == Resizing_state::INACTIVE ||
-			    _resizing_type != Resizing_type::EXPAND_CLIENT_FS)
+			    _extend_config->tree != Extend_config::VIRTUAL_BLOCK_DEVICE)
 			{
 				nr_of_clients.value =
 					_child_nr_of_provided_sessions(
@@ -1507,7 +1146,6 @@ void File_vault::Main::handle_sandbox_state()
 
 				if (_child_succeeded(sandbox_state, _resize2fs)) {
 
-					_resizing_type = Resizing_type::NONE;
 					_resizing_state = Resizing_state::INACTIVE;
 					_extend_report->finished = true;
 					generate_ui_report = true;
@@ -1535,36 +1173,6 @@ void File_vault::Main::handle_sandbox_state()
 				break;
 			}
 
-			switch (_create_snap_state) {
-			case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-				if (_child_succeeded(sandbox_state, _create_snap_fs_tool)) {
-
-					_create_snap_state = Create_snapshot_state::INACTIVE;
-					update_sandbox = true;
-				}
-				break;
-
-			default:
-
-				break;
-			}
-
-			switch (_discard_snap_state) {
-			case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-				if (_child_succeeded(sandbox_state, _discard_snap_fs_tool)) {
-
-					_discard_snap_state = Discard_snapshot_state::INACTIVE;
-					update_sandbox = true;
-				}
-				break;
-
-			default:
-
-				break;
-			}
-
 			break;
 
 		case State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR:
@@ -1578,7 +1186,6 @@ void File_vault::Main::handle_sandbox_state()
 				}
 				if (_extend_report.constructed()) {
 					_extend_report->finished = true;
-					_resizing_type = Resizing_type::NONE;
 					_resizing_state = Resizing_state::INACTIVE;
 					generate_ui_report = true;
 				}
@@ -1638,15 +1245,6 @@ void File_vault::Main::wakeup_local_service()
 			Report::Session_component &session { *new (_heap)
 				Report::Session_component(
 					_env, _client_fs_fs_query_listing_handler, _env.ep(),
-					request.resources, "", request.diag) };
-
-			request.deliver_session(session);
-
-		} else if (request.label == "snapshots_fs_query -> listing") {
-
-			Report::Session_component &session { *new (_heap)
-				Report::Session_component(
-					_env, _snapshots_fs_query_listing_handler, _env.ep(),
 					request.resources, "", request.diag) };
 
 			request.deliver_session(session);
@@ -1794,7 +1392,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		break;
 
 	case State::CONTROLS_ROOT:
-	case State::CONTROLS_SNAPSHOTS:
 	case State::CONTROLS_DIMENSIONS:
 	case State::CONTROLS_EXPAND_CLIENT_FS:
 	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
@@ -1807,25 +1404,17 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
-		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_image_fs_query_start_node(xml, _image_fs_query);
 
 		switch(_resizing_state) {
-		case Resizing_state::INACTIVE:
-
-			break;
-
+		case Resizing_state::INACTIVE: break;
 		case Resizing_state::ADAPT_TRESOR_IMAGE_SIZE:
 
-			switch (_resizing_type) {
-			case Resizing_type::EXPAND_CLIENT_FS:
+			switch (_extend_config->tree) {
+			case Extend_config::VIRTUAL_BLOCK_DEVICE:
 			{
-				size_t const bytes {
-					_extend_config->num_bytes };
-
-				size_t const effective_bytes {
-					bytes - (bytes % TRESOR_BLOCK_SIZE) };
-
+				size_t const bytes { _extend_config->num_bytes };
+				size_t const effective_bytes { bytes - (bytes % TRESOR_BLOCK_SIZE) };
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
 					File_path { "/tresor/", _tresor_image_file_name }.string(),
@@ -1833,27 +1422,17 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				break;
 			}
-			case Resizing_type::EXPAND_SNAPSHOT_BUF:
+			case Extend_config::FREE_TREE:
 			{
-				size_t const bytes {
-					_extend_config->num_bytes };
-
-				size_t const effective_bytes {
-					bytes - (bytes % TRESOR_BLOCK_SIZE) };
-
+				size_t const bytes { _extend_config->num_bytes };
+				size_t const effective_bytes { bytes - (bytes % TRESOR_BLOCK_SIZE) };
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
 					File_path { "/tresor/", _tresor_image_file_name }.string(),
 					_tresor_image_size + effective_bytes);
 
 				break;
-			}
-			default:
-
-				class Unexpected_resizing_type { };
-				throw Unexpected_resizing_type { };
-				break;
-			}
+			} }
 			break;
 
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
@@ -1863,27 +1442,19 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 		case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 
-			switch (_resizing_type) {
-			case Resizing_type::EXPAND_CLIENT_FS:
+			switch (_extend_config->tree) {
+			case Extend_config::VIRTUAL_BLOCK_DEVICE:
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
 					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
-
 				break;
 
-			case Resizing_type::EXPAND_SNAPSHOT_BUF:
+			case Extend_config::FREE_TREE:
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "ft",
 					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
-
-				break;
-
-			default:
-
-				class Unexpected_resizing_type { };
-				throw Unexpected_resizing_type { };
 				break;
 			}
 			break;
@@ -1924,31 +1495,8 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			gen_rekeying_fs_query_start_node(xml, _rekeying_fs_query);
 			break;
 		}
-
-		switch(_create_snap_state) {
-		case Create_snapshot_state::INACTIVE:
-
-			break;
-
-		case Create_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-			gen_create_snap_fs_tool_start_node(xml, _create_snap_fs_tool);
-			break;
-		}
-
-		switch(_discard_snap_state) {
-		case Discard_snapshot_state::INACTIVE:
-
-			break;
-
-		case Discard_snapshot_state::ISSUE_REQUEST_AT_DEVICE:
-
-			gen_discard_snap_fs_tool_start_node(xml, _discard_snap_fs_tool, _discard_snap_gen);
-			break;
-		}
-
 		if (_resizing_state == Resizing_state::INACTIVE ||
-		    _resizing_type != Resizing_type::EXPAND_CLIENT_FS) {
+		    _extend_config->tree != Extend_config::VIRTUAL_BLOCK_DEVICE) {
 
 			gen_policy_for_child_service(xml, "File_system", _rump_vfs);
 			gen_rump_vfs_start_node(xml, _rump_vfs);
@@ -1962,7 +1510,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
-		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_lock_fs_tool_start_node(xml, _lock_fs_tool);
 		break;
 
@@ -1973,7 +1520,6 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_vfs_start_node(xml, _tresor_vfs, _tresor_image_file_name);
 		gen_tresor_vfs_block_start_node(xml, _tresor_vfs_block);
-		gen_snapshots_fs_query_start_node(xml, _snapshots_fs_query);
 		gen_lock_fs_query_start_node(xml, _lock_fs_query);
 		break;
 	}
