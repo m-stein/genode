@@ -337,21 +337,23 @@ struct Main : Prompt::Action
 	{
 		enum Tab { HOME, ENCRYPTION_KEY, CAPACITY, JOURNALING_BUFFER };
 
-		struct Navigation_bar : Widget<Hbox>
+		struct Navigation_bar : Widget<Float>
 		{
 			Controls_frame &controls;
-			Hosted<Hbox, Back_button> back_button { Id { "Back" } };
+			Hosted<Float, Hbox, Back_button> back_button { Id { "Back" } };
 
 			Navigation_bar(Controls_frame &controls) : controls(controls) { }
 
-			void view(Scope<Hbox> &s, String<32> const &text) const
+			void view(Scope<Float> &s, String<32> const &text) const
 			{
-				s.widget(back_button);
-				s.node("float", [&] {
-					s.attribute("west", "yes");
-					s.named_sub_node("label", "label", [&] {
-						s.attribute("font", "title/regular");
-						s.attribute("text", text); }); });
+				s.attribute("west", "yes");
+				s.sub_scope<Hbox>([&] (Scope<Float, Hbox> &s) {
+					s.widget(back_button);
+					s.node("float", [&] {
+						s.attribute("west", "yes");
+						s.named_sub_node("label", "label", [&] {
+							s.attribute("font", "title/regular");
+							s.attribute("text", text); }); }); });
 			}
 
 			void click(Clicked_at const &at) { back_button.propagate(at, [&] { controls.visible_tab = HOME; }); }
@@ -381,16 +383,19 @@ struct Main : Prompt::Action
 			}
 		};
 
-		struct Capacity : Widget<Vbox>
+		template <Extend_config::Tree TREE>
+		struct Dimension_tab : Widget<Vbox>
 		{
 			enum { MIN_NUM_BYTES = 4096 };
+
+			using Title = String<32>;
 
 			Controls_frame &controls;
 			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
 			Hosted<Vbox, Prompt> num_bytes_prompt { Id { "Number Of Bytes" }, controls.main.heap, true };
 			Hosted<Vbox, Action_button> extend_button { Id { "Extend" } };
 
-			Capacity(Controls_frame &controls) : controls(controls) { }
+			Dimension_tab(Controls_frame &controls) : controls(controls) { }
 
 			bool arguments_valid() const
 			{
@@ -404,19 +409,21 @@ struct Main : Prompt::Action
 
 			void view(Scope<Vbox> &s) const
 			{
-				s.widget(navigation_bar, "Capacity ");
+				s.widget(navigation_bar,
+					TREE == Extend_config::VIRTUAL_BLOCK_DEVICE ? "Capacity " :
+					TREE == Extend_config::FREE_TREE ? "Journaling Buffer " : "?");
+
 				if (controls.main.ready_to_extend()) {
 					s.widget(num_bytes_prompt, true);
 					if (arguments_valid())
 						s.widget(extend_button);
 				} else
 					s.sub_scope<Left_aligned_text>(" Please wait ... ");
-
 			}
 
 			void extend()
 			{
-				controls.main.extend_capacity(*this);
+				controls.main.extend<TREE>(*this);
 				num_bytes_prompt.reset();
 			}
 
@@ -440,33 +447,6 @@ struct Main : Prompt::Action
 					default: num_bytes_prompt.handle_event(event, controls.main); break;
 					}
 				});
-			}
-		};
-
-		struct Journaling_buffer : Widget<Vbox>
-		{
-			Controls_frame &controls;
-			Hosted<Vbox, Navigation_bar> navigation_bar { Id { "Navigation Bar" }, controls };
-			Hosted<Vbox, Action_button> extend_button { Id { "Extend" } };
-
-			Journaling_buffer(Controls_frame &controls) : controls(controls) { }
-
-			void view(Scope<Vbox> &s) const
-			{
-				s.widget(navigation_bar, "Journaling Buffer ");
-				if (controls.main.ready_to_extend())
-					s.widget(extend_button);
-			}
-
-			void extend()
-			{
-				controls.main.extend_journaling_buffer(*this);
-			}
-
-			void click(Clicked_at const &at)
-			{
-				navigation_bar.propagate(at);
-				extend_button.propagate(at, [&] { extend(); });
 			}
 		};
 
@@ -497,8 +477,8 @@ struct Main : Prompt::Action
 		Main &main;
 		Tab visible_tab { HOME };
 		Hosted<Frame, Vbox, Home> home { Id { "Home" }, *this };
-		Hosted<Frame, Vbox, Capacity> capacity { Id { "Capacity" }, *this };
-		Hosted<Frame, Vbox, Journaling_buffer> journal_buf { Id { "Journaling Buffer" }, *this };
+		Hosted<Frame, Vbox, Dimension_tab<Extend_config::VIRTUAL_BLOCK_DEVICE> > capacity { Id { "Capacity" }, *this };
+		Hosted<Frame, Vbox, Dimension_tab<Extend_config::FREE_TREE> > journal_buf { Id { "Journaling Buffer" }, *this };
 		Hosted<Frame, Vbox, Encryption_key> encryption_key { Id { "Encryption Key" }, *this };
 		Hosted<Frame, Vbox, Action_button> lock_button { Id { "Lock" } };
 
@@ -535,6 +515,7 @@ struct Main : Prompt::Action
 				main.lock();
 				visible_tab = HOME;
 				capacity.num_bytes_prompt.reset();
+				journal_buf.num_bytes_prompt.reset();
 			});
 		}
 
@@ -542,6 +523,7 @@ struct Main : Prompt::Action
 		{
 			switch (visible_tab) {
 			case CAPACITY: capacity.handle_event(event); break;
+			case JOURNALING_BUFFER: journal_buf.handle_event(event); break;
 			default: break;
 			}
 		}
@@ -672,19 +654,15 @@ struct Main : Prompt::Action
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
 	}
 
-	void extend_capacity(Controls_frame::Capacity const &capacity)
+	template <Extend_config::Tree TREE>
+	void extend(Controls_frame::Dimension_tab<TREE> const &dimension_tab)
 	{
-		capacity.num_bytes_prompt.with_text_as_num_bytes([&] (auto num_bytes)
+		dimension_tab.num_bytes_prompt.with_text_as_num_bytes([&] (auto num_bytes)
 		{
 			Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
-			extend_config.construct(id, Extend_config::VIRTUAL_BLOCK_DEVICE, num_bytes);
+			extend_config.construct(id, TREE, num_bytes);
 		});
 		gen_unlocked_ui_config([&] (Xml_generator &) { });
-	}
-
-	void extend_journaling_buffer(Controls_frame::Journaling_buffer const &)
-	{
-		throw -1;
 	}
 
 	void handle_signal()
