@@ -32,9 +32,7 @@ The file vault doesn't consider runtime modifications to its "normal"
 configuration (in contrast to modifications to the UI configuration in "config
 and report" mode). This is an example File Vault configuration:
 
-! <config verbose_state="no"
-!         verbose_ui_config="no">
-!
+! <config verbose_state="no">
 !   <vfs>
 !     <dir name="tresor">
 !       <fs label="tresor"/>
@@ -44,9 +42,7 @@ and report" mode). This is an example File Vault configuration:
 
 The verbosity attributes are all
 set to "no" by default. If "verbose_state" is set to "yes" the vault will
-reflect its internal state at the LOG session. If "verbose_ui_config" is set to
-"yes" the vault will reflect the state of the applied UI config at the LOG
-session (user passphrases are not exposed to the LOG session).
+reflect its internal state at the LOG session.
 
 The vault currently still requires a directory named "tresor" to be present in its
 local VFS. The vault will store a very small file "./file_vault/state" inside

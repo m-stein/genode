@@ -47,20 +47,13 @@ struct File_vault::Ui_config
 
 	Ui_config() { }
 
-	Ui_config(Xml_node const &node,
-	          bool            verbose)
+	Ui_config(Xml_node const &node)
 	:
 		version             { node.attribute_value("version",             Version_string { }) },
 		passphrase          { node.attribute_value("passphrase",          Passphrase { }) },
 		client_fs_size      { node.attribute_value("client_fs_size",      Number_of_bytes { 0 }) },
 		journaling_buf_size { node.attribute_value("journaling_buf_size", Number_of_bytes { 0 }) }
-	{
-		if (verbose)
-			log("ui_config: version \"", version,
-			    "\" passphrase ", passphrase_long_enough() ? "<" : "<not ",
-			    "suitable> client_fs_size ", client_fs_size,
-			    " journaling_buf_size ", journaling_buf_size);
-	}
+	{ }
 
 	bool passphrase_long_enough() const { return passphrase.length() >= MIN_PASSPHRASE_LENGTH + 1; }
 };
@@ -133,7 +126,6 @@ class File_vault::Main
 		Timer::Connection                      _timer                              { _env };
 		Attached_rom_dataspace                 _config_rom                         { _env, "config" };
 		bool                                   _verbose_state                      { _config_rom.xml().attribute_value("verbose_state", false) };
-		bool                                   _verbose_ui_config                  { _config_rom.xml().attribute_value("verbose_ui_config", false) };
 		bool                                   _jent_avail                         { _config_rom.xml().attribute_value("jitterentropy_available", true) };
 		Root_directory                         _vfs                                { _env, _heap, _config_rom.xml().sub_node("vfs") };
 		Registry<Child_state>                  _children                           { };
@@ -363,7 +355,7 @@ void Main::_handle_ui_config()
 {
 	_ui_config_rom->update();
 	Xml_node const &ui_config = _ui_config_rom->xml();
-	_ui_config.construct(ui_config, _verbose_ui_config);
+	_ui_config.construct(ui_config);
 	ui_config.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
 		_rekey_config.construct(rekey); });
 	ui_config.with_optional_sub_node("extend", [&] (Xml_node const &extend) {
