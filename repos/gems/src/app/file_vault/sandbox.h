@@ -17,6 +17,7 @@
 /* Genode includes */
 #include <util/string.h>
 #include <sandbox/sandbox.h>
+#include <file_vault/types.h>
 
 /* local includes */
 #include <input.h>

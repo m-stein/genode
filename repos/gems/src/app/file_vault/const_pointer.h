@@ -14,9 +14,6 @@
 #ifndef _CONST_POINTER_H_
 #define _CONST_POINTER_H_
 
-/* local includes */
-#include <types.h>
-
 namespace File_vault {
 
 	template <typename T>

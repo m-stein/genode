@@ -18,9 +18,6 @@
 /* Genode includes */
 #include <util/xml_node.h>
 
-/* local includes */
-#include <types.h>
-
 namespace File_vault {
 
 	class Child_exit_state;

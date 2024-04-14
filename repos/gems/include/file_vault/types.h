@@ -11,17 +11,16 @@
  * under the terms of the GNU Affero General Public License version 3.
  */
 
-#ifndef _TYPES_H_
-#define _TYPES_H_
+#ifndef _FILE_VAULT__TYPES_H_
+#define _FILE_VAULT__TYPES_H_
 
-/* Genode includes */
-#include <tresor/types.h>
+/* base includes */
+#include <util/string.h>
 
 namespace Genode { }
 
 namespace File_vault {
 
-	using namespace Tresor;
 	using namespace Genode;
 
 	using Node_name = String<32>;
@@ -51,6 +50,8 @@ namespace File_vault {
 			uint64_t nr_of_children() const { return _nr_of_children; }
 			uint64_t nr_of_leaves()   const { return _nr_of_leaves  ; }
 	};
+
+	struct Operation_id { uint64_t value { }; };
 }
 
-#endif /* _TYPES_H_ */
+#endif /* _FILE_VAULT__TYPES_H_ */

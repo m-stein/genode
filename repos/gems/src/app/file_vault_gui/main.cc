@@ -17,14 +17,27 @@
 #include <dialog/runtime.h>
 #include <dialog/widgets.h>
 #include <dialog/text_area_widget.h>
+#include <file_vault/types.h>
 
 using namespace Dialog;
+using namespace File_vault;
 
-struct Operation_id
+struct File_vault_operation
 {
-	static constexpr uint64_t INVALID = 0;
+	Operation_id id { };
+	Constructible<Operation_id> finished_id { };
+	bool file_vault_ready { };
 
-	uint64_t value { INVALID };
+	bool ready_to_request() const
+	{
+		if (!file_vault_ready)
+			return false;
+
+		if (!finished_id.constructed())
+			return true;
+
+		return finished_id->value == id.value;
+	}
 };
 
 struct Back_button : Widget<Float>
@@ -550,10 +563,7 @@ struct Main : Prompt::Action
 	Dialog_type active_dialog { NONE };
 	Heap heap { env.ram(), env.rm() };
 	Runtime runtime { env, heap };
-	Operation_id remote_extend_id { };
-	Operation_id extend_id { 1 };
-	Operation_id remote_rekey_id { };
-	Operation_id rekey_id { 1 };
+	File_vault_operation rekey_op { };
 	Main_dialog main_dialog { "main", *this };
 	Runtime::View main_view { runtime, main_dialog };
 	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::handle_event };
@@ -588,42 +598,41 @@ struct Main : Prompt::Action
 		ui_config_reporter.generate([&] (Xml_generator &) { });
 	}
 
-	bool ready_to_extend() const { return remote_extend_id.value == extend_id.value; }
+	bool ready_to_extend() const { return false; }
 
-	bool ready_to_rekey() const { return remote_rekey_id.value == rekey_id.value; }
+	bool ready_to_rekey() const { return rekey_op.ready_to_request(); }
 
 	void gen_unlocked_ui_config(auto const &fn)
 	{
 		ui_config_reporter.generate([&] (Xml_generator &xml) {
 			xml.attribute("passphrase", *passphrase);
-			xml.attribute("rekey_id", rekey_id.value);
-			xml.attribute("extend_id", extend_id.value);
 			fn(xml);
 		});
 	}
 
 	void rekey()
 	{
-		rekey_id.value++;
-		gen_unlocked_ui_config([&] (Xml_generator &) { });
+		rekey_op.id.value++;
+		gen_unlocked_ui_config([&] (Xml_generator &xml) {
+			xml.node("rekey", [&] {
+				xml.attribute("id", rekey_op.id.value); }); });
 	}
 
 	void extend_capacity(Controls_frame::Capacity const &)
 	{
-		extend_id.value++;
-		gen_unlocked_ui_config([&] (Xml_generator &) { });
+		throw -1;
 	}
 
 	void extend_journaling_buffer(Controls_frame::Journaling_buffer const &)
 	{
-		extend_id.value++;
-		gen_unlocked_ui_config([&] (Xml_generator &) { });
+		throw -1;
 	}
 
 	void handle_signal()
 	{
 		ui_report_rom.update();
 		Xml_node ui_report = ui_report_rom.xml();
+log(ui_report);
 		Ui_state_string state = ui_report.attribute_value("state", Ui_state_string());
 		Dialog_type dialog_type =
 			state == "invalid" ? WAIT :
@@ -635,8 +644,11 @@ struct Main : Prompt::Action
 			state == "locked" ? UNLOCK :
 			NONE;
 
-		remote_extend_id.value = ui_report.attribute_value("extend_id", Operation_id::INVALID);
-		remote_rekey_id.value = ui_report.attribute_value("rekey_id", Operation_id::INVALID);
+		rekey_op.file_vault_ready = ui_report.attribute_value("ready_to_rekey", true);
+		rekey_op.finished_id.destruct();
+		if (ui_report.has_attribute("finished_rekey_id"))
+			rekey_op.finished_id.construct(ui_report.attribute_value("finished_rekey_id", 0ULL));
+
 		if (active_dialog != dialog_type) {
 			active_dialog = dialog_type;
 			main_view.refresh();

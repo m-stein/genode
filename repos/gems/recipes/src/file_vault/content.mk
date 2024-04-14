@@ -1,4 +1,4 @@
-SRC_DIR := src/app/file_vault
+SRC_DIR := src/app/file_vault include/file_vault
 
 content: $(MIRROR_FROM_REP_DIR)
 

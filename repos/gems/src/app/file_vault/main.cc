@@ -59,6 +59,7 @@ struct File_vault::Ui_config
 	Passphrase const passphrase { };
 	Number_of_bytes const client_fs_size { 0 };
 	Number_of_bytes const journaling_buf_size { 0 };
+	Constructible<Operation_id> rekey_id { };
 
 	Ui_config() { }
 
@@ -70,11 +71,15 @@ struct File_vault::Ui_config
 		client_fs_size      { node.attribute_value("client_fs_size",      Number_of_bytes { 0 }) },
 		journaling_buf_size { node.attribute_value("journaling_buf_size", Number_of_bytes { 0 }) }
 	{
+		node.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
+			rekey_id.construct(rekey.attribute_value("id", 0ULL)); });
+
 		if (verbose)
 			log("ui_config: version \"", version,
 			    "\" passphrase ", passphrase_suitable() ? "<" : "<not ",
 			    "suitable> client_fs_size ", client_fs_size,
-			    " journaling_buf_size ", journaling_buf_size);
+			    " journaling_buf_size ", journaling_buf_size,
+			    " rekey_id ", rekey_id.constructed() ? String<32>(rekey_id->value) : "<none>");
 	}
 
 	bool passphrase_suitable() const { return passphrase.length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1; }

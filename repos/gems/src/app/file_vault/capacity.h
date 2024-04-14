@@ -15,8 +15,8 @@
 #ifndef _CAPACITY_H_
 #define _CAPACITY_H_
 
-/* local includes */
-#include <types.h>
+/* Genode includes */
+#include <file_vault/types.h>
 
 namespace File_vault {
 

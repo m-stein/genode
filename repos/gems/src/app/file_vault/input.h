@@ -20,10 +20,12 @@
 #include <util/utf8.h>
 #include <base/buffered_output.h>
 
-/* local includes */
-#include <types.h>
+/* Tresor includes */
+#include <tresor/types.h>
 
 namespace File_vault {
+
+	using namespace Tresor;
 
 	class Input_single_line;
 	class Input_passphrase;
