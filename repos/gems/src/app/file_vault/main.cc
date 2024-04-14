@@ -91,14 +91,7 @@ class File_vault::Main
 			UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR,
 			UNLOCK_START_TRESOR_VFS,
 			UNLOCK_DETERMINE_CLIENT_FS_SIZE,
-			CONTROLS_ROOT,
-			CONTROLS_DIMENSIONS,
-			CONTROLS_EXPAND_CLIENT_FS,
-			CONTROLS_EXPAND_SNAPSHOT_BUF,
-			CONTROLS_SECURITY,
-			CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY,
-			CONTROLS_SECURITY_MASTER_KEY,
-			CONTROLS_SECURITY_USER_PASSPHRASE,
+			CONTROLS,
 			LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR,
 			LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE
 		};
@@ -435,14 +428,15 @@ Main::State Main::_state_and_version_from_string(State_string const &str,
 	if (str == "setup_start_tresor_vfs") { return State::SETUP_START_TRESOR_VFS; }
 	if (str == "setup_format_tresor") { return State::SETUP_FORMAT_TRESOR; }
 	if (str == "setup_determine_client_fs_size") { return State::SETUP_DETERMINE_CLIENT_FS_SIZE; }
-	if (str == "controls_root") { return State::CONTROLS_ROOT; }
-	if (str == "controls_dimensions") { return State::CONTROLS_DIMENSIONS; }
-	if (str == "controls_expand_client_fs") { return State::CONTROLS_EXPAND_CLIENT_FS; }
-	if (str == "controls_expand_snapshot_buf") { return State::CONTROLS_EXPAND_SNAPSHOT_BUF; }
-	if (str == "controls_security") { return State::CONTROLS_SECURITY; }
-	if (str == "controls_security_block_encryption_key") { return State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY; }
-	if (str == "controls_security_master_key") { return State::CONTROLS_SECURITY_MASTER_KEY; }
-	if (str == "controls_security_user_passphrase") { return State::CONTROLS_SECURITY_USER_PASSPHRASE; }
+	if (str == "controls") { return State::CONTROLS; }
+	if (str == "controls_root") { return State::CONTROLS; }
+	if (str == "controls_dimensions") { return State::CONTROLS; }
+	if (str == "controls_expand_client_fs") { return State::CONTROLS; }
+	if (str == "controls_expand_snapshot_buf") { return State::CONTROLS; }
+	if (str == "controls_security") { return State::CONTROLS; }
+	if (str == "controls_security_block_encryption_key") { return State::CONTROLS; }
+	if (str == "controls_security_master_key") { return State::CONTROLS; }
+	if (str == "controls_security_user_passphrase") { return State::CONTROLS; }
 	if (str == "unlock_obtain_parameters") { return State::UNLOCK_OBTAIN_PARAMETERS; }
 	if (str == "unlock_run_tresor_init_trust_anchor") { return State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR; }
 	if (str == "unlock_start_tresor_vfs") { return State::UNLOCK_START_TRESOR_VFS; }
@@ -469,14 +463,7 @@ Main::State_string Main::_state_to_string(State state)
 	case State::SETUP_START_TRESOR_VFS:                 return "setup_start_tresor_vfs";
 	case State::SETUP_FORMAT_TRESOR:                    return "setup_format_tresor";
 	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return "setup_determine_client_fs_size";
-	case State::CONTROLS_ROOT:                          return "controls_root";
-	case State::CONTROLS_DIMENSIONS:                    return "controls_dimensions";
-	case State::CONTROLS_EXPAND_CLIENT_FS:              return "controls_expand_client_fs";
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:           return "controls_expand_snapshot_buf";
-	case State::CONTROLS_SECURITY:                      return "controls_security";
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY: return "controls_security_block_encryption_key";
-	case State::CONTROLS_SECURITY_MASTER_KEY:           return "controls_security_master_key";
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:      return "controls_security_user_passphrase";
+	case State::CONTROLS:                               return "controls";
 	case State::UNLOCK_OBTAIN_PARAMETERS:               return "unlock_obtain_parameters";
 	case State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR:    return "unlock_run_tresor_init_trust_anchor";
 	case State::UNLOCK_START_TRESOR_VFS:                return "unlock_start_tresor_vfs";
@@ -516,14 +503,7 @@ Main::Reported_state Main::_reported_state() const
 	case State::SETUP_START_TRESOR_VFS:                 return Reported_state::INITIALIZING;
 	case State::SETUP_FORMAT_TRESOR:                    return Reported_state::INITIALIZING;
 	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return Reported_state::INITIALIZING;
-	case State::CONTROLS_ROOT:                          return Reported_state::UNLOCKED;
-	case State::CONTROLS_DIMENSIONS:                    return Reported_state::UNLOCKED;
-	case State::CONTROLS_EXPAND_CLIENT_FS:              return Reported_state::UNLOCKED;
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:           return Reported_state::UNLOCKED;
-	case State::CONTROLS_SECURITY:                      return Reported_state::UNLOCKED;
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY: return Reported_state::UNLOCKED;
-	case State::CONTROLS_SECURITY_MASTER_KEY:           return Reported_state::UNLOCKED;
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:      return Reported_state::UNLOCKED;
+	case State::CONTROLS:                               return Reported_state::UNLOCKED;
 	case State::UNLOCK_OBTAIN_PARAMETERS:               return Reported_state::LOCKED;
 	case State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR:    return Reported_state::UNLOCKING;
 	case State::UNLOCK_START_TRESOR_VFS:                return Reported_state::UNLOCKING;
@@ -596,14 +576,7 @@ void Main::_write_to_state_file(State state)
 void Main::_handle_resizing_fs_query_listing(Xml_node const &node)
 {
 	switch (_state) {
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	case State::CONTROLS:
 
 		switch (_resizing_state) {
 		case Resizing_state::WAIT_TILL_DEVICE_IS_READY:
@@ -656,14 +629,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 {
 	bool generate_ui_report = false;
 	switch (_state) {
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	case State::CONTROLS:
 
 		switch (_rekeying_state) {
 		case Rekeying_state::WAIT_TILL_DEVICE_IS_READY:
@@ -758,21 +724,14 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 					_client_fs_size = node_1.attribute_value("size", (size_t)0);
 					generate_ui_report = true;
-					_set_state(State::CONTROLS_ROOT);
+					_set_state(State::CONTROLS);
 					Signal_transmitter(_state_handler).submit();
 				}
 			});
 		});
 		break;
 
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	case State::CONTROLS:
 
 		switch (_resizing_state) {
 		case Resizing_state::DETERMINE_CLIENT_FS_SIZE:
@@ -823,14 +782,7 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 	bool generate_ui_report { false };
 
 	switch (_state) {
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	case State::CONTROLS:
 	{
 		size_t size { 0 };
 		node.with_optional_sub_node("dir", [&] (Xml_node const &node_0) {
@@ -910,14 +862,7 @@ void Main::_handle_ui_config_and_report()
 		}
 		break;
 
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	case State::CONTROLS:
 
 		if (!_ui_setup_obtain_params_passphrase_suitable()) {
 
@@ -1097,14 +1042,7 @@ void File_vault::Main::handle_sandbox_state()
 			}
 			break;
 
-		case State::CONTROLS_ROOT:
-		case State::CONTROLS_DIMENSIONS:
-		case State::CONTROLS_EXPAND_CLIENT_FS:
-		case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-		case State::CONTROLS_SECURITY:
-		case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-		case State::CONTROLS_SECURITY_MASTER_KEY:
-		case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+		case State::CONTROLS:
 
 			if (_resizing_state == Resizing_state::INACTIVE ||
 			    _extend_config->tree != Extend_config::VIRTUAL_BLOCK_DEVICE)
@@ -1381,14 +1319,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_mke2fs_start_node(xml, _mke2fs);
 		break;
 
-	case State::CONTROLS_ROOT:
-	case State::CONTROLS_DIMENSIONS:
-	case State::CONTROLS_EXPAND_CLIENT_FS:
-	case State::CONTROLS_EXPAND_SNAPSHOT_BUF:
-	case State::CONTROLS_SECURITY:
-	case State::CONTROLS_SECURITY_BLOCK_ENCRYPTION_KEY:
-	case State::CONTROLS_SECURITY_MASTER_KEY:
-	case State::CONTROLS_SECURITY_USER_PASSPHRASE:
+	case State::CONTROLS:
 	{
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
