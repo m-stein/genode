@@ -14,7 +14,6 @@
 
 /* Genode includes */
 #include <base/component.h>
-#include <base/session_object.h>
 #include <base/attached_rom_dataspace.h>
 #include <base/buffered_output.h>
 #include <os/buffered_xml.h>
@@ -129,7 +128,6 @@ class File_vault::Main
 		using Report_service     = Sandbox::Local_service<Report::Session_component>;
 		using Xml_report_handler = Report::Session_component::Xml_handler<Main>;
 		using State_string       = String<STATE_STRING_CAPACITY>;
-		using Snapshot_registry  = Registry<Registered<Snapshot>>;
 
 		Env                                   &_env;
 		State                                  _state                              { State::INVALID };
@@ -169,12 +167,8 @@ class File_vault::Main
 		Sandbox                                _sandbox                            { _env, *this };
 		Report_service                         _report_service                     { _sandbox, *this };
 		Constructible<Watch_handler<Main>>     _watch_handler                      { };
-		Constructible<Expanding_reporter>      _clipboard_reporter                 { };
-		Constructible<Attached_rom_dataspace>  _clipboard_rom                      { };
-		bool                                   _initial_config                     { true };
 		Signal_handler<Main>                   _config_handler                     { _env.ep(), *this, &Main::_handle_config };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
-
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
 		Timer::One_shot_timeout<Main>          _unlock_retry_delay                 { _timer, *this, &Main::_handle_unlock_retry_delay };
@@ -369,7 +363,6 @@ using namespace File_vault;
 void Main::_handle_config()
 {
 	_config_rom.update();
-	_initial_config = false;
 }
 
 
