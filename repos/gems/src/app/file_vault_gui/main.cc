@@ -163,8 +163,6 @@ struct Main : Prompt::Action
 
 	enum Dialog_type { NONE, SETUP, WAIT, CONTROLS, UNLOCK };
 
-	enum { MIN_PASSPHRASE_LENGTH = 8 };
-
 	struct Unlock_frame : Widget<Frame>
 	{
 		Main &main;

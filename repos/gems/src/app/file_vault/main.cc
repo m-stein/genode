@@ -32,8 +32,6 @@
 
 namespace File_vault {
 
-	enum { PASSPHRASE_MIN_NR_OF_CHARS = 8 };
-
 	class Ui_config;
 	class Main;
 }
@@ -59,12 +57,12 @@ struct File_vault::Ui_config
 	{
 		if (verbose)
 			log("ui_config: version \"", version,
-			    "\" passphrase ", passphrase_suitable() ? "<" : "<not ",
+			    "\" passphrase ", passphrase_long_enough() ? "<" : "<not ",
 			    "suitable> client_fs_size ", client_fs_size,
 			    " journaling_buf_size ", journaling_buf_size);
 	}
 
-	bool passphrase_suitable() const { return passphrase.length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1; }
+	bool passphrase_long_enough() const { return passphrase.length() >= MIN_PASSPHRASE_LENGTH + 1; }
 };
 
 class File_vault::Main
@@ -200,17 +198,12 @@ class File_vault::Main
 			return result;
 		}
 
-		bool _ui_setup_obtain_params_passphrase_suitable() const
-		{
-			return _ui_config->passphrase.length() >= PASSPHRASE_MIN_NR_OF_CHARS + 1;
-		}
-
 		bool _ui_setup_obtain_params_suitable() const
 		{
 			return
 				_ui_config->client_fs_size >= MIN_CLIENT_FS_SIZE &&
 				_ui_config->journaling_buf_size >= _min_journaling_buf_size() &&
-				_ui_setup_obtain_params_passphrase_suitable();
+				_ui_config->passphrase_long_enough();
 		}
 
 		template <typename FUNCTOR>
@@ -848,7 +841,7 @@ void Main::_handle_ui_config_and_report()
 
 	case State::UNLOCK_OBTAIN_PARAMETERS:
 
-		if (_ui_setup_obtain_params_passphrase_suitable()) {
+		if (_ui_config->passphrase_long_enough()) {
 
 			_set_state(State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR);
 			update_sandbox_config = true;
@@ -857,7 +850,7 @@ void Main::_handle_ui_config_and_report()
 
 	case State::CONTROLS:
 
-		if (!_ui_setup_obtain_params_passphrase_suitable()) {
+		if (!_ui_config->passphrase_long_enough()) {
 
 			_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR);
 			update_sandbox_config = true;

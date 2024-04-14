@@ -31,6 +31,7 @@ namespace File_vault {
 	static constexpr Tree_level_index TRESOR_VBD_MAX_LVL = 5;
 	static constexpr Tree_degree TRESOR_FREE_TREE_DEGREE = 64;
 	static constexpr Tree_level_index TRESOR_FREE_TREE_MAX_LVL = 5;
+	static constexpr size_t MIN_PASSPHRASE_LENGTH = 8;
 
 	enum {
 		MIN_CLIENT_FS_SIZE = 100 * 1024,
