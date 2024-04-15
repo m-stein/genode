@@ -36,28 +36,6 @@ namespace File_vault {
 	class Main;
 }
 
-struct File_vault::Ui_config
-{
-	using Version_string = String<80>;
-
-	Version_string const version { };
-	Passphrase const passphrase { };
-	Number_of_bytes const client_fs_size { 0 };
-	Number_of_bytes const journaling_buf_size { 0 };
-
-	Ui_config() { }
-
-	Ui_config(Xml_node const &node)
-	:
-		version             { node.attribute_value("version",             Version_string { }) },
-		passphrase          { node.attribute_value("passphrase",          Passphrase { }) },
-		client_fs_size      { node.attribute_value("client_fs_size",      Number_of_bytes { 0 }) },
-		journaling_buf_size { node.attribute_value("journaling_buf_size", Number_of_bytes { 0 }) }
-	{ }
-
-	bool passphrase_long_enough() const { return passphrase.length() >= MIN_PASSPHRASE_LENGTH + 1; }
-};
-
 class File_vault::Main
 :
 	private Sandbox::Local_service_base::Wakeup,
@@ -170,9 +148,7 @@ class File_vault::Main
 		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
 		Constructible<Ui_config>               _ui_config                          { };
 		Constructible<Expanding_reporter>      _ui_report                          { };
-		Constructible<Rekey_config>            _rekey_config                       { };
 		Constructible<Rekey_report>            _rekey_report                       { };
-		Constructible<Extend_config>           _extend_config                      { };
 		Constructible<Extend_report>           _extend_report                      { };
 
 		static bool _has_name(Xml_node  const &node,
@@ -183,7 +159,7 @@ class File_vault::Main
 
 		size_t _min_journaling_buf_size() const
 		{
-			size_t result { _ui_config->client_fs_size >> 8 };
+			size_t result { *_ui_config->client_fs_size >> 8 };
 			if (result < MIN_CLIENT_FS_SIZE) {
 				result = MIN_CLIENT_FS_SIZE;
 			}
@@ -192,10 +168,15 @@ class File_vault::Main
 
 		bool _ui_setup_obtain_params_suitable() const
 		{
+			if (!_ui_config->client_fs_size.constructed() ||
+			    !_ui_config->journaling_buf_size.constructed() ||
+			    !_ui_config->passphrase.constructed())
+				return false;
+
 			return
-				_ui_config->client_fs_size >= MIN_CLIENT_FS_SIZE &&
-				_ui_config->journaling_buf_size >= _min_journaling_buf_size() &&
-				_ui_config->passphrase_long_enough();
+				*(_ui_config->client_fs_size) >= MIN_CLIENT_FS_SIZE &&
+				*(_ui_config->journaling_buf_size) >= _min_journaling_buf_size() &&
+				  _ui_config->passphrase_long_enough();
 		}
 
 		template <typename FUNCTOR>
@@ -269,7 +250,9 @@ class File_vault::Main
 		void _generate_ui_report()
 		{
 			_ui_report->generate([&] (Xml_generator &xml) {
-				xml.attribute("version", _ui_config->version);
+				if (_ui_config->version.constructed())
+					xml.attribute("version", *_ui_config->version);
+
 				xml.attribute("state", _reported_state_to_string(_reported_state()));
 				xml.attribute("image_size", _tresor_image_size);
 				xml.attribute("capacity", _client_fs_size);
@@ -356,10 +339,6 @@ void Main::_handle_ui_config()
 	_ui_config_rom->update();
 	Xml_node const &ui_config = _ui_config_rom->xml();
 	_ui_config.construct(ui_config);
-	ui_config.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
-		_rekey_config.construct(rekey); });
-	ui_config.with_optional_sub_node("extend", [&] (Xml_node const &extend) {
-		_extend_config.construct(extend); });
 	_handle_ui_config_and_report();
 }
 
@@ -795,25 +774,25 @@ void Main::_handle_state()
 
 bool Main::_rekey_operation_pending() const
 {
-	if (!_rekey_config.constructed())
+	if (!_ui_config->rekey.constructed())
 		return false;
 
 	if (!_rekey_report.constructed())
 		return true;
 
-	return _rekey_report->id.value != _rekey_config->id.value;
+	return _rekey_report->id.value != _ui_config->rekey->id.value;
 }
 
 
 bool Main::_extend_operation_pending() const
 {
-	if (!_extend_config.constructed())
+	if (!_ui_config->extend.constructed())
 		return false;
 
 	if (!_extend_report.constructed())
 		return true;
 
-	return _extend_report->id.value != _extend_config->id.value;
+	return _extend_report->id.value != _ui_config->extend->id.value;
 }
 
 
@@ -833,7 +812,7 @@ void Main::_handle_ui_config_and_report()
 
 	case State::UNLOCK_OBTAIN_PARAMETERS:
 
-		if (_ui_config->passphrase_long_enough()) {
+		if (_ui_config->passphrase.constructed() && _ui_config->passphrase_long_enough()) {
 
 			_set_state(State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR);
 			update_sandbox_config = true;
@@ -842,7 +821,7 @@ void Main::_handle_ui_config_and_report()
 
 	case State::CONTROLS:
 
-		if (!_ui_config->passphrase_long_enough()) {
+		if (!_ui_config->passphrase.constructed() || !_ui_config->passphrase_long_enough()) {
 
 			_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR);
 			update_sandbox_config = true;
@@ -850,14 +829,14 @@ void Main::_handle_ui_config_and_report()
 		}
 		if (_rekeying_state == Rekeying_state::INACTIVE && _rekey_operation_pending()) {
 
-			_rekey_report.construct(_rekey_config->id, false);
+			_rekey_report.construct(_ui_config->rekey->id, false);
 			_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
 			_update_sandbox_config();
 			_generate_ui_report();
 		}
 		if (_resizing_state == Resizing_state::INACTIVE && _extend_operation_pending()) {
 
-			_extend_report.construct(_extend_config->id, false);
+			_extend_report.construct(_ui_config->extend->id, false);
 			_resizing_state = Resizing_state::ADAPT_TRESOR_IMAGE_SIZE;
 			_update_sandbox_config();
 			_generate_ui_report();
@@ -932,7 +911,7 @@ bool File_vault::Main::_child_succeeded(Xml_node    const &sandbox_state,
 void File_vault::Main::_handle_unlock_retry_delay(Duration)
 {
 	_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
-	_ui_config.construct();
+	_ui_config->passphrase.destruct();
 	Signal_transmitter(_state_handler).submit();
 }
 
@@ -1023,7 +1002,7 @@ void File_vault::Main::handle_sandbox_state()
 		case State::CONTROLS:
 
 			if (_resizing_state == Resizing_state::INACTIVE ||
-			    _extend_config->tree != Extend_config::VIRTUAL_BLOCK_DEVICE)
+			    _ui_config->extend->tree != Ui_config::Extend::VIRTUAL_BLOCK_DEVICE)
 			{
 				nr_of_clients.value =
 					_child_nr_of_provided_sessions(
@@ -1220,7 +1199,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
-			xml, _tresor_init_trust_anchor, _ui_config->passphrase);
+			xml, _tresor_init_trust_anchor, *_ui_config->passphrase);
 
 		break;
 
@@ -1229,7 +1208,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
-			xml, _tresor_init_trust_anchor, _ui_config->passphrase);
+			xml, _tresor_init_trust_anchor, *_ui_config->passphrase);
 
 		break;
 
@@ -1262,18 +1241,18 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 					TRESOR_NR_OF_SUPERBLOCKS,
 					TRESOR_VBD_MAX_LVL + 1,
 					TRESOR_VBD_DEGREE,
-					tresor_tree_num_leaves(_ui_config->client_fs_size),
+					tresor_tree_num_leaves(*_ui_config->client_fs_size),
 					TRESOR_FREE_TREE_MAX_LVL + 1,
 					TRESOR_FREE_TREE_DEGREE,
-					tresor_tree_num_leaves(_ui_config->journaling_buf_size)));
+					tresor_tree_num_leaves(*_ui_config->journaling_buf_size)));
 
 		break;
 
 	case State::SETUP_RUN_TRESOR_INIT:
 	{
 		Tresor::Superblock_configuration sb_config {
-			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, tresor_tree_num_leaves(_ui_config->client_fs_size) },
-			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, tresor_tree_num_leaves(_ui_config->journaling_buf_size) }
+			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, tresor_tree_num_leaves(*_ui_config->client_fs_size) },
+			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, tresor_tree_num_leaves(*_ui_config->journaling_buf_size) }
 		};
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
@@ -1309,10 +1288,10 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		case Resizing_state::INACTIVE: break;
 		case Resizing_state::ADAPT_TRESOR_IMAGE_SIZE:
 
-			switch (_extend_config->tree) {
-			case Extend_config::VIRTUAL_BLOCK_DEVICE:
+			switch (_ui_config->extend->tree) {
+			case Ui_config::Extend::VIRTUAL_BLOCK_DEVICE:
 			{
-				size_t const bytes { _extend_config->num_bytes };
+				size_t const bytes { _ui_config->extend->num_bytes };
 				size_t const effective_bytes { bytes - (bytes % TRESOR_BLOCK_SIZE) };
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
@@ -1321,9 +1300,9 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 				break;
 			}
-			case Extend_config::FREE_TREE:
+			case Ui_config::Extend::FREE_TREE:
 			{
-				size_t const bytes { _extend_config->num_bytes };
+				size_t const bytes { _ui_config->extend->num_bytes };
 				size_t const effective_bytes { bytes - (bytes % TRESOR_BLOCK_SIZE) };
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
@@ -1341,19 +1320,19 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 
 		case Resizing_state::ISSUE_REQUEST_AT_DEVICE:
 
-			switch (_extend_config->tree) {
-			case Extend_config::VIRTUAL_BLOCK_DEVICE:
+			switch (_ui_config->extend->tree) {
+			case Ui_config::Extend::VIRTUAL_BLOCK_DEVICE:
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "vbd",
-					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
+					_ui_config->extend->num_bytes / TRESOR_BLOCK_SIZE);
 				break;
 
-			case Extend_config::FREE_TREE:
+			case Ui_config::Extend::FREE_TREE:
 
 				gen_resizing_fs_tool_start_node(
 					xml, _resizing_fs_tool, "ft",
-					_extend_config->num_bytes / TRESOR_BLOCK_SIZE);
+					_ui_config->extend->num_bytes / TRESOR_BLOCK_SIZE);
 				break;
 			}
 			break;
@@ -1395,7 +1374,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 			break;
 		}
 		if (_resizing_state == Resizing_state::INACTIVE ||
-		    _extend_config->tree != Extend_config::VIRTUAL_BLOCK_DEVICE) {
+		    _ui_config->extend->tree != Ui_config::Extend::VIRTUAL_BLOCK_DEVICE) {
 
 			gen_policy_for_child_service(xml, "File_system", _rump_vfs);
 			gen_rump_vfs_start_node(xml, _rump_vfs);

@@ -153,7 +153,7 @@ struct Prompt : Widget<Button>
 	{
 		size_t size { };
 		text_area.for_each_character([&] (Codepoint) { size++; });
-		return size;
+		return size + 1;
 	}
 };
 
@@ -172,7 +172,7 @@ struct Main : Prompt::Action
 
 		Unlock_frame(Main &main) : main(main) { }
 
-		bool passphrase_sufficient() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGTH; }
+		bool passphrase_long_enough() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGTH + 1; }
 
 		void view(Scope<Frame> &s) const
 		{
@@ -182,7 +182,7 @@ struct Main : Prompt::Action
 					s.widget(passphrase, true);
 					s.widget(show_passphrase, "Hide", "Show");
 				});
-				if (passphrase_sufficient())
+				if (passphrase_long_enough())
 					s.widget(unlock_button);
 				else
 					s.sub_scope<Left_aligned_text>(String<64>(" Minimum length: ", (size_t)MIN_PASSPHRASE_LENGTH));
@@ -208,7 +208,7 @@ struct Main : Prompt::Action
 				switch (key) {
 				case Input::KEY_ENTER:
 
-					if (passphrase_sufficient())
+					if (passphrase_long_enough())
 						unlock();
 					break;
 
@@ -244,7 +244,7 @@ struct Main : Prompt::Action
 			return result;
 		}
 
-		bool passphrase_long_enough() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGTH; }
+		bool passphrase_long_enough() const { return passphrase.text_length() >= MIN_PASSPHRASE_LENGTH + 1; }
 
 		bool capacity_sufficient() const { return capacity.as_num_bytes() >= MIN_CAPACITY; }
 
@@ -429,7 +429,7 @@ struct Main : Prompt::Action
 			}
 		};
 
-		template <Extend_config::Tree TREE>
+		template <Ui_config::Extend::Tree TREE>
 		struct Dimension_tab : Widget<Vbox>
 		{
 			enum { MIN_NUM_BYTES = 4096 };
@@ -456,8 +456,8 @@ struct Main : Prompt::Action
 			void view(Scope<Vbox> &s) const
 			{
 				s.widget(navigation_bar,
-					TREE == Extend_config::VIRTUAL_BLOCK_DEVICE ? "Capacity " :
-					TREE == Extend_config::FREE_TREE ? "Journaling Buffer " : "?");
+					TREE == Ui_config::Extend::VIRTUAL_BLOCK_DEVICE ? "Capacity " :
+					TREE == Ui_config::Extend::FREE_TREE ? "Journaling Buffer " : "?");
 
 				if (controls.main.ready_to_extend()) {
 					s.widget(num_bytes_prompt, true);
@@ -493,7 +493,11 @@ struct Main : Prompt::Action
 
 					case Input::KEY_ESC: controls.switch_to_tab(HOME); break;
 					case Input::KEY_TAB: break;
-					default: num_bytes_prompt.handle_event(event, controls.main); break;
+					default:
+
+						if (controls.main.ready_to_extend())
+							num_bytes_prompt.handle_event(event, controls.main);
+						break;
 					}
 				});
 			}
@@ -542,8 +546,8 @@ struct Main : Prompt::Action
 		Main &main;
 		Tab visible_tab { HOME };
 		Hosted<Frame, Vbox, Home> home { Id { "Home" }, *this };
-		Hosted<Frame, Vbox, Dimension_tab<Extend_config::VIRTUAL_BLOCK_DEVICE> > capacity { Id { "Capacity" }, *this };
-		Hosted<Frame, Vbox, Dimension_tab<Extend_config::FREE_TREE> > journal_buf { Id { "Journaling Buffer" }, *this };
+		Hosted<Frame, Vbox, Dimension_tab<Ui_config::Extend::VIRTUAL_BLOCK_DEVICE> > capacity { Id { "Capacity" }, *this };
+		Hosted<Frame, Vbox, Dimension_tab<Ui_config::Extend::FREE_TREE> > journal_buf { Id { "Journaling Buffer" }, *this };
 		Hosted<Frame, Vbox, Encryption_key> encryption_key { Id { "Encryption Key" }, *this };
 		Hosted<Frame, Vbox, Action_button> lock_button { Id { "Lock" } };
 
@@ -678,13 +682,11 @@ struct Main : Prompt::Action
 	Main_dialog main_dialog { "main", *this };
 	Runtime::View main_view { runtime, main_dialog };
 	Runtime::Event_handler<Main> event_handler { runtime, *this, &Main::handle_event };
+	Ui_config ui_config { };
 	Expanding_reporter ui_config_reporter { env, "ui_config", "ui_config" };
 	Attached_rom_dataspace ui_report_rom { env, "ui_report" };
 	Signal_handler<Main> signal_handler { env.ep(), *this, &Main::handle_signal };
-	Constructible<Prompt::Text> passphrase { };
-	Constructible<Rekey_config> rekey_config { };
 	Constructible<Rekey_report> rekey_report { };
-	Constructible<Extend_config> extend_config { };
 	Constructible<Extend_report> extend_report { };
 	Number_of_bytes image_size { };
 	Number_of_bytes capacity { };
@@ -697,70 +699,59 @@ struct Main : Prompt::Action
 
 	void setup(Setup_frame const &setup_frame)
 	{
-		setup_frame.passphrase.with_text([&] (auto const &str) { passphrase.construct(str); });
-		gen_unlocked_ui_config([&] (Xml_generator &xml) {
-			xml.attribute("client_fs_size", setup_frame.capacity.as_num_bytes());
-			xml.attribute("journaling_buf_size", setup_frame.journal_buf.as_num_bytes()); });
+		ui_config.client_fs_size.construct(setup_frame.capacity.as_num_bytes());
+		ui_config.journaling_buf_size.construct(setup_frame.journal_buf.as_num_bytes());
+		setup_frame.passphrase.with_text([&] (auto const &str) { ui_config.passphrase.construct(str); });
+		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
 	void unlock(Unlock_frame const &unlock_frame)
 	{
-		unlock_frame.passphrase.with_text([&] (auto const &str) { passphrase.construct(str); });
-		gen_unlocked_ui_config([&] (Xml_generator &) { });
+		unlock_frame.passphrase.with_text([&] (auto const &str) { ui_config.passphrase.construct(str); });
+		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
 	void lock()
 	{
-		ui_config_reporter.generate([&] (Xml_generator &) { });
+		ui_config.passphrase.destruct();
+		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
 	bool ready_to_extend() const
 	{
-		if (!extend_config.constructed())
+		if (!ui_config.extend.constructed())
 			return true;
 
 		if (!extend_report.constructed())
 			return false;
 
-		return extend_report->id.value == extend_config->id.value && extend_report->finished;
+		return extend_report->id.value == ui_config.extend->id.value && extend_report->finished;
 	}
 
 	bool ready_to_rekey() const
 	{
-		if (!rekey_config.constructed())
+		if (!ui_config.rekey.constructed())
 			return true;
 
 		if (!rekey_report.constructed())
 			return false;
 
-		return rekey_report->id.value == rekey_config->id.value && rekey_report->finished;
-	}
-
-	void gen_unlocked_ui_config(auto const &fn)
-	{
-		ui_config_reporter.generate([&] (Xml_generator &xml) {
-			xml.attribute("passphrase", *passphrase);
-			if (rekey_config.constructed())
-				xml.node("rekey", [&] { rekey_config->generate(xml); });
-			if (extend_config.constructed())
-				xml.node("extend", [&] { extend_config->generate(xml); });
-			fn(xml);
-		});
+		return rekey_report->id.value == ui_config.rekey->id.value && rekey_report->finished;
 	}
 
 	void rekey()
 	{
 		Operation_id id { rekey_report.constructed() ? rekey_report->id.value + 1 : 0 };
-		rekey_config.construct(id);
-		gen_unlocked_ui_config([&] (Xml_generator &) { });
+		ui_config.rekey.construct(id);
+		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
-	template <Extend_config::Tree TREE>
+	template <Ui_config::Extend::Tree TREE>
 	void extend(Controls_frame::Dimension_tab<TREE> const &dimension_tab)
 	{
 		Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
-		extend_config.construct(id, TREE, dimension_tab.num_bytes_prompt.as_num_bytes());
-		gen_unlocked_ui_config([&] (Xml_generator &) { });
+		ui_config.extend.construct(id, TREE, dimension_tab.num_bytes_prompt.as_num_bytes());
+		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
 	void handle_signal()
@@ -775,8 +766,7 @@ struct Main : Prompt::Action
 			state == "unlocking" ? WAIT :
 			state == "unlocked" ? CONTROLS :
 			state == "locking" ? WAIT :
-			state == "locked" ? UNLOCK :
-			NONE;
+			state == "locked" ? UNLOCK : NONE;
 
 		image_size = ui_report.attribute_value("image_size", Number_of_bytes());
 		capacity = ui_report.attribute_value("capacity", Number_of_bytes());

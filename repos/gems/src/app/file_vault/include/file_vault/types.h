@@ -69,17 +69,6 @@ namespace File_vault {
 			uint64_t nr_of_leaves()   const { return _nr_of_leaves  ; }
 	};
 
-	struct Rekey_config
-	{
-		Operation_id id;
-
-		Rekey_config(Xml_node const &node) : id(node.attribute_value("id", 0ULL)) { }
-
-		Rekey_config(Operation_id id) : id(id) { }
-
-		void generate(Xml_generator &xml) { xml.attribute("id", id.value); }
-	};
-
 	struct Rekey_report
 	{
 		Operation_id id;
@@ -94,48 +83,6 @@ namespace File_vault {
 		{
 			xml.attribute("id", id.value);
 			xml.attribute("finished", finished);
-		}
-	};
-
-	struct Extend_config
-	{
-		using Tree_string = String<4>;
-
-		enum Tree { VIRTUAL_BLOCK_DEVICE, FREE_TREE };
-
-		Operation_id id;
-		Tree tree;
-		Number_of_bytes num_bytes;
-
-		static Tree string_to_tree(Tree_string const &str)
-		{
-			if (str == "vbd") return VIRTUAL_BLOCK_DEVICE;
-			if (str == "ft") return FREE_TREE;
-			ASSERT_NEVER_REACHED;
-		}
-
-		static Tree_string tree_to_string(Tree tree_arg)
-		{
-			switch (tree_arg) {
-			case VIRTUAL_BLOCK_DEVICE: return "vbd";
-			case FREE_TREE: return "ft"; }
-			ASSERT_NEVER_REACHED;
-		}
-
-		Extend_config(Xml_node const &node)
-		:
-			id(node.attribute_value("id", 0ULL)),
-			tree(string_to_tree(node.attribute_value("tree", Tree_string()))),
-			num_bytes(node.attribute_value("num_bytes", 0ULL))
-		{ }
-
-		Extend_config(Operation_id id, Tree tree, Number_of_bytes num_bytes) : id(id), tree(tree), num_bytes(num_bytes) { }
-
-		void generate(Xml_generator &xml)
-		{
-			xml.attribute("id", id.value);
-			xml.attribute("tree", tree_to_string(tree));
-			xml.attribute("num_bytes", num_bytes);
 		}
 	};
 
@@ -154,6 +101,106 @@ namespace File_vault {
 			xml.attribute("id", id.value);
 			xml.attribute("finished", finished);
 		}
+	};
+
+	struct Ui_config
+	{
+		using Version_string = String<80>;
+
+		struct Extend
+		{
+			using Tree_string = String<4>;
+
+			enum Tree { VIRTUAL_BLOCK_DEVICE, FREE_TREE };
+
+			Operation_id id;
+			Tree tree;
+			Number_of_bytes num_bytes;
+
+			static Tree string_to_tree(Tree_string const &str)
+			{
+				if (str == "vbd") return VIRTUAL_BLOCK_DEVICE;
+				if (str == "ft") return FREE_TREE;
+				ASSERT_NEVER_REACHED;
+			}
+
+			static Tree_string tree_to_string(Tree tree_arg)
+			{
+				switch (tree_arg) {
+				case VIRTUAL_BLOCK_DEVICE: return "vbd";
+				case FREE_TREE: return "ft"; }
+				ASSERT_NEVER_REACHED;
+			}
+
+			Extend(Xml_node const &node)
+			:
+				id(node.attribute_value("id", 0ULL)),
+				tree(string_to_tree(node.attribute_value("tree", Tree_string()))),
+				num_bytes(node.attribute_value("num_bytes", 0ULL))
+			{ }
+
+			Extend(Operation_id id, Tree tree, Number_of_bytes num_bytes) : id(id), tree(tree), num_bytes(num_bytes) { }
+
+			void generate(Xml_generator &xml)
+			{
+				xml.attribute("id", id.value);
+				xml.attribute("tree", tree_to_string(tree));
+				xml.attribute("num_bytes", num_bytes);
+			}
+		};
+
+		struct Rekey
+		{
+			Operation_id id;
+
+			Rekey(Xml_node const &node) : id(node.attribute_value("id", 0ULL)) { }
+
+			Rekey(Operation_id id) : id(id) { }
+
+			void generate(Xml_generator &xml) { xml.attribute("id", id.value); }
+		};
+
+		Constructible<Version_string> version { };
+		Constructible<Passphrase> passphrase { };
+		Constructible<Number_of_bytes> client_fs_size { };
+		Constructible<Number_of_bytes> journaling_buf_size { };
+		Constructible<Rekey> rekey { };
+		Constructible<Extend> extend { };
+
+		template <typename T>
+		static void read_optional_attr(Xml_node const &node, char const *attr, Constructible<T> &dst)
+		{
+			if (node.has_attribute(attr))
+				dst.construct(node.attribute_value(attr, T { }));
+		}
+
+		Ui_config(Xml_node const &node)
+		{
+			read_optional_attr(node, "version", version);
+			read_optional_attr(node, "passphrase", passphrase);
+			read_optional_attr(node, "client_fs_size", client_fs_size);
+			read_optional_attr(node, "journaling_buf_size", journaling_buf_size);
+			node.with_optional_sub_node("rekey", [&] (Xml_node const &n) { rekey.construct(n); });
+			node.with_optional_sub_node("extend", [&] (Xml_node const &n) { extend.construct(n); });
+		}
+
+		Ui_config() { }
+
+		void generate(Xml_generator &xml)
+		{
+			if (passphrase.constructed())
+				xml.attribute("passphrase", *passphrase);
+			if (client_fs_size.constructed())
+				xml.attribute("client_fs_size", *client_fs_size);
+			if (journaling_buf_size.constructed())
+				xml.attribute("journaling_buf_size", *journaling_buf_size);
+			if (rekey.constructed())
+				xml.node("rekey", [&] { rekey->generate(xml); });
+			if (extend.constructed())
+				xml.node("extend", [&] { extend->generate(xml); });
+		}
+
+		bool passphrase_long_enough() const { return passphrase->length() >= MIN_PASSPHRASE_LENGTH + 1; }
 	};
 
 	inline size_t tresor_tree_nr_of_blocks(size_t nr_of_lvls,
