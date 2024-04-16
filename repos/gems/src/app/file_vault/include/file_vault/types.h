@@ -28,6 +28,7 @@ namespace File_vault {
 	static constexpr Tree_level_index TRESOR_FREE_TREE_MAX_LVL = 5;
 	static constexpr size_t MIN_CLIENT_FS_SIZE = 100 * 1024;
 	static constexpr size_t MIN_PASSPHRASE_LENGTH = 8;
+	static constexpr size_t MIN_CAPACITY = 100 * 1024;
 
 	struct Number_of_clients { uint64_t value; };
 	struct Operation_id { uint64_t value; };
@@ -35,11 +36,13 @@ namespace File_vault {
 
 	using Version_string = String<80>;
 
-	template <typename T>
-	static void read_optional_attr(Xml_node const &node, char const *attr, Constructible<T> &dst)
+	inline size_t min_journal_buf(Number_of_bytes capacity)
 	{
-		if (node.has_attribute(attr))
-			dst.construct(node.attribute_value(attr, T { }));
+		size_t result { (size_t)capacity >> 8 };
+		if (result < MIN_CAPACITY)
+			result = MIN_CAPACITY;
+
+		return result;
 	}
 
 	struct Ui_report
