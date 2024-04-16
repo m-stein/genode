@@ -131,7 +131,6 @@ class File_vault::Main
 		Sandbox                                _sandbox                            { _env, *this };
 		Report_service                         _report_service                     { _sandbox, *this };
 		Constructible<Watch_handler<Main>>     _watch_handler                      { };
-		Signal_handler<Main>                   _config_handler                     { _env.ep(), *this, &Main::_handle_config };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
@@ -221,8 +220,6 @@ class File_vault::Main
 		void _handle_rekeying_fs_query_listing(Xml_node const &node);
 
 		void _handle_lock_fs_query_listing(Xml_node const &node);
-
-		void _handle_config();
 
 		void _handle_ui_config();
 
@@ -318,12 +315,6 @@ using namespace File_vault;
 /**********************
  ** File_vault::Main **
  **********************/
-
-void Main::_handle_config()
-{
-	_config_rom.update();
-}
-
 
 void Main::_handle_ui_config()
 {
@@ -844,9 +835,7 @@ void Main::_handle_ui_config_and_report()
 
 Main::Main(Env &env) : _env(env)
 {
-	_config_rom.sigh(_config_handler);
 	_ui_config_rom.sigh(_ui_config_handler);
-	_handle_config();
 	_update_sandbox_config();
 	_ui_report.construct(_env, "ui_report", "ui_report");
 	_handle_ui_config();
