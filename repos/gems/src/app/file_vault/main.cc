@@ -130,7 +130,6 @@ class File_vault::Main
 		Xml_report_handler                     _lock_fs_query_listing_handler      { *this, &Main::_handle_lock_fs_query_listing };
 		Sandbox                                _sandbox                            { _env, *this };
 		Report_service                         _report_service                     { _sandbox, *this };
-		Constructible<Watch_handler<Main>>     _watch_handler                      { };
 		Signal_handler<Main>                   _state_handler                      { _env.ep(), *this, &Main::_handle_state };
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
