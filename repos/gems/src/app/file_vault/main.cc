@@ -30,11 +30,7 @@
 #include <sandbox.h>
 #include <child_exit_state.h>
 
-namespace File_vault {
-
-	class Ui_config;
-	class Main;
-}
+namespace File_vault { class Main; }
 
 class File_vault::Main
 :
