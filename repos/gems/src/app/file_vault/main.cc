@@ -789,6 +789,7 @@ bool Main::_extend_operation_pending() const
 void Main::_handle_ui_config_and_report()
 {
 	bool update_sandbox_config { false };
+	bool generate_ui_report { false };
 
 	switch (_state) {
 	case State::SETUP_OBTAIN_PARAMETERS:
@@ -821,20 +822,21 @@ void Main::_handle_ui_config_and_report()
 
 			_rekey_report.construct(_ui_config->rekey->id, false);
 			_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
-			_update_sandbox_config();
-			_generate_ui_report();
+			update_sandbox_config = true;
+			generate_ui_report = true;
 		}
 		if (_resizing_state == Resizing_state::INACTIVE && _extend_operation_pending()) {
 
 			_extend_report.construct(_ui_config->extend->id, false);
 			_resizing_state = Resizing_state::ADAPT_TRESOR_IMAGE_SIZE;
-			_update_sandbox_config();
-			_generate_ui_report();
+			update_sandbox_config = true;
 		}
 		break;
 
 	default: break;
 	}
+	if (generate_ui_report)
+		_generate_ui_report();
 	if (update_sandbox_config)
 		_update_sandbox_config();
 }
