@@ -140,7 +140,7 @@ class File_vault::Main
 		File_path                              _tresor_image_file_name             { "tresor.img" };
 		size_t                                 _client_fs_size                     { 0 };
 		Number_of_clients                      _nr_of_clients                      { 0 };
-		Constructible<Attached_rom_dataspace>  _ui_config_rom                      { };
+		Attached_rom_dataspace                 _ui_config_rom                      { _env, "ui_config" };
 		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
 		Constructible<Ui_config>               _ui_config                          { };
 		Constructible<Expanding_reporter>      _ui_report                          { };
@@ -327,9 +327,8 @@ void Main::_handle_config()
 
 void Main::_handle_ui_config()
 {
-	_ui_config_rom->update();
-	Xml_node const &ui_config = _ui_config_rom->xml();
-	_ui_config.construct(ui_config);
+	_ui_config_rom.update();
+	_ui_config.construct(_ui_config_rom.xml());
 	_handle_ui_config_and_report();
 }
 
@@ -844,10 +843,9 @@ void Main::_handle_ui_config_and_report()
 Main::Main(Env &env) : _env(env)
 {
 	_config_rom.sigh(_config_handler);
+	_ui_config_rom.sigh(_ui_config_handler);
 	_handle_config();
 	_update_sandbox_config();
-	_ui_config_rom.construct(_env, "ui_config");
-	_ui_config_rom->sigh(_ui_config_handler);
 	_ui_report.construct(_env, "ui_report", "ui_report");
 	_handle_ui_config();
 	_set_state(State::INVALID);
