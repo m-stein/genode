@@ -5,7 +5,7 @@
 	</provides>
 
 	<requires>
-		<file_system label="data"         writeable="yes"/>
+		<file_system label="data" writeable="yes"/>
 		<file_system label="trust_anchor" writeable="yes"/>
 		<file_system label="fonts" writeable="yes"/>
 		<gui/>
@@ -95,18 +95,18 @@
 				<service name="Report" label="ui_report"> <child name="report_rom"/> </service>
 				<service name="ROM" label="ui_config"> <child name="report_rom"/> </service>
 				<service name="File_system" label="tresor_trust_anchor_vfs -> storage_dir"> <parent label="trust_anchor"/> </service>
-				<service name="File_system" label="vfs_block -> ">                       <parent label="data"/> </service>
-				<service name="File_system" label="tresor">                                 <parent label="data"/> </service>
-				<service name="File_system" label="fs_query -> ">                        <parent label="data"/> </service>
-				<service name="File_system" label="image_fs_query -> ">                  <parent label="data"/> </service>
-				<service name="File_system" label="tresor_vfs -> tresor_fs">                   <parent label="data"/> </service>
-				<service name="File_system" label="truncate_file -> tresor">                <parent label="data"/> </service>
-				<service name="Timer">                                                   <parent/> </service>
-				<service name="PD">                                                      <parent/> </service>
-				<service name="ROM">                                                     <parent/> </service>
-				<service name="CPU">                                                     <parent/> </service>
-				<service name="LOG">                                                     <parent/> </service>
-				<service name="RM">                                                      <parent/> </service>
+				<service name="File_system" label="vfs_block -> "> <parent label="data"/> </service>
+				<service name="File_system" label="tresor"> <parent label="data"/> </service>
+				<service name="File_system" label="fs_query -> "> <parent label="data"/> </service>
+				<service name="File_system" label="image_fs_query -> "> <parent label="data"/> </service>
+				<service name="File_system" label="tresor_vfs -> tresor_fs"> <parent label="data"/> </service>
+				<service name="File_system" label="truncate_file -> tresor"> <parent label="data"/> </service>
+				<service name="Timer"> <parent/> </service>
+				<service name="PD"> <parent/> </service>
+				<service name="ROM"> <parent/> </service>
+				<service name="CPU"> <parent/> </service>
+				<service name="LOG"> <parent/> </service>
+				<service name="RM"> <parent/> </service>
 			</route>
 		</start>
 
