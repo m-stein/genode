@@ -60,17 +60,6 @@ class File_vault::Main
 			LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE
 		};
 
-		enum class Reported_state
-		{
-			INVALID,
-			UNINITIALIZED,
-			INITIALIZING,
-			LOCKED,
-			UNLOCKING,
-			UNLOCKED,
-			LOCKING
-		};
-
 		enum class Resizing_state
 		{
 			INACTIVE,
@@ -134,16 +123,12 @@ class File_vault::Main
 		Resizing_state                         _resizing_state                     { Resizing_state::INACTIVE };
 		Rekeying_state                         _rekeying_state                     { Rekeying_state::INACTIVE };
 		Timer::One_shot_timeout<Main>          _unlock_retry_delay                 { _timer, *this, &Main::_handle_unlock_retry_delay };
-		size_t                                 _tresor_image_size                  { 0 };
 		File_path                              _tresor_image_file_name             { "tresor.img" };
-		size_t                                 _client_fs_size                     { 0 };
-		Number_of_clients                      _nr_of_clients                      { 0 };
 		Attached_rom_dataspace                 _ui_config_rom                      { _env, "ui_config" };
 		Signal_handler<Main>                   _ui_config_handler                  { _env.ep(), *this, &Main::_handle_ui_config };
 		Constructible<Ui_config>               _ui_config                          { };
-		Constructible<Expanding_reporter>      _ui_report                          { };
-		Constructible<Rekey_report>            _rekey_report                       { };
-		Constructible<Extend_report>           _extend_report                      { };
+		Ui_report                              _ui_report                          { };
+		Expanding_reporter                     _ui_report_reporter                 { _env, "ui_report", "ui_report" };
 
 		static bool _has_name(Xml_node  const &node,
 		                      Node_name const &name)
@@ -230,34 +215,19 @@ class File_vault::Main
 
 		void _adapt_to_version(Version version);
 
-		Reported_state _reported_state() const;
-
-		static char const *_reported_state_to_string(Reported_state state);
+		Ui_report::State _reported_state() const;
 
 		void _generate_ui_report()
 		{
-			_ui_report->generate([&] (Xml_generator &xml) {
-				if (_ui_config->version.constructed())
-					xml.attribute("version", *_ui_config->version);
-
-				xml.attribute("state", _reported_state_to_string(_reported_state()));
-				xml.attribute("image_size", _tresor_image_size);
-				xml.attribute("capacity", _client_fs_size);
-				xml.attribute("num_clients", _nr_of_clients.value);
-
-				if (_rekey_report.constructed())
-					xml.node("rekey", [&] { _rekey_report->generate(xml); });
-				if (_extend_report.constructed())
-					xml.node("extend", [&] { _extend_report->generate(xml); });
-			});
+			_ui_report_reporter.generate([&] (Xml_generator &xml) { _ui_report.generate(xml); });
 		}
 
 		void _set_state(State state)
 		{
-			Reported_state old_reported_state { _reported_state() };
+			Ui_report::State old_reported_state { _reported_state() };
 			_state = state;
-			Reported_state new_reported_state { _reported_state() };
-			if (old_reported_state != new_reported_state)
+			_ui_report.state = _reported_state();
+			if (old_reported_state != _ui_report.state)
 				_generate_ui_report();
 		}
 
@@ -413,40 +383,24 @@ Main::State_string Main::_state_to_string(State state)
 }
 
 
-char const *Main::_reported_state_to_string(Reported_state state)
-{
-	switch (state) {
-	case Reported_state::INVALID: return "invalid";
-	case Reported_state::UNINITIALIZED: return "uninitialized";
-	case Reported_state::INITIALIZING: return "initializing";
-	case Reported_state::LOCKED: return "locked";
-	case Reported_state::UNLOCKING: return "unlocking";
-	case Reported_state::UNLOCKED: return "unlocked";
-	case Reported_state::LOCKING: return "locking";
-	}
-	class Invalid_state { };
-	throw Invalid_state { };
-}
-
-
-Main::Reported_state Main::_reported_state() const
+Ui_report::State Main::_reported_state() const
 {
 	switch (_state) {
-	case State::INVALID:                                return Reported_state::INVALID;
-	case State::SETUP_OBTAIN_PARAMETERS:                return Reported_state::UNINITIALIZED;
-	case State::SETUP_CREATE_TRESOR_IMAGE_FILE:         return Reported_state::INITIALIZING;
-	case State::SETUP_RUN_TRESOR_INIT_TRUST_ANCHOR:     return Reported_state::INITIALIZING;
-	case State::SETUP_RUN_TRESOR_INIT:                  return Reported_state::INITIALIZING;
-	case State::SETUP_START_TRESOR_VFS:                 return Reported_state::INITIALIZING;
-	case State::SETUP_FORMAT_TRESOR:                    return Reported_state::INITIALIZING;
-	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return Reported_state::INITIALIZING;
-	case State::CONTROLS:                               return Reported_state::UNLOCKED;
-	case State::UNLOCK_OBTAIN_PARAMETERS:               return Reported_state::LOCKED;
-	case State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR:    return Reported_state::UNLOCKING;
-	case State::UNLOCK_START_TRESOR_VFS:                return Reported_state::UNLOCKING;
-	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:        return Reported_state::UNLOCKING;
-	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR:    return Reported_state::LOCKING;
-	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:  return Reported_state::LOCKING;
+	case State::INVALID:                                return Ui_report::INVALID;
+	case State::SETUP_OBTAIN_PARAMETERS:                return Ui_report::UNINITIALIZED;
+	case State::SETUP_CREATE_TRESOR_IMAGE_FILE:         return Ui_report::INITIALIZING;
+	case State::SETUP_RUN_TRESOR_INIT_TRUST_ANCHOR:     return Ui_report::INITIALIZING;
+	case State::SETUP_RUN_TRESOR_INIT:                  return Ui_report::INITIALIZING;
+	case State::SETUP_START_TRESOR_VFS:                 return Ui_report::INITIALIZING;
+	case State::SETUP_FORMAT_TRESOR:                    return Ui_report::INITIALIZING;
+	case State::SETUP_DETERMINE_CLIENT_FS_SIZE:         return Ui_report::INITIALIZING;
+	case State::CONTROLS:                               return Ui_report::UNLOCKED;
+	case State::UNLOCK_OBTAIN_PARAMETERS:               return Ui_report::LOCKED;
+	case State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR:    return Ui_report::UNLOCKING;
+	case State::UNLOCK_START_TRESOR_VFS:                return Ui_report::UNLOCKING;
+	case State::UNLOCK_DETERMINE_CLIENT_FS_SIZE:        return Ui_report::UNLOCKING;
+	case State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR:    return Ui_report::LOCKING;
+	case State::LOCK_WAIT_TILL_DEINIT_REQUEST_IS_DONE:  return Ui_report::LOCKING;
 	}
 	class Invalid_state { };
 	throw Invalid_state { };
@@ -586,7 +540,7 @@ void Main::_handle_rekeying_fs_query_listing(Xml_node const &node)
 
 			if (listing_file_starts_with(node, "rekey", String<10>("succeeded"))) {
 
-				_rekey_report->finished = true;
+				_ui_report.rekey->finished = true;
 				generate_ui_report = true;
 				_rekeying_state = Rekeying_state::INACTIVE;
 				Signal_transmitter(_state_handler).submit();
@@ -659,7 +613,7 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 
 				if (_has_name(node_1, "data")) {
 
-					_client_fs_size = node_1.attribute_value("size", (size_t)0);
+					_ui_report.capacity = node_1.attribute_value("size", 0ULL);
 					generate_ui_report = true;
 					_set_state(State::CONTROLS);
 					Signal_transmitter(_state_handler).submit();
@@ -681,9 +635,9 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 						size_t const size {
 							node_1.attribute_value("size", (size_t)0) };
 
-						if (_client_fs_size != size) {
+						if (_ui_report.capacity != size) {
 
-							_client_fs_size = size;
+							_ui_report.capacity = size;
 							generate_ui_report = true;
 							_resizing_state = Resizing_state::RUN_RESIZE2FS;
 							Signal_transmitter(_state_handler).submit();
@@ -691,7 +645,7 @@ void Main::_handle_client_fs_fs_query_listing(Xml_node const &node)
 						} else {
 
 							_resizing_state = Resizing_state::INACTIVE;
-							_extend_report->finished = true;
+							_ui_report.extend->finished = true;
 							generate_ui_report = true;
 							Signal_transmitter(_state_handler).submit();
 						}
@@ -729,9 +683,8 @@ void Main::_handle_image_fs_query_listing(Xml_node const &node)
 				}
 			});
 		});
-		if (_tresor_image_size != size) {
-
-			_tresor_image_size = size;
+		if (_ui_report.image_size != size) {
+			_ui_report.image_size = size;
 			generate_ui_report = true;
 		}
 		break;
@@ -757,10 +710,10 @@ bool Main::_rekey_operation_pending() const
 	if (!_ui_config->rekey.constructed())
 		return false;
 
-	if (!_rekey_report.constructed())
+	if (!_ui_report.rekey.constructed())
 		return true;
 
-	return _rekey_report->id.value != _ui_config->rekey->id.value;
+	return _ui_report.rekey->id.value != _ui_config->rekey->id.value;
 }
 
 
@@ -769,10 +722,10 @@ bool Main::_extend_operation_pending() const
 	if (!_ui_config->extend.constructed())
 		return false;
 
-	if (!_extend_report.constructed())
+	if (!_ui_report.extend.constructed())
 		return true;
 
-	return _extend_report->id.value != _ui_config->extend->id.value;
+	return _ui_report.extend->id.value != _ui_config->extend->id.value;
 }
 
 
@@ -810,14 +763,13 @@ void Main::_handle_ui_config_and_report()
 		}
 		if (_rekeying_state == Rekeying_state::INACTIVE && _rekey_operation_pending()) {
 
-			_rekey_report.construct(_ui_config->rekey->id, false);
+			_ui_report.rekey.construct(_ui_config->rekey->id, false);
 			_rekeying_state = Rekeying_state::WAIT_TILL_DEVICE_IS_READY;
 			update_sandbox_config = true;
 			generate_ui_report = true;
 		}
 		if (_resizing_state == Resizing_state::INACTIVE && _extend_operation_pending()) {
-
-			_extend_report.construct(_ui_config->extend->id, false);
+			_ui_report.extend.construct(_ui_config->extend->id, false);
 			_resizing_state = Resizing_state::ADAPT_TRESOR_IMAGE_SIZE;
 			update_sandbox_config = true;
 		}
@@ -836,7 +788,6 @@ Main::Main(Env &env) : _env(env)
 {
 	_ui_config_rom.sigh(_ui_config_handler);
 	_update_sandbox_config();
-	_ui_report.construct(_env, "ui_report", "ui_report");
 	_handle_ui_config();
 	_set_state(State::INVALID);
 }
@@ -912,7 +863,6 @@ void File_vault::Main::handle_sandbox_state()
 		case State::SETUP_RUN_TRESOR_INIT_TRUST_ANCHOR:
 
 			if (_child_succeeded(sandbox_state, _tresor_init_trust_anchor)) {
-
 				_set_state(State::SETUP_RUN_TRESOR_INIT);
 				update_sandbox = true;
 			}
@@ -1011,7 +961,7 @@ void File_vault::Main::handle_sandbox_state()
 				if (_child_succeeded(sandbox_state, _resize2fs)) {
 
 					_resizing_state = Resizing_state::INACTIVE;
-					_extend_report->finished = true;
+					_ui_report.extend->finished = true;
 					generate_ui_report = true;
 					update_sandbox = true;
 				}
@@ -1043,13 +993,13 @@ void File_vault::Main::handle_sandbox_state()
 
 			if (_child_succeeded(sandbox_state, _lock_fs_tool)) {
 
-				if (_rekey_report.constructed()) {
-					_rekey_report->finished = true;
+				if (_ui_report.rekey.constructed()) {
+					_ui_report.rekey->finished = true;
 					_rekeying_state = Rekeying_state::INACTIVE;
 					generate_ui_report = true;
 				}
-				if (_extend_report.constructed()) {
-					_extend_report->finished = true;
+				if (_ui_report.extend.constructed()) {
+					_ui_report.extend->finished = true;
 					_resizing_state = Resizing_state::INACTIVE;
 					generate_ui_report = true;
 				}
@@ -1070,8 +1020,8 @@ void File_vault::Main::handle_sandbox_state()
 			});
 		});
 	});
-	if (_nr_of_clients.value != nr_of_clients.value) {
-		_nr_of_clients.value = nr_of_clients.value;
+	if (_ui_report.num_clients.value != nr_of_clients.value) {
+		_ui_report.num_clients.value = nr_of_clients.value;
 		generate_ui_report = true;
 	}
 	if (update_sandbox)
@@ -1275,7 +1225,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
 					File_path { "/tresor/", _tresor_image_file_name }.string(),
-					_tresor_image_size + effective_bytes);
+					_ui_report.image_size + effective_bytes);
 
 				break;
 			}
@@ -1286,7 +1236,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 				gen_truncate_file_start_node(
 					xml, _truncate_file,
 					File_path { "/tresor/", _tresor_image_file_name }.string(),
-					_tresor_image_size + effective_bytes);
+					_ui_report.image_size + effective_bytes);
 
 				break;
 			} }

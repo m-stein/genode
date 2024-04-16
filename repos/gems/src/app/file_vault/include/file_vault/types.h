@@ -69,32 +69,102 @@ namespace File_vault {
 			uint64_t nr_of_leaves()   const { return _nr_of_leaves  ; }
 	};
 
-	struct Rekey_report
+	using Version_string = String<80>;
+
+	template <typename T>
+	static void read_optional_attr(Xml_node const &node, char const *attr, Constructible<T> &dst)
 	{
-		Operation_id id;
-		bool finished;
+		if (node.has_attribute(attr))
+			dst.construct(node.attribute_value(attr, T { }));
+	}
 
-		Rekey_report(Xml_node const &node)
-		: id(node.attribute_value("id", 0ULL)), finished(node.attribute_value("finished", false)) { }
+	struct Ui_report
+	{
+		using State_string = String<32>;
 
-		Rekey_report(Operation_id id, bool finished) : id(id), finished(finished) { }
+		enum State {
+			INVALID, UNINITIALIZED, INITIALIZING, LOCKED, UNLOCKING, UNLOCKED, LOCKING };
 
-		void generate(Xml_generator &xml)
+		static State_string state_to_string(State state)
 		{
-			xml.attribute("id", id.value);
-			xml.attribute("finished", finished);
+			switch (state) {
+			case INVALID: return "invalid";
+			case UNINITIALIZED: return "uninitialized";
+			case INITIALIZING: return "initializing";
+			case LOCKED: return "locked";
+			case UNLOCKING: return "unlocking";
+			case UNLOCKED: return "unlocked";
+			case LOCKING: return "locking";
+			}
+			ASSERT_NEVER_REACHED;
 		}
-	};
 
-	struct Extend_report
-	{
-		Operation_id id { };
-		bool finished { };
+		static State string_to_state(State_string str)
+		{
+			if (str == "uninitialized") return UNINITIALIZED;
+			if (str == "initializing") return INITIALIZING;
+			if (str == "locked") return LOCKED;
+			if (str == "unlocking") return UNLOCKING;
+			if (str == "unlocked") return UNLOCKED;
+			if (str == "locking") return LOCKING;
+			return INVALID;
+		}
 
-		Extend_report(Xml_node const &node)
-		: id(node.attribute_value("id", 0ULL)), finished(node.attribute_value("finished", false)) { }
+		struct Rekey
+		{
+			Operation_id id;
+			bool finished;
 
-		Extend_report(Operation_id id, bool finished) : id(id), finished(finished) { }
+			Rekey(Xml_node const &node)
+			: id(node.attribute_value("id", 0ULL)), finished(node.attribute_value("finished", false)) { }
+
+			Rekey(Operation_id id, bool finished) : id(id), finished(finished) { }
+
+			void generate(Xml_generator &xml)
+			{
+				xml.attribute("id", id.value);
+				xml.attribute("finished", finished);
+			}
+		};
+
+		struct Extend
+		{
+			Operation_id id { };
+			bool finished { };
+
+			Extend(Xml_node const &node)
+			: id(node.attribute_value("id", 0ULL)), finished(node.attribute_value("finished", false)) { }
+
+			Extend(Operation_id id, bool finished) : id(id), finished(finished) { }
+
+			void generate(Xml_generator &xml)
+			{
+				xml.attribute("id", id.value);
+				xml.attribute("finished", finished);
+			}
+		};
+
+		State state { INVALID };
+		Version_string version { };
+		Number_of_bytes image_size { };
+		Number_of_bytes capacity { };
+		Number_of_clients num_clients { };
+		Constructible<Rekey> rekey { };
+		Constructible<Extend> extend { };
+
+		Ui_report() { }
+
+		Ui_report(Xml_node const &node)
+		:
+			state(string_to_state(node.attribute_value("state", State_string()))),
+			version(node.attribute_value("version", Version_string())),
+			image_size(node.attribute_value("image_size", 0ULL)),
+			capacity(node.attribute_value("capacity", 0ULL)),
+			num_clients(node.attribute_value("num_clients", 0ULL))
+		{
+			node.with_optional_sub_node("rekey", [&] (Xml_node const &n) { rekey.construct(n); });
+			node.with_optional_sub_node("extend", [&] (Xml_node const &n) { extend.construct(n); });
+		}
 
 		void generate(Xml_generator &xml)
 		{
@@ -105,8 +175,6 @@ namespace File_vault {
 
 	struct Ui_config
 	{
-		using Version_string = String<80>;
-
 		struct Extend
 		{
 			using Tree_string = String<4>;
@@ -166,13 +234,6 @@ namespace File_vault {
 		Number_of_bytes journaling_buf_size { };
 		Constructible<Rekey> rekey { };
 		Constructible<Extend> extend { };
-
-		template <typename T>
-		static void read_optional_attr(Xml_node const &node, char const *attr, Constructible<T> &dst)
-		{
-			if (node.has_attribute(attr))
-				dst.construct(node.attribute_value(attr, T { }));
-		}
 
 		Ui_config(Xml_node const &node)
 		:

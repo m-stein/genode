@@ -394,13 +394,13 @@ struct Main : Prompt::Action
 
 			void view(Scope<Vbox> &s) const
 			{
-				if (!controls.main.num_clients.value)
+				if (!controls.main.ui_report->num_clients.value)
 					s.widget(capacity_button);
 
 				s.widget(journal_buf_button);
 				s.widget(encrypt_key_button);
 
-				if (controls.main.num_clients.value) {
+				if (controls.main.ui_report->num_clients.value) {
 					s.sub_scope<Left_aligned_text>("");
 					s.sub_scope<Left_aligned_text>(" Capacity unchangeable when in use!");
 				}
@@ -569,9 +569,9 @@ struct Main : Prompt::Action
 				case JOURNALING_BUFFER: s.widget(journal_buf); break;
 				}
 				s.sub_scope<Left_aligned_text>("");
-				s.sub_scope<Left_aligned_text>(String<32>(" Image: ", main.image_size));
-				s.sub_scope<Left_aligned_text>(String<32>(" Capacity: ", main.capacity));
-				s.sub_scope<Left_aligned_text>(String<32>(" Clients: ", main.num_clients.value));
+				s.sub_scope<Left_aligned_text>(String<32>(" Image: ", main.ui_report->image_size));
+				s.sub_scope<Left_aligned_text>(String<32>(" Capacity: ", main.ui_report->capacity));
+				s.sub_scope<Left_aligned_text>(String<32>(" Clients: ", main.ui_report->num_clients.value));
 				s.sub_scope<Left_aligned_text>("");
 				s.widget(lock_button);
 			});
@@ -618,7 +618,7 @@ struct Main : Prompt::Action
 
 		void handle_signal()
 		{
-			if (visible_tab == CAPACITY && main.num_clients.value)
+			if (visible_tab == CAPACITY && main.ui_report->num_clients.value)
 				visible_tab = HOME;
 		}
 	};
@@ -686,11 +686,7 @@ struct Main : Prompt::Action
 	Expanding_reporter ui_config_reporter { env, "ui_config", "ui_config" };
 	Attached_rom_dataspace ui_report_rom { env, "ui_report" };
 	Signal_handler<Main> signal_handler { env.ep(), *this, &Main::handle_signal };
-	Constructible<Rekey_report> rekey_report { };
-	Constructible<Extend_report> extend_report { };
-	Number_of_bytes image_size { };
-	Number_of_bytes capacity { };
-	Number_of_clients num_clients { };
+	Constructible<Ui_report> ui_report { };
 
 	void handle_event(Dialog::Event const &event)
 	{
@@ -722,10 +718,10 @@ struct Main : Prompt::Action
 		if (!ui_config.extend.constructed())
 			return true;
 
-		if (!extend_report.constructed())
+		if (!ui_report->extend.constructed())
 			return false;
 
-		return extend_report->id.value == ui_config.extend->id.value && extend_report->finished;
+		return ui_report->extend->id.value == ui_config.extend->id.value && ui_report->extend->finished;
 	}
 
 	bool ready_to_rekey() const
@@ -733,15 +729,15 @@ struct Main : Prompt::Action
 		if (!ui_config.rekey.constructed())
 			return true;
 
-		if (!rekey_report.constructed())
+		if (!ui_report->rekey.constructed())
 			return false;
 
-		return rekey_report->id.value == ui_config.rekey->id.value && rekey_report->finished;
+		return ui_report->rekey->id.value == ui_config.rekey->id.value && ui_report->rekey->finished;
 	}
 
 	void rekey()
 	{
-		Operation_id id { rekey_report.constructed() ? rekey_report->id.value + 1 : 0 };
+		Operation_id id { ui_report->rekey.constructed() ? ui_report->rekey->id.value + 1 : 0 };
 		ui_config.rekey.construct(id);
 		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
@@ -749,7 +745,7 @@ struct Main : Prompt::Action
 	template <Ui_config::Extend::Tree TREE>
 	void extend(Controls_frame::Dimension_tab<TREE> const &dimension_tab)
 	{
-		Operation_id id { extend_report.constructed() ? extend_report->id.value + 1 : 0 };
+		Operation_id id { ui_report->extend.constructed() ? ui_report->extend->id.value + 1 : 0 };
 		ui_config.extend.construct(id, TREE, dimension_tab.num_bytes_prompt.as_num_bytes());
 		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
@@ -757,26 +753,16 @@ struct Main : Prompt::Action
 	void handle_signal()
 	{
 		ui_report_rom.update();
-		Xml_node ui_report = ui_report_rom.xml();
-		Ui_state_string state = ui_report.attribute_value("state", Ui_state_string());
-		active_dialog =
-			state == "invalid" ? WAIT :
-			state == "uninitialized" ? SETUP :
-			state == "initializing" ? WAIT :
-			state == "unlocking" ? WAIT :
-			state == "unlocked" ? CONTROLS :
-			state == "locking" ? WAIT :
-			state == "locked" ? UNLOCK : NONE;
-
-		image_size = ui_report.attribute_value("image_size", Number_of_bytes());
-		capacity = ui_report.attribute_value("capacity", Number_of_bytes());
-		num_clients.value = ui_report.attribute_value("num_clients", 0ULL);
-		ui_report.with_optional_sub_node("rekey", [&] (Xml_node const &rekey) {
-			rekey_report.construct(rekey); });
-
-		ui_report.with_optional_sub_node("extend", [&] (Xml_node const &extend) {
-			extend_report.construct(extend); });
-
+		ui_report.construct(ui_report_rom.xml());
+		switch (ui_report->state) {
+		case Ui_report::INVALID: active_dialog = WAIT; break;
+		case Ui_report::UNINITIALIZED: active_dialog = SETUP; break;
+		case Ui_report::INITIALIZING: active_dialog = WAIT; break;
+		case Ui_report::UNLOCKING: active_dialog = WAIT; break;
+		case Ui_report::UNLOCKED: active_dialog = CONTROLS; break;
+		case Ui_report::LOCKING: active_dialog = WAIT; break;
+		case Ui_report::LOCKED: active_dialog = UNLOCK; break;
+		}
 		main_dialog.handle_signal();
 		main_view.refresh();
 	}
