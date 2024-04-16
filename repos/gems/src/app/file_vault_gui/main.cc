@@ -699,21 +699,21 @@ struct Main : Prompt::Action
 
 	void setup(Setup_frame const &setup_frame)
 	{
-		ui_config.client_fs_size.construct(setup_frame.capacity.as_num_bytes());
-		ui_config.journaling_buf_size.construct(setup_frame.journal_buf.as_num_bytes());
-		setup_frame.passphrase.with_text([&] (auto const &str) { ui_config.passphrase.construct(str); });
+		ui_config.client_fs_size = setup_frame.capacity.as_num_bytes();
+		ui_config.journaling_buf_size = setup_frame.journal_buf.as_num_bytes();
+		setup_frame.passphrase.with_text([&] (auto const &str) { ui_config.passphrase = str; });
 		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
 	void unlock(Unlock_frame const &unlock_frame)
 	{
-		unlock_frame.passphrase.with_text([&] (auto const &str) { ui_config.passphrase.construct(str); });
+		unlock_frame.passphrase.with_text([&] (auto const &str) { ui_config.passphrase = str; });
 		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 
 	void lock()
 	{
-		ui_config.passphrase.destruct();
+		ui_config.passphrase = Passphrase();
 		ui_config_reporter.generate([&] (Xml_generator &xml) { ui_config.generate(xml); });
 	}
 

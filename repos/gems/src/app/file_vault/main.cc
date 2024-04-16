@@ -155,7 +155,7 @@ class File_vault::Main
 
 		size_t _min_journaling_buf_size() const
 		{
-			size_t result { *_ui_config->client_fs_size >> 8 };
+			size_t result { _ui_config->client_fs_size >> 8 };
 			if (result < MIN_CLIENT_FS_SIZE) {
 				result = MIN_CLIENT_FS_SIZE;
 			}
@@ -164,15 +164,10 @@ class File_vault::Main
 
 		bool _ui_setup_obtain_params_suitable() const
 		{
-			if (!_ui_config->client_fs_size.constructed() ||
-			    !_ui_config->journaling_buf_size.constructed() ||
-			    !_ui_config->passphrase.constructed())
-				return false;
-
 			return
-				*(_ui_config->client_fs_size) >= MIN_CLIENT_FS_SIZE &&
-				*(_ui_config->journaling_buf_size) >= _min_journaling_buf_size() &&
-				  _ui_config->passphrase_long_enough();
+				_ui_config->client_fs_size >= MIN_CLIENT_FS_SIZE &&
+				_ui_config->journaling_buf_size >= _min_journaling_buf_size() &&
+				_ui_config->passphrase_long_enough();
 		}
 
 		template <typename FUNCTOR>
@@ -808,7 +803,7 @@ void Main::_handle_ui_config_and_report()
 
 	case State::UNLOCK_OBTAIN_PARAMETERS:
 
-		if (_ui_config->passphrase.constructed() && _ui_config->passphrase_long_enough()) {
+		if (_ui_config->passphrase_long_enough()) {
 
 			_set_state(State::UNLOCK_RUN_TRESOR_INIT_TRUST_ANCHOR);
 			update_sandbox_config = true;
@@ -817,7 +812,7 @@ void Main::_handle_ui_config_and_report()
 
 	case State::CONTROLS:
 
-		if (!_ui_config->passphrase.constructed() || !_ui_config->passphrase_long_enough()) {
+		if (!_ui_config->passphrase_long_enough()) {
 
 			_set_state(State::LOCK_ISSUE_DEINIT_REQUEST_AT_TRESOR);
 			update_sandbox_config = true;
@@ -907,7 +902,7 @@ bool File_vault::Main::_child_succeeded(Xml_node    const &sandbox_state,
 void File_vault::Main::_handle_unlock_retry_delay(Duration)
 {
 	_set_state(State::UNLOCK_OBTAIN_PARAMETERS);
-	_ui_config->passphrase.destruct();
+	_ui_config->passphrase = Passphrase();
 	Signal_transmitter(_state_handler).submit();
 }
 
@@ -1195,7 +1190,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
-			xml, _tresor_init_trust_anchor, *_ui_config->passphrase);
+			xml, _tresor_init_trust_anchor, _ui_config->passphrase);
 
 		break;
 
@@ -1204,7 +1199,7 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);
 		gen_tresor_init_trust_anchor_start_node(
-			xml, _tresor_init_trust_anchor, *_ui_config->passphrase);
+			xml, _tresor_init_trust_anchor, _ui_config->passphrase);
 
 		break;
 
@@ -1237,18 +1232,18 @@ void File_vault::Main::_generate_sandbox_config(Xml_generator &xml) const
 					TRESOR_NR_OF_SUPERBLOCKS,
 					TRESOR_VBD_MAX_LVL + 1,
 					TRESOR_VBD_DEGREE,
-					tresor_tree_num_leaves(*_ui_config->client_fs_size),
+					tresor_tree_num_leaves(_ui_config->client_fs_size),
 					TRESOR_FREE_TREE_MAX_LVL + 1,
 					TRESOR_FREE_TREE_DEGREE,
-					tresor_tree_num_leaves(*_ui_config->journaling_buf_size)));
+					tresor_tree_num_leaves(_ui_config->journaling_buf_size)));
 
 		break;
 
 	case State::SETUP_RUN_TRESOR_INIT:
 	{
 		Tresor::Superblock_configuration sb_config {
-			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, tresor_tree_num_leaves(*_ui_config->client_fs_size) },
-			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, tresor_tree_num_leaves(*_ui_config->journaling_buf_size) }
+			Tree_configuration { TRESOR_VBD_MAX_LVL, TRESOR_VBD_DEGREE, tresor_tree_num_leaves(_ui_config->client_fs_size) },
+			Tree_configuration { TRESOR_FREE_TREE_MAX_LVL, TRESOR_FREE_TREE_DEGREE, tresor_tree_num_leaves(_ui_config->journaling_buf_size) }
 		};
 		gen_parent_provides_and_report_nodes(xml);
 		gen_tresor_trust_anchor_vfs_start_node(xml, _tresor_trust_anchor_vfs, _jent_avail);

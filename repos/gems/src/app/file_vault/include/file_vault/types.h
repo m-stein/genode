@@ -160,10 +160,10 @@ namespace File_vault {
 			void generate(Xml_generator &xml) { xml.attribute("id", id.value); }
 		};
 
-		Constructible<Version_string> version { };
-		Constructible<Passphrase> passphrase { };
-		Constructible<Number_of_bytes> client_fs_size { };
-		Constructible<Number_of_bytes> journaling_buf_size { };
+		Version_string version { };
+		Passphrase passphrase { };
+		Number_of_bytes client_fs_size { };
+		Number_of_bytes journaling_buf_size { };
 		Constructible<Rekey> rekey { };
 		Constructible<Extend> extend { };
 
@@ -175,11 +175,12 @@ namespace File_vault {
 		}
 
 		Ui_config(Xml_node const &node)
+		:
+			version(node.attribute_value("version", Version_string())),
+			passphrase(node.attribute_value("passphrase", Passphrase())),
+			client_fs_size(node.attribute_value("client_fs_size", 0ULL)),
+			journaling_buf_size(node.attribute_value("journaling_buf_size", 0ULL))
 		{
-			read_optional_attr(node, "version", version);
-			read_optional_attr(node, "passphrase", passphrase);
-			read_optional_attr(node, "client_fs_size", client_fs_size);
-			read_optional_attr(node, "journaling_buf_size", journaling_buf_size);
 			node.with_optional_sub_node("rekey", [&] (Xml_node const &n) { rekey.construct(n); });
 			node.with_optional_sub_node("extend", [&] (Xml_node const &n) { extend.construct(n); });
 		}
@@ -188,19 +189,16 @@ namespace File_vault {
 
 		void generate(Xml_generator &xml)
 		{
-			if (passphrase.constructed())
-				xml.attribute("passphrase", *passphrase);
-			if (client_fs_size.constructed())
-				xml.attribute("client_fs_size", *client_fs_size);
-			if (journaling_buf_size.constructed())
-				xml.attribute("journaling_buf_size", *journaling_buf_size);
+			xml.attribute("passphrase", passphrase);
+			xml.attribute("client_fs_size", client_fs_size);
+			xml.attribute("journaling_buf_size", journaling_buf_size);
 			if (rekey.constructed())
 				xml.node("rekey", [&] { rekey->generate(xml); });
 			if (extend.constructed())
 				xml.node("extend", [&] { extend->generate(xml); });
 		}
 
-		bool passphrase_long_enough() const { return passphrase->length() >= MIN_PASSPHRASE_LENGTH + 1; }
+		bool passphrase_long_enough() const { return passphrase.length() >= MIN_PASSPHRASE_LENGTH + 1; }
 	};
 
 	inline size_t tresor_tree_nr_of_blocks(size_t nr_of_lvls,
