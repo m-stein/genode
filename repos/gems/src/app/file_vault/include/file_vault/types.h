@@ -168,8 +168,15 @@ namespace File_vault {
 
 		void generate(Xml_generator &xml)
 		{
-			xml.attribute("id", id.value);
-			xml.attribute("finished", finished);
+			xml.attribute("state", state_to_string(state));
+			xml.attribute("version", version);
+			xml.attribute("image_size", image_size);
+			xml.attribute("capacity", capacity);
+			xml.attribute("num_clients", num_clients.value);
+			if (rekey.constructed())
+				xml.node("rekey", [&] { rekey->generate(xml); });
+			if (extend.constructed())
+				xml.node("extend", [&] { extend->generate(xml); });
 		}
 	};
 
