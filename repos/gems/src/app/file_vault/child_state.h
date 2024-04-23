@@ -23,23 +23,19 @@
 #include <base/quota_guard.h>
 
 /* local includes */
-#include <types.h>
+#include <file_vault/types.h>
 
 namespace File_vault { class Child_state; }
 
 class File_vault::Child_state : Noncopyable
 {
-	public:
-
-		using Name = String<128>;
-
 	private:
 
 		using Registry_element = Registry<Child_state>::Element;
 
 		Registry_element _registry_element;
-		Name const _start_name;
-		Name const _binary_name;
+		Child_name const _start_name;
+		Child_name const _binary_name;
 		Ram_quota const _initial_ram_quota;
 		Cap_quota const _initial_cap_quota;
 		Ram_quota _ram_quota { _initial_ram_quota };
@@ -47,33 +43,26 @@ class File_vault::Child_state : Noncopyable
 
 	public:
 
-		Child_state(Registry<Child_state> &registry, Name const &start_name,
-		            Name const &binary_name, Ram_quota ram_quota, Cap_quota cap_quota)
+		Child_state(Registry<Child_state> &registry, Child_name const &start_name,
+		            Child_name const &binary_name, Ram_quota ram_quota, Cap_quota cap_quota)
 		:
 			_registry_element { registry, *this }, _start_name { start_name },
 			_binary_name { binary_name }, _initial_ram_quota { ram_quota },
 			_initial_cap_quota { cap_quota }
 		{ }
 
-		Child_state(Registry<Child_state> &registry, Name const &name, Ram_quota ram_quota, Cap_quota cap_quota)
+		Child_state(Registry<Child_state> &registry, Child_name const &name, Ram_quota ram_quota, Cap_quota cap_quota)
 		: Child_state(registry, name, name, ram_quota, cap_quota) { }
 
-		template <typename GEN_CONTENT>
-		void gen_start_node(Xml_generator &xml,
-		                    GEN_CONTENT const &gen_content) const
+		void gen_start_node(Xml_generator &xml, auto const &gen_content) const
 		{
-			xml.node("start", [&] () {
-				xml.attribute("name", _start_name);
+			gen_named_node(xml, "start", _start_name, [&] {
 				xml.attribute("caps", _cap_quota.value);
 				if (_start_name != _binary_name)
-					xml.node("binary", [&] () {
-						xml.attribute("name", _binary_name); });
+					gen_named_node(xml, "binary", _binary_name, [] { });
 
-				xml.node("resource", [&] () {
-					xml.attribute("name", "RAM");
-					Number_of_bytes const bytes(_ram_quota.value);
-					xml.attribute("quantum", String<64>(bytes)); });
-
+				gen_named_node(xml, "resource", "RAM", [&] {
+					xml.attribute("quantum", Number_of_bytes(_ram_quota.value)); });
 				gen_content();
 			});
 		}
@@ -81,7 +70,7 @@ class File_vault::Child_state : Noncopyable
 		bool apply_child_state_report(Xml_node const &child)
 		{
 			bool result = false;
-			if (child.attribute_value("name", Name()) != _start_name)
+			if (child.attribute_value("name", Child_name()) != _start_name)
 				return false;
 
 			if (child.has_sub_node("ram") &&
@@ -101,7 +90,7 @@ class File_vault::Child_state : Noncopyable
 
 		Ram_quota ram_quota() const { return _ram_quota; }
 
-		Name start_name() const { return _start_name; }
+		Child_name start_name() const { return _start_name; }
 };
 
 #endif /* _CHILD_STATE_H_ */

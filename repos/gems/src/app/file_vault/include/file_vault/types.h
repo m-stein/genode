@@ -30,8 +30,19 @@ namespace File_vault {
 	static constexpr size_t MIN_PASSPHRASE_LENGTH = 8;
 	static constexpr size_t MIN_CAPACITY = 100 * 1024;
 
+	using Node_name = String<32>;
+	using File_path = String<32>;
+	using Child_name = String<128>;
+
 	struct Number_of_clients { uint64_t value; };
 	struct Operation_id { uint64_t value; };
+
+	void gen_named_node(Xml_generator &xml, char const *type, auto name, auto const &fn)
+	{
+		xml.node(type, [&] {
+			xml.attribute("name", name);
+			fn(); });
+	}
 
 	inline size_t min_journal_buf(Number_of_bytes capacity)
 	{

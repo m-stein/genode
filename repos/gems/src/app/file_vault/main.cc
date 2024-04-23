@@ -15,14 +15,16 @@
 /* Genode includes */
 #include <base/component.h>
 #include <base/attached_rom_dataspace.h>
+#include <base/attached_ram_dataspace.h>
 #include <base/buffered_output.h>
+#include <base/session_object.h>
 #include <os/buffered_xml.h>
 #include <os/vfs.h>
 #include <os/reporter.h>
 #include <timer_session/connection.h>
+#include <report_session/report_session.h>
 
 /* local includes */
-#include <report_session_component.h>
 #include <child_state.h>
 #include <sandbox.h>
 
@@ -91,10 +93,54 @@ static bool file_starts_with(Xml_node const &fs_query_listing, File_path const &
 }
 
 
+struct Report_session_component : Session_object<Report::Session>
+{
+	struct Handler_base : Interface, Genode::Noncopyable
+	{
+		virtual void handle_report(char const *, size_t) = 0;
+	};
+
+	template <typename T>
+	struct Xml_handler : Handler_base
+	{
+		T &obj;
+		void (T::*member) (Xml_node const &);
+
+		Xml_handler(T &obj, void (T::*member)(Xml_node const &)) : obj(obj), member(member) { }
+
+		void handle_report(char const *start, size_t length) override
+		{
+			(obj.*member)(Xml_node(start, length));
+		}
+	};
+
+	Attached_ram_dataspace ds;
+	Handler_base &handler;
+
+	Dataspace_capability dataspace() override { return ds.cap(); }
+
+	void submit(size_t length) override
+	{
+		handler.handle_report(ds.local_addr<char const>(), min(ds.size(), length));
+	}
+
+	void response_sigh(Signal_context_capability) override { }
+
+	size_t obtain_response() override { return 0; }
+
+	template <typename... ARGS>
+	Report_session_component(Env &env, Handler_base &handler, Entrypoint &ep, Resources const &res, ARGS &&... args)
+	:
+		Session_object(ep, res, args...),
+		ds(env.ram(), env.rm(), res.ram_quota.value), handler(handler)
+	{ }
+};
+
+
 struct Main : Sandbox::Local_service_base::Wakeup, Sandbox::State_handler
 {
-	using Report_service = Sandbox::Local_service<Report::Session_component>;
-	using Report_xml_handler = Report::Session_component::Xml_handler<Main>;
+	using Report_service = Sandbox::Local_service<Report_session_component>;
+	using Report_xml_handler = Report_session_component::Xml_handler<Main>;
 
 	static constexpr char const *DEPRECATED_IMAGE_NAME = "cbe.img";
 
@@ -641,7 +687,7 @@ void Main::wakeup_local_service()
 	report_service.for_each_requested_session([&] (Report_service::Request &req) {
 		auto deliver_session = [&] (Report_xml_handler &handler) {
 			req.deliver_session(*new (heap)
-				Report::Session_component(env, handler, env.ep(), req.resources, "", req.diag));
+				Report_session_component(env, handler, env.ep(), req.resources, "", req.diag));
 		};
 		if (req.label == "image_fs_query -> listing") deliver_session(image_fs_query_listing_handler);
 		else if (req.label == "client_fs_query -> listing") deliver_session(client_fs_query_listing_handler);
@@ -650,7 +696,7 @@ void Main::wakeup_local_service()
 		else if (req.label == "lock_fs_query -> listing") deliver_session(lock_fs_query_listing_handler);
 		else error("failed to deliver Report session with label ", req.label);
 	});
-	report_service.for_each_session_to_close([&] (Report::Session_component &session) {
+	report_service.for_each_session_to_close([&] (Report_session_component &session) {
 		destroy(heap, &session);
 		return Report_service::Close_response::CLOSED;
 	});

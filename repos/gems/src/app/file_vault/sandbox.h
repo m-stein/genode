@@ -25,13 +25,6 @@ namespace File_vault {
 		xml.node("arg", [&] { xml.attribute("value", arg); });
 	}
 
-	void gen_named_node(Xml_generator &xml, char const *type, auto name, auto const &fn)
-	{
-		xml.node(type, [&] {
-			xml.attribute("name", name);
-			fn(); });
-	}
-
 	void gen_common_start_content(Xml_generator &xml, char const *name, Cap_quota caps, Ram_quota ram)
 	{
 		xml.attribute("name", name);
