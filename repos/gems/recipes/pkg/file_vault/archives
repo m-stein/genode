@@ -13,3 +13,4 @@ _/src/posix
 _/src/rump
 _/src/sandbox
 _/src/file_vault
+_/src/file_vault_gui
