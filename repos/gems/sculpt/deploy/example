@@ -55,6 +55,17 @@
 		</route>
 	</start>
 
+	<start name="file_vault" pkg="file_vault">
+		<route>
+			<service name="File_system" label="fonts"> <child name="fonts_fs"/> </service>
+			<service name="File_system" label="data"> <child name="recall_fs"/> </service>
+			<service name="File_system" label="trust_anchor"> <child name="recall_fs"/> </service>
+			<service name="Gui"> <child name="wm"/> </service>
+			<service name="RM"> <parent/> </service>
+			<service name="Timer"> <parent/> </service>
+		</route>
+	</start>
+
 	<start name="sticks_blue_backdrop"/>
 	<start name="nano3d"/>
 	<start name="system_shell"/>

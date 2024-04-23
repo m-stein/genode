@@ -5,7 +5,7 @@ ram_fs:  depot
 manager: use_ram_fs
 
 # selection of launcher-menu entries
-launcher: sticks_blue_backdrop nano3d system_shell
+launcher: system_shell vault_shell
 
 # supplemental depot content added to the system image
-import: pkg/drivers_interactive-linux
+import: pkg/drivers_interactive-linux pkg/file_vault
