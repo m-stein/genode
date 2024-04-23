@@ -273,8 +273,8 @@ append config {
 			</route>
 		</start>
 
-		<start name="file_vault" caps="2000">
-			<resource name="RAM" quantum="200M"/>
+		<start name="file_vault" caps="1000">
+			<resource name="RAM" quantum="100M"/>
 			<config jitterentropy_available="} [jent_avail_attr] {">
 				<vfs>
 					<dir name="tresor">

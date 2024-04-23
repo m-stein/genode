@@ -1,4 +1,4 @@
-<runtime ram="220M" caps="2200" binary="init">
+<runtime ram="120M" caps="1200" binary="init">
 
 	<provides>
 		<file_system/>
@@ -62,8 +62,8 @@
 			</default-policy>
 		</service>
 
-		<start name="file_vault" caps="2000">
-			<resource name="RAM" quantum="200M"/>
+		<start name="file_vault" caps="1000">
+			<resource name="RAM" quantum="100M"/>
 			<provides>
 				<service name="File_system"/>
 			</provides>

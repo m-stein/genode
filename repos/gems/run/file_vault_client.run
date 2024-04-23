@@ -352,8 +352,8 @@ if {[have_board linux]} {
 }
 append config {
 
-		<start name="file_vault" caps="2000">
-			<resource name="RAM" quantum="200M"/>
+		<start name="file_vault" caps="1000">
+			<resource name="RAM" quantum="100M"/>
 			<provides>
 				<service name="File_system"/>
 			</provides>
