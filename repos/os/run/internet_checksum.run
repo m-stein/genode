@@ -1,0 +1,32 @@
+build { core init lib/ld test/internet_checksum }
+
+create_boot_directory
+
+install_config {
+	<config verbose="yes">
+		<parent-provides>
+			<service name="ROM"/>
+			<service name="LOG"/>
+			<service name="CPU"/>
+			<service name="PD"/>
+		</parent-provides>
+
+		<start name="test-internet_checksum" caps="100">
+			<resource name="RAM" quantum="1M"/>
+			<route> <any-service> <parent/> <any-child/> </any-service> </route>
+		</start>
+
+	</config>
+}
+
+exec cp /home/lypo/genodelabs/internet_checksum/capture.pcap bin/
+
+build_boot_image [list {*}[build_artifacts] capture.pcap]
+
+append qemu_args " -nographic "
+
+run_genode_until {\[init\] child "test-internet_checksum" exited.*\n} 15
+
+grep_output {\[init\] child "test-internet_checksum" exited}
+
+compare_output_to {[init] child "test-internet_checksum" exited with exit value 0}
