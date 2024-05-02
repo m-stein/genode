@@ -503,8 +503,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Tcp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
-		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
-		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::TCP); }
+		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::TCP); }
+		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::TCP); }
 
 		break;
 	case L3_protocol::UDP:
@@ -513,8 +513,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Udp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _udp_stats };
 		}
-		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
-		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::UDP); }
+		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::UDP); }
+		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::UDP); }
 
 		break;
 	case L3_protocol::ICMP:
@@ -523,8 +523,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Icmp_link { *this, local, remote_port_alloc, remote_domain,
 				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
-		catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
-		catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(L3_protocol::ICMP); }
+		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::ICMP); }
+		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::ICMP); }
 
 		break;
 	default: throw Bad_transport_protocol(); }
@@ -584,8 +584,8 @@ void Interface::_adapt_eth(Ethernet_frame          &eth,
 						remote_ip_cfg.interface().address, hop_ip);
 				});
 				try { new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt }; }
-				catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(); }
-				catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(); }
+				catch (Out_of_ram)  { throw Resource_exhaustion(); }
+				catch (Out_of_caps) { throw Resource_exhaustion(); }
 				throw Packet_postponed();
 			}
 		);
@@ -753,8 +753,8 @@ void Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 dhcp.xid(),
 		                 local_domain.ip_config().interface());
 	}
-	catch (Out_of_ram)  { throw Free_resources_and_retry_handle_eth(); }
-	catch (Out_of_caps) { throw Free_resources_and_retry_handle_eth(); }
+	catch (Out_of_ram)  { throw Resource_exhaustion(); }
+	catch (Out_of_caps) { throw Resource_exhaustion(); }
 }
 
 
@@ -1768,38 +1768,16 @@ void Interface::_handle_eth(void              *const  eth_base,
 
 				/* try to handle ethernet frame */
 				try { _handle_eth(eth, size_guard, pkt, local_domain); }
-				catch (Free_resources_and_retry_handle_eth) {
-					try {
-						if (_config().verbose()) {
-							log("[", local_domain, "] free resources and retry to handle packet"); }
-
-						/*
-						 * Resources do not suffice, destroy some links
-						 *
-						 * Limit number of links to destroy because otherwise,
-						 * this could block the router for a significant
-						 * amount of time.
-						 */
-						unsigned long max = MAX_FREE_OPS_PER_EMERGENCY;
-						_destroy_some_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, max);
-						_destroy_some_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, max);
-						_destroy_some_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, max);
-
-						/* retry to handle ethernet frame */
-						_handle_eth(eth, size_guard, pkt, local_domain);
+				catch (Resource_exhaustion exception) {
+					if (exception.prot != (L3_protocol)0) {
+						switch (exception.prot) {
+						case L3_protocol::TCP:  _tcp_stats.refused_for_ram++;  break;
+						case L3_protocol::UDP:  _udp_stats.refused_for_ram++;  break;
+						case L3_protocol::ICMP: _icmp_stats.refused_for_ram++; break;
+						default: throw Bad_transport_protocol(); }
 					}
-					catch (Free_resources_and_retry_handle_eth exception) {
-						if (exception.prot != (L3_protocol)0) {
-							switch (exception.prot) {
-							case L3_protocol::TCP:  _tcp_stats.refused_for_ram++;  break;
-							case L3_protocol::UDP:  _udp_stats.refused_for_ram++;  break;
-							case L3_protocol::ICMP: _icmp_stats.refused_for_ram++; break;
-							default: throw Bad_transport_protocol(); }
-						}
-
-						/* give up if the resources still not suffice */
-						throw Drop_packet("insufficient resources");
-					}
+					/* give up if the resources still not suffice */
+					throw Drop_packet("insufficient resources");
 				}
 			}
 			catch (Dhcp_server::Alloc_ip_failed) {
