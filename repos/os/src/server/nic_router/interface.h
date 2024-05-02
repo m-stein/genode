@@ -369,12 +369,12 @@ class Net::Interface : private Interface_list::Element
 
 	public:
 
-		struct Free_resources_and_retry_handle_eth : Genode::Exception { L3_protocol prot; Free_resources_and_retry_handle_eth(L3_protocol prot = (L3_protocol)0) : prot(prot) { } };
-		struct Bad_send_dhcp_args                  : Genode::Exception { };
-		struct Bad_transport_protocol              : Genode::Exception { };
-		struct Bad_network_protocol                : Genode::Exception { };
-		struct Packet_postponed                    : Genode::Exception { };
-		struct Alloc_dhcp_msg_buffer_failed        : Genode::Exception { };
+		struct Resource_exhaustion          : Genode::Exception { L3_protocol prot; Resource_exhaustion(L3_protocol prot = (L3_protocol)0) : prot(prot) { } };
+		struct Bad_send_dhcp_args           : Genode::Exception { };
+		struct Bad_transport_protocol       : Genode::Exception { };
+		struct Bad_network_protocol         : Genode::Exception { };
+		struct Packet_postponed             : Genode::Exception { };
+		struct Alloc_dhcp_msg_buffer_failed : Genode::Exception { };
 
 		struct Drop_packet : Genode::Exception
 		{
