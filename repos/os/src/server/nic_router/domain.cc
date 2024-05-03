@@ -384,14 +384,6 @@ void Domain::deinit()
 }
 
 
-Ipv4_address const &Domain::next_hop(Ipv4_address const &ip) const
-{
-	if (ip_config().interface().prefix_matches(ip)) { return ip; }
-	if (ip_config().gateway_valid()) { return ip_config().gateway(); }
-	throw No_next_hop();
-}
-
-
 void Domain::attach_interface(Interface &interface)
 {
 	_interfaces.insert(&interface);
