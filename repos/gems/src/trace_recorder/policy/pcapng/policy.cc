@@ -3,7 +3,7 @@
 
 using namespace Genode;
 
-enum { MAX_CAPTURE_LEN = 100 };
+enum { MAX_CAPTURE_LEN = 1600 };
 
 
 size_t max_event_size() {

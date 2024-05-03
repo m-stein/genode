@@ -26,6 +26,7 @@
 /* Genode includes */
 #include <net/dhcp.h>
 #include <net/icmp.h>
+#include <util/attempt.h>
 
 namespace Genode { class Xml_generator; }
 
@@ -126,8 +127,19 @@ class Net::Interface : private Interface_list::Element
 		enum { IPV4_TIME_TO_LIVE          = 64 };
 		enum { MAX_FREE_OPS_PER_EMERGENCY = 1024 };
 
+		struct Packet_ok { };
 		struct Dismiss_link       : Genode::Exception { };
 		struct Dismiss_arp_waiter : Genode::Exception { };
+
+		struct Packet_error
+		{
+			enum Type { RESOURCE_EXHAUSTION } type;
+			L3_protocol prot;
+
+			static Packet_error resource_exhaustion(L3_protocol prot) { return Packet_error { .type = RESOURCE_EXHAUSTION, .prot = prot }; }
+		};
+
+		using Packet_result = Genode::Attempt<Packet_ok, Packet_error>;
 
 		struct Update_domain
 		{
@@ -171,11 +183,11 @@ class Net::Interface : private Interface_list::Element
 		Interface_object_stats                _dhcp_stats                { };
 		unsigned long                         _dropped_fragm_ipv4        { 0 };
 
-		void _new_link(L3_protocol             const  protocol,
-		               Link_side_id            const &local_id,
-		               Pointer<Port_allocator_guard>  remote_port_alloc,
-		               Domain                        &remote_domain,
-		               Link_side_id            const &remote_id);
+		Packet_result _new_link(L3_protocol             const  protocol,
+		                        Link_side_id            const &local_id,
+		                        Pointer<Port_allocator_guard>  remote_port_alloc,
+		                        Domain                        &remote_domain,
+		                        Link_side_id            const &remote_id);
 
 		void _destroy_released_dhcp_allocations(Domain &local_domain);
 
@@ -232,20 +244,20 @@ class Net::Interface : private Interface_list::Element
 		                          Domain                    &local_domain,
 		                          Ipv4_address_prefix const &local_intf);
 
-		void _handle_ip(Ethernet_frame          &eth,
-		                Size_guard              &size_guard,
-		                Packet_descriptor const &pkt,
-		                Domain                  &local_domain);
+		Packet_result _handle_ip(Ethernet_frame          &eth,
+		                         Size_guard              &size_guard,
+		                         Packet_descriptor const &pkt,
+		                         Domain                  &local_domain);
 
-		void _handle_icmp_query(Ethernet_frame          &eth,
-		                        Size_guard              &size_guard,
-		                        Ipv4_packet             &ip,
-		                        Internet_checksum_diff  &ip_icd,
-		                        Packet_descriptor const &pkt,
-		                        L3_protocol              prot,
-		                        void                    *prot_base,
-		                        Genode::size_t           prot_size,
-		                        Domain                  &local_domain);
+		Packet_result _handle_icmp_query(Ethernet_frame          &eth,
+		                                 Size_guard              &size_guard,
+		                                 Ipv4_packet             &ip,
+		                                 Internet_checksum_diff  &ip_icd,
+		                                 Packet_descriptor const &pkt,
+		                                 L3_protocol              prot,
+		                                 void                    *prot_base,
+		                                 Genode::size_t           prot_size,
+		                                 Domain                  &local_domain);
 
 		void _handle_icmp_error(Ethernet_frame          &eth,
 		                        Size_guard              &size_guard,
@@ -256,32 +268,32 @@ class Net::Interface : private Interface_list::Element
 		                        Icmp_packet             &icmp,
 		                        Genode::size_t           icmp_sz);
 
-		void _handle_icmp(Ethernet_frame            &eth,
-		                  Size_guard                &size_guard,
-		                  Ipv4_packet               &ip,
-		                  Internet_checksum_diff    &ip_icd,
-		                  Packet_descriptor   const &pkt,
-		                  L3_protocol                prot,
-		                  void                      *prot_base,
-		                  Genode::size_t             prot_size,
-		                  Domain                    &local_domain,
-		                  Ipv4_address_prefix const &local_intf);
+		Packet_result _handle_icmp(Ethernet_frame            &eth,
+		                           Size_guard                &size_guard,
+		                           Ipv4_packet               &ip,
+		                           Internet_checksum_diff    &ip_icd,
+		                           Packet_descriptor   const &pkt,
+		                           L3_protocol                prot,
+		                           void                      *prot_base,
+		                           Genode::size_t             prot_size,
+		                           Domain                    &local_domain,
+		                           Ipv4_address_prefix const &local_intf);
 
 		void _adapt_eth(Ethernet_frame          &eth,
 		                Ipv4_address      const &dst_ip,
 		                Packet_descriptor const &pkt,
 		                Domain                  &remote_domain);
 
-		void _nat_link_and_pass(Ethernet_frame         &eth,
-		                        Size_guard             &size_guard,
-		                        Ipv4_packet            &ip,
-		                        Internet_checksum_diff &ip_icd,
-		                        L3_protocol      const  prot,
-		                        void            *const  prot_base,
-		                        Genode::size_t   const  prot_size,
-		                        Link_side_id     const &local_id,
-		                        Domain                 &local_domain,
-		                        Domain                 &remote_domain);
+		Packet_result _nat_link_and_pass(Ethernet_frame         &eth,
+		                                 Size_guard             &size_guard,
+		                                 Ipv4_packet            &ip,
+		                                 Internet_checksum_diff &ip_icd,
+		                                 L3_protocol      const  prot,
+		                                 void            *const  prot_base,
+		                                 Genode::size_t   const  prot_size,
+		                                 Link_side_id     const &local_id,
+		                                 Domain                 &local_domain,
+		                                 Domain                 &remote_domain);
 
 		void _broadcast_arp_request(Ipv4_address const &src_ip,
 		                            Ipv4_address const &dst_ip);
@@ -310,10 +322,10 @@ class Net::Interface : private Interface_list::Element
 		                 Size_guard               &size_guard,
 		                 Packet_descriptor  const &pkt);
 
-		void _handle_eth(Ethernet_frame           &eth,
-		                 Size_guard               &size_guard,
-		                 Packet_descriptor  const &pkt,
-		                 Domain                   &local_domain);
+		Packet_result _handle_eth(Ethernet_frame           &eth,
+		                          Size_guard               &size_guard,
+		                          Packet_descriptor  const &pkt,
+		                          Domain                   &local_domain);
 
 		void _ack_packet(Packet_descriptor const &pkt);
 

@@ -489,7 +489,7 @@ void Interface::_detach_from_domain()
 }
 
 
-void
+Interface::Packet_result
 Interface::_new_link(L3_protocol             const  protocol,
                      Link_side_id            const &local,
                      Pointer<Port_allocator_guard>  remote_port_alloc,
@@ -503,8 +503,8 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Tcp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
-		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::TCP); }
-		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::TCP); }
+		catch (Out_of_ram)  { return Packet_error::resource_exhaustion(L3_protocol::TCP); }
+		catch (Out_of_caps) { return Packet_error::resource_exhaustion(L3_protocol::TCP); }
 
 		break;
 	case L3_protocol::UDP:
@@ -528,6 +528,7 @@ Interface::_new_link(L3_protocol             const  protocol,
 
 		break;
 	default: throw Bad_transport_protocol(); }
+	return Packet_ok();
 }
 
 
@@ -593,17 +594,19 @@ void Interface::_adapt_eth(Ethernet_frame          &eth,
 }
 
 
-void Interface::_nat_link_and_pass(Ethernet_frame         &eth,
-                                   Size_guard             &size_guard,
-                                   Ipv4_packet            &ip,
-                                   Internet_checksum_diff &ip_icd,
-                                   L3_protocol      const  prot,
-                                   void            *const  prot_base,
-                                   size_t           const  prot_size,
-                                   Link_side_id     const &local_id,
-                                   Domain                 &local_domain,
-                                   Domain                 &remote_domain)
+Interface::Packet_result
+Interface::_nat_link_and_pass(Ethernet_frame         &eth,
+                              Size_guard             &size_guard,
+                              Ipv4_packet            &ip,
+                              Internet_checksum_diff &ip_icd,
+                              L3_protocol      const  prot,
+                              void            *const  prot_base,
+                              size_t           const  prot_size,
+                              Link_side_id     const &local_id,
+                              Domain                 &local_domain,
+                              Domain                 &remote_domain)
 {
+	Packet_result res = Packet_ok();
 	try {
 		Pointer<Port_allocator_guard> remote_port_alloc;
 		remote_domain.nat_rules().find_by_domain(
@@ -621,7 +624,9 @@ void Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 		);
 		Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 		                                 ip.src(), _src_port(prot, prot_base) };
-		_new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
+		res = _new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
+		if (res.failed())
+			return res;
 		_pass_prot_to_domain(
 			remote_domain, eth, size_guard, ip, ip_icd, prot, prot_base,
 			prot_size);
@@ -633,6 +638,7 @@ void Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 		case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
 		default: throw Bad_transport_protocol(); }
 	}
+	return res;
 }
 
 
@@ -1003,16 +1009,18 @@ void Interface::_send_icmp_echo_reply(Ethernet_frame &eth,
 }
 
 
-void Interface::_handle_icmp_query(Ethernet_frame          &eth,
-                                   Size_guard              &size_guard,
-                                   Ipv4_packet             &ip,
-                                   Internet_checksum_diff  &ip_icd,
-                                   Packet_descriptor const &pkt,
-                                   L3_protocol              prot,
-                                   void                    *prot_base,
-                                   size_t                   prot_size,
-                                   Domain                  &local_domain)
+Interface::Packet_result
+Interface::_handle_icmp_query(Ethernet_frame          &eth,
+                              Size_guard              &size_guard,
+                              Ipv4_packet             &ip,
+                              Internet_checksum_diff  &ip_icd,
+                              Packet_descriptor const &pkt,
+                              L3_protocol              prot,
+                              void                    *prot_base,
+                              size_t                   prot_size,
+                              Domain                  &local_domain)
 {
+	Packet_result res = Packet_ok();
 	Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
 	                                ip.dst(), _dst_port(prot, prot_base) };
 
@@ -1045,7 +1053,7 @@ void Interface::_handle_icmp_query(Ethernet_frame          &eth,
 		[&] /* handle_no_match */ () { }
 	);
 	if (done) {
-		return;
+		return res;
 	}
 
 	/* try to route via ICMP rules */
@@ -1058,16 +1066,15 @@ void Interface::_handle_icmp_query(Ethernet_frame          &eth,
 
 			Domain &remote_domain = rule.domain();
 			_adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
-			_nat_link_and_pass(eth, size_guard, ip, ip_icd, prot, prot_base,
-			                   prot_size, local_id, local_domain,
-			                   remote_domain);
+			res = _nat_link_and_pass(
+				eth, size_guard, ip, ip_icd, prot, prot_base, prot_size, local_id, local_domain, remote_domain);
 
 			done = true;
 		},
 		[&] /* handle_no_match */ () { }
 	);
 	if (done) {
-		return;
+		return res;
 	}
 
 	throw Bad_transport_protocol();
@@ -1146,7 +1153,8 @@ void Interface::_handle_icmp_error(Ethernet_frame          &eth,
 }
 
 
-void Interface::_handle_icmp(Ethernet_frame            &eth,
+Interface::Packet_result
+Interface::_handle_icmp(Ethernet_frame            &eth,
                              Size_guard                &size_guard,
                              Ipv4_packet               &ip,
                              Internet_checksum_diff    &ip_icd,
@@ -1158,6 +1166,7 @@ void Interface::_handle_icmp(Ethernet_frame            &eth,
                              Ipv4_address_prefix const &local_intf)
 {
 	/* drop packet if ICMP checksum is invalid */
+	Packet_result res = Packet_ok();
 	Icmp_packet &icmp = *reinterpret_cast<Icmp_packet *>(prot_base);
 	if (icmp.checksum_error(size_guard.unconsumed())) {
 		throw Drop_packet("bad ICMP checksum"); }
@@ -1171,22 +1180,25 @@ void Interface::_handle_icmp(Ethernet_frame            &eth,
 			log("[", local_domain, "] act as ICMP Echo server"); }
 
 		_send_icmp_echo_reply(eth, ip, icmp, prot_size, size_guard);
-		return;
+		return res;
 	}
 	/* try to act as ICMP router */
 	switch (icmp.type()) {
 	case Icmp_packet::Type::ECHO_REPLY:
-	case Icmp_packet::Type::ECHO_REQUEST:    _handle_icmp_query(eth, size_guard, ip, ip_icd, pkt, prot, prot_base, prot_size, local_domain); break;
+	case Icmp_packet::Type::ECHO_REQUEST: res = _handle_icmp_query(eth, size_guard, ip, ip_icd, pkt, prot, prot_base, prot_size, local_domain); break;
 	case Icmp_packet::Type::DST_UNREACHABLE: _handle_icmp_error(eth, size_guard, ip, ip_icd, pkt, local_domain, icmp, prot_size); break;
 	default: Drop_packet("unhandled type in ICMP"); }
+	return res;
 }
 
 
-void Interface::_handle_ip(Ethernet_frame          &eth,
-                           Size_guard              &size_guard,
-                           Packet_descriptor const &pkt,
-                           Domain                  &local_domain)
+Interface::Packet_result
+Interface::_handle_ip(Ethernet_frame          &eth,
+                      Size_guard              &size_guard,
+                      Packet_descriptor const &pkt,
+                      Domain                  &local_domain)
 {
+	Packet_result res = Packet_ok();
 	Ipv4_packet            &ip     { eth.data<Ipv4_packet>(size_guard) };
 	Internet_checksum_diff  ip_icd { };
 
@@ -1211,7 +1223,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 		 * the router. Thus, forward it to all other interfaces of the domain.
 		 */
 		_domain_broadcast(eth, size_guard, local_domain);
-		return;
+		return res;
 	}
 
 	/* try to route via transport layer rules */
@@ -1239,7 +1251,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 					catch (Pointer<Dhcp_server>::Invalid) {
 						throw Drop_packet("DHCP request while DHCP server inactive");
 					}
-					return;
+					return res;
 
 				case Dhcp_packet::REPLY:
 
@@ -1255,7 +1267,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 						throw Drop_packet("DHCP reply while DHCP client inactive"); }
 
 					_dhcp_client->handle_dhcp_reply(dhcp);
-					return;
+					return res;
 
 				default:
 
@@ -1264,9 +1276,8 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 			}
 		}
 		else if (prot == L3_protocol::ICMP) {
-			_handle_icmp(eth, size_guard, ip, ip_icd, pkt, prot, prot_base,
-			             prot_size, local_domain, local_intf);
-			return;
+			return _handle_icmp(eth, size_guard, ip, ip_icd, pkt, prot, prot_base,
+			                    prot_size, local_domain, local_intf);
 		}
 
 		Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
@@ -1302,7 +1313,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 			[&] /* handle_no_match */ () { }
 		);
 		if (done) {
-			return;
+			return res;
 		}
 
 		/* try to route via forward rules */
@@ -1322,7 +1333,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 					if (!(rule.to_port() == Port(0))) {
 						_dst_port(prot, prot_base, rule.to_port());
 					}
-					_nat_link_and_pass(
+					res = _nat_link_and_pass(
 						eth, size_guard, ip, ip_icd, prot, prot_base,
 						prot_size, local_id, local_domain, remote_domain);
 
@@ -1331,7 +1342,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 				[&] /* handle_no_match */ () { }
 			);
 			if (done) {
-				return;
+				return res;
 			}
 		}
 		/* try to route via transport and permit rules */
@@ -1348,7 +1359,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 				}
 				Domain &remote_domain = permit_rule.domain();
 				_adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
-				_nat_link_and_pass(
+				res = _nat_link_and_pass(
 					eth, size_guard, ip, ip_icd, prot, prot_base, prot_size,
 					local_id, local_domain, remote_domain);
 
@@ -1357,7 +1368,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 			[&] /* handle_no_match */ () { }
 		);
 		if (done) {
-			return;
+			return res;
 		}
 	}
 	catch (Interface::Bad_transport_protocol) { }
@@ -1380,7 +1391,7 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 		[&] /* handle_no_match */ () { }
 	);
 	if (done) {
-		return;
+		return res;
 	}
 
 	/*
@@ -1400,6 +1411,8 @@ void Interface::_handle_ip(Ethernet_frame          &eth,
 	}
 	if (_config().verbose()) {
 		log("[", local_domain, "] unroutable packet"); }
+
+	return res;
 }
 
 
@@ -1680,16 +1693,17 @@ void Interface::_destroy_released_dhcp_allocations(Domain &local_domain)
 }
 
 
-void Interface::_handle_eth(Ethernet_frame           &eth,
-                            Size_guard               &size_guard,
-                            Packet_descriptor  const &pkt,
-                            Domain                   &local_domain)
+Interface::Packet_result Interface::_handle_eth(Ethernet_frame           &eth,
+                                                Size_guard               &size_guard,
+                                                Packet_descriptor  const &pkt,
+                                                Domain                   &local_domain)
 {
+	Packet_result res = Packet_ok();
 	if (local_domain.ip_config().valid()) {
 
 		switch (eth.type()) {
 		case Ethernet_frame::Type::ARP:  _handle_arp(eth, size_guard, local_domain);     break;
-		case Ethernet_frame::Type::IPV4: _handle_ip(eth, size_guard, pkt, local_domain); break;
+		case Ethernet_frame::Type::IPV4: res = _handle_ip(eth, size_guard, pkt, local_domain); break;
 		default: throw Bad_network_protocol(); }
 
 	} else {
@@ -1737,6 +1751,7 @@ void Interface::_handle_eth(Ethernet_frame           &eth,
 			throw Bad_network_protocol();
 		}
 	}
+	return res;
 }
 
 
@@ -1767,18 +1782,23 @@ void Interface::_handle_eth(void              *const  eth_base,
 					                               size_guard.total_size());
 
 				/* try to handle ethernet frame */
-				try { _handle_eth(eth, size_guard, pkt, local_domain); }
-				catch (Resource_exhaustion exception) {
-					if (exception.prot != (L3_protocol)0) {
-						switch (exception.prot) {
-						case L3_protocol::TCP:  _tcp_stats.refused_for_ram++;  break;
-						case L3_protocol::UDP:  _udp_stats.refused_for_ram++;  break;
-						case L3_protocol::ICMP: _icmp_stats.refused_for_ram++; break;
-						default: throw Bad_transport_protocol(); }
-					}
-					/* give up if the resources still not suffice */
-					throw Drop_packet("insufficient resources");
-				}
+				_handle_eth(eth, size_guard, pkt, local_domain).with_result(
+					[&] (Packet_ok) { },
+					[&] (Packet_error error)
+					{
+						switch (error.type) {
+						case Packet_error::RESOURCE_EXHAUSTION:
+							if (error.prot != (L3_protocol)0) {
+								switch (error.prot) {
+								case L3_protocol::TCP: _tcp_stats.refused_for_ram++; break;
+								case L3_protocol::UDP: _udp_stats.refused_for_ram++; break;
+								case L3_protocol::ICMP: _icmp_stats.refused_for_ram++; break;
+								default: throw Bad_transport_protocol(); }
+							}
+							/* give up if the resources still not suffice */
+							throw Drop_packet("insufficient resources");
+						}
+					});
 			}
 			catch (Dhcp_server::Alloc_ip_failed) {
 				if (_config().verbose()) {
