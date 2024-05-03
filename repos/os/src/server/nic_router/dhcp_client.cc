@@ -20,7 +20,6 @@
 using namespace Genode;
 using namespace Net;
 using Message_type = Dhcp_packet::Message_type;
-using Drop_packet  = Net::Interface::Drop_packet;
 using Dhcp_options = Dhcp_packet::Options_aggregator<Size_guard>;
 
 
@@ -118,7 +117,7 @@ void Dhcp_client::_handle_timeout(Duration)
 }
 
 
-void Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
+Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 {
 	try {
 		Message_type const msg_type =
@@ -150,7 +149,7 @@ void Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 		case State::SELECT:
 
 			if (msg_type != Message_type::OFFER) {
-				throw Drop_packet("DHCP client expects an offer");
+				return Packet_error("DHCP client expects an offer");
 			}
 			enum { REQUEST_PKT_SIZE = 321 };
 			_set_state(State::REQUEST, _config().dhcp_request_timeout());
@@ -164,19 +163,20 @@ void Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 		case State::REBIND:
 			{
 				if (msg_type != Message_type::ACK) {
-					throw Drop_packet("DHCP client expects an acknowledgement");
+					return Packet_error("DHCP client expects an acknowledgement");
 				}
 				_lease_time_sec = dhcp.option<Dhcp_packet::Ip_lease_time>().value();
 				_set_state(State::BOUND, _rerequest_timeout(1));
 				_domain().ip_config_from_dhcp_ack(dhcp);
 				break;
 			}
-		default: throw Drop_packet("DHCP client doesn't expect a packet");
+		default: return Packet_error("DHCP client doesn't expect a packet");
 		}
 	}
 	catch (Dhcp_packet::Option_not_found) {
-		throw Drop_packet("DHCP reply misses required option");
+		return Packet_error("DHCP reply misses required option");
 	}
+	return Packet_ok();
 }
 
 
