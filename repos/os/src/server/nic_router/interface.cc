@@ -503,9 +503,14 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Tcp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
-		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::TCP); }
-		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::TCP); }
-
+		catch (Out_of_ram)  {
+			_tcp_stats.refused_for_ram++;
+			throw Drop_packet("out of RAM while creating TCP link");
+		}
+		catch (Out_of_caps) {
+			_tcp_stats.refused_for_ram++;
+			throw Drop_packet("out of CAPs while creating TCP link");
+		}
 		break;
 	case L3_protocol::UDP:
 		try {
@@ -513,9 +518,14 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Udp_link { *this, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _udp_stats };
 		}
-		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::UDP); }
-		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::UDP); }
-
+		catch (Out_of_ram) {
+			_udp_stats.refused_for_ram++;
+			throw Drop_packet("out of RAM while creating UDP link");
+		}
+		catch (Out_of_caps) {
+			_udp_stats.refused_for_ram++;
+			throw Drop_packet("out of CAPs while creating UDP link");
+		}
 		break;
 	case L3_protocol::ICMP:
 		try {
@@ -523,9 +533,14 @@ Interface::_new_link(L3_protocol             const  protocol,
 				Icmp_link { *this, local, remote_port_alloc, remote_domain,
 				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
-		catch (Out_of_ram)  { throw Resource_exhaustion(L3_protocol::ICMP); }
-		catch (Out_of_caps) { throw Resource_exhaustion(L3_protocol::ICMP); }
-
+		catch (Out_of_ram) {
+			_icmp_stats.refused_for_ram++;
+			throw Drop_packet("out of RAM while creating ICMP link");
+		}
+		catch (Out_of_caps) {
+			_icmp_stats.refused_for_ram++;
+			throw Drop_packet("out of CAPs while creating ICMP link");
+		}
 		break;
 	default: throw Bad_transport_protocol(); }
 }
@@ -584,8 +599,8 @@ void Interface::_adapt_eth(Ethernet_frame          &eth,
 						remote_ip_cfg.interface().address, hop_ip);
 				});
 				try { new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt }; }
-				catch (Out_of_ram)  { throw Resource_exhaustion(); }
-				catch (Out_of_caps) { throw Resource_exhaustion(); }
+				catch (Out_of_ram)  { throw Drop_packet("out of RAM while creating ARP waiter"); }
+				catch (Out_of_caps) { throw Drop_packet("out of CAPs while creating ARP waiter"); }
 				throw Packet_postponed();
 			}
 		);
@@ -753,8 +768,8 @@ void Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 dhcp.xid(),
 		                 local_domain.ip_config().interface());
 	}
-	catch (Out_of_ram)  { throw Resource_exhaustion(); }
-	catch (Out_of_caps) { throw Resource_exhaustion(); }
+	catch (Out_of_ram)  { throw Drop_packet("out of RAM while creating DHCP allocation"); }
+	catch (Out_of_caps) { throw Drop_packet("out of CAPs while creating DHCP allocation"); }
 }
 
 
@@ -1766,19 +1781,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 					                               eth_base,
 					                               size_guard.total_size());
 
-				/* try to handle ethernet frame */
-				try { _handle_eth(eth, size_guard, pkt, local_domain); }
-				catch (Resource_exhaustion exception) {
-					if (exception.prot != (L3_protocol)0) {
-						switch (exception.prot) {
-						case L3_protocol::TCP:  _tcp_stats.refused_for_ram++;  break;
-						case L3_protocol::UDP:  _udp_stats.refused_for_ram++;  break;
-						case L3_protocol::ICMP: _icmp_stats.refused_for_ram++; break;
-						default: throw Bad_transport_protocol(); }
-					}
-					/* give up if the resources still not suffice */
-					throw Drop_packet("insufficient resources");
-				}
+				_handle_eth(eth, size_guard, pkt, local_domain);
 			}
 			catch (Dhcp_server::Alloc_ip_failed) {
 				if (_config().verbose()) {
