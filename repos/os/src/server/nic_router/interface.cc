@@ -763,9 +763,10 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
                                              Dhcp_server    &dhcp_srv,
                                              Domain         &local_domain)
 {
-	try {
+	Packet_state result = Packet_ok();
+	auto ok_fn = [&] (Ipv4_address const &ip) {
 		Dhcp_allocation &allocation = *new (_alloc)
-			Dhcp_allocation { *this, dhcp_srv.alloc_ip(), dhcp.client_mac(),
+			Dhcp_allocation { *this, ip, dhcp.client_mac(),
 			                  _timer, _config().dhcp_offer_timeout() };
 
 		_dhcp_allocations.insert(allocation);
@@ -777,10 +778,11 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 Dhcp_packet::Message_type::OFFER,
 		                 dhcp.xid(),
 		                 local_domain.ip_config().interface());
-	}
-	catch (Out_of_ram)  { return Packet_error("out of RAM while creating DHCP allocation"); }
-	catch (Out_of_caps) { return Packet_error("out of CAPs while creating DHCP allocation"); }
-	return Packet_ok();
+	};
+	try { dhcp_srv.alloc_ip().with_result(ok_fn, [&] (auto) { result = Packet_error("failed to allocate IP for DHCP client"); }); }
+	catch (Out_of_ram)  { result = Packet_error("out of RAM while creating DHCP allocation"); }
+	catch (Out_of_caps) { result = Packet_error("out of CAPs while creating DHCP allocation"); }
+	return result;
 }
 
 
@@ -1807,12 +1809,6 @@ void Interface::_handle_eth(void              *const  eth_base,
 						if (local_domain.verbose_packet_drop())
 							log("[", local_domain, "] drop packet (", error.string, ")"); });
 			}
-			catch (Dhcp_server::Alloc_ip_failed) {
-				if (_config().verbose()) {
-					log("[", local_domain, "] failed to allocate IP for DHCP "
-					    "client");
-				}
-			}
 			catch (Port_allocator_guard::Out_of_indices) {
 				if (_config().verbose()) {
 					log("[", local_domain, "] no available NAT ports"); }
@@ -2051,26 +2047,17 @@ void Interface::_update_dhcp_allocations(Domain &old_domain,
 			throw Pointer<Dhcp_server>::Invalid();
 		}
 		_dhcp_allocations.for_each([&] (Dhcp_allocation &allocation) {
-			try {
-				new_dhcp_srv.alloc_ip(allocation.ip());
+			if (!new_dhcp_srv.alloc_ip(allocation.ip())) {
+				if (_config().verbose())
+					log("[", new_domain, "] dismiss DHCP allocation: ", allocation, " (no IP)");
 
-				/* keep DHCP allocation */
-				if (_config().verbose()) {
-					log("[", new_domain, "] update DHCP allocation: ",
-					    allocation);
-				}
+				dhcp_clients_outdated = true;
+				_dhcp_allocations.remove(allocation);
+				_destroy_dhcp_allocation(allocation, old_domain);
 				return;
 			}
-			catch (Dhcp_server::Alloc_ip_failed) {
-				if (_config().verbose()) {
-					log("[", new_domain, "] dismiss DHCP allocation: ",
-					    allocation, " (no IP)");
-				}
-			}
-			/* dismiss DHCP allocation */
-			dhcp_clients_outdated = true;
-			_dhcp_allocations.remove(allocation);
-			_destroy_dhcp_allocation(allocation, old_domain);
+			if (_config().verbose())
+				log("[", new_domain, "] update DHCP allocation: ", allocation);
 		});
 	}
 	catch (Pointer<Dhcp_server>::Invalid) {
