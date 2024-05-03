@@ -89,8 +89,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		enum { DEFAULT_IP_LEASE_TIME_SEC = 3600 };
 
-		struct Alloc_ip_failed : Genode::Exception { };
-		struct Invalid         : Genode::Exception { };
+		struct Invalid : Genode::Exception { };
 
 		Dhcp_server(Genode::Xml_node    const  node,
 		            Domain                    &domain,
@@ -98,9 +97,9 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 		            Ipv4_address_prefix const &interface,
 		            Domain_dict               &domains);
 
-		Ipv4_address alloc_ip();
+		[[nodiscard]] bool alloc_any_free_ip(Ipv4_address &ip);
 
-		void alloc_ip(Ipv4_address const &ip);
+		[[nodiscard]] bool alloc_given_ip(Ipv4_address const &ip);
 
 		void free_ip(Domain       const &domain,
 		             Ipv4_address const &ip);
