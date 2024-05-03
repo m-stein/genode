@@ -584,9 +584,10 @@ Packet_state Interface::_adapt_eth(Ethernet_frame          &eth,
 	if (!remote_ip_cfg.valid()) {
 		result = Packet_error("target domain has yet no IP config");
 	}
-	if (remote_domain.use_arp()) {
+	if (!remote_domain.use_arp())
+		return result;
 
-		Ipv4_address const &hop_ip = remote_domain.next_hop(dst_ip);
+	auto with_next_hop = [&] (Ipv4_address const &hop_ip) {
 		remote_domain.arp_cache().find_by_ip(
 			hop_ip,
 			[&] /* handle_match */ (Arp_cache_entry const &entry)
@@ -606,7 +607,9 @@ Packet_state Interface::_adapt_eth(Ethernet_frame          &eth,
 				throw Packet_postponed();
 			}
 		);
-	}
+	};
+	auto without_next_hop = [&] { result = Packet_error("cannot find next hop"); };
+	remote_domain.with_next_hop(dst_ip, with_next_hop, without_next_hop);
 	return result;
 }
 
@@ -1813,10 +1816,6 @@ void Interface::_handle_eth(void              *const  eth_base,
 			catch (Port_allocator_guard::Out_of_indices) {
 				if (_config().verbose()) {
 					log("[", local_domain, "] no available NAT ports"); }
-			}
-			catch (Domain::No_next_hop) {
-				if (_config().verbose()) {
-					log("[", local_domain, "] cannot find next hop"); }
 			}
 			catch (Alloc_dhcp_msg_buffer_failed) {
 				if (_config().verbose()) {

@@ -175,7 +175,6 @@ class Net::Domain : public List<Domain>::Element,
 
 		struct Invalid          : Genode::Exception { };
 		struct Ip_config_static : Genode::Exception { };
-		struct No_next_hop      : Genode::Exception { };
 
 		Domain(Configuration          &config,
 		       Genode::Xml_node const &node,
@@ -189,7 +188,15 @@ class Net::Domain : public List<Domain>::Element,
 
 		void deinit();
 
-		Ipv4_address const &next_hop(Ipv4_address const &ip) const;
+		void with_next_hop(Ipv4_address const &ip, auto const &ok_fn, auto const &error_fn) const
+		{
+			if (ip_config().interface().prefix_matches(ip))
+				ok_fn(ip);
+			else if (ip_config().gateway_valid())
+				ok_fn(ip_config().gateway());
+			else
+				error_fn();
+		}
 
 		void ip_config_from_dhcp_ack(Dhcp_packet &dhcp_ack);
 
