@@ -22,6 +22,11 @@
 
 namespace Net {
 
+	struct Packet_ok { };
+	struct Packet_error { char const *string; };
+
+	using Packet_state = Genode::Attempt<Packet_ok, Packet_error>;
+
 	class Domain;
 	class Configuration;
 	class Interface;
@@ -66,7 +71,7 @@ class Net::Dhcp_client
 		Dhcp_client(Cached_timer      &timer,
 		            Interface         &interface);
 
-		void handle_dhcp_reply(Dhcp_packet &dhcp);
+		[[nodiscard]] Packet_state handle_dhcp_reply(Dhcp_packet &dhcp);
 
 		void discover();
 };
