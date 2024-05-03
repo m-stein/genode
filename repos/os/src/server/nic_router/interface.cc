@@ -1725,7 +1725,7 @@ Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
 		switch (eth.type()) {
 		case Ethernet_frame::Type::ARP: return _handle_arp(eth, size_guard, local_domain);
 		case Ethernet_frame::Type::IPV4: return _handle_ip(eth, size_guard, pkt, local_domain);
-		default: throw Bad_network_protocol(); }
+		default: return Packet_error("unknown network layer protocol"); }
 
 	} else {
 
@@ -1766,9 +1766,7 @@ Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
 		case Ethernet_frame::Type::ARP: {
 				return Packet_error("Ignore ARP request on unconfigured interface");
 		}
-		default:
-
-			throw Bad_network_protocol();
+		default: return Packet_error("unknown network layer protocol");
 		}
 	}
 	return Packet_ok();
@@ -1826,12 +1824,6 @@ void Interface::_handle_eth(void              *const  eth_base,
 				if (_config().verbose()) {
 					log("[", local_domain, "] failed to allocate buffer for "
 					    "DHCP reply");
-				}
-			}
-			catch (Bad_network_protocol) {
-				if (_config().verbose()) {
-					log("[", local_domain, "] unknown network layer "
-					    "protocol");
 				}
 			}
 		}
