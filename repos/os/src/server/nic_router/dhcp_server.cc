@@ -161,23 +161,22 @@ Ipv4_config const &Dhcp_server::_resolve_dns_config_from() const
 }
 
 
-Ipv4_address Dhcp_server::alloc_ip()
+Dhcp_server::Alloc_ip_result Dhcp_server::alloc_ip()
 {
-	try {
-		return Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() +
-		                                               _ip_first_raw);
-	}
-	catch (Bit_allocator_dynamic::Out_of_indices) {
-		throw Alloc_ip_failed();
-	}
+	try { return Alloc_ip_result(Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() + _ip_first_raw)); }
+	catch (...) { return Alloc_ip_error(); }
 }
 
 
-void Dhcp_server::alloc_ip(Ipv4_address const &ip)
+bool Dhcp_server::alloc_ip(Ipv4_address const &ip)
 {
-	try { _ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw); }
-	catch (Bit_allocator_dynamic::Range_conflict)   { throw Alloc_ip_failed(); }
-	catch (Bit_array_dynamic::Invalid_index_access) { throw Alloc_ip_failed(); }
+	try {
+		_ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw);
+		return true;
+	}
+	catch (Bit_allocator_dynamic::Range_conflict)   { }
+	catch (Bit_array_dynamic::Invalid_index_access) { }
+	return false;
 }
 
 
