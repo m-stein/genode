@@ -1787,38 +1787,30 @@ void Interface::_handle_eth(void              *const  eth_base,
 	try {
 		Domain &local_domain = _domain();
 		local_domain.raise_rx_bytes(size_guard.total_size());
+		Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
 		try {
-			Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
-			try {
-				/* do garbage collection over transport-layer links and DHCP allocations */
-				_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
-				_destroy_dissolved_links<Udp_link>(_dissolved_udp_links,   _alloc);
-				_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links,   _alloc);
-				_destroy_released_dhcp_allocations(local_domain);
+			/* do garbage collection over transport-layer links and DHCP allocations */
+			_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links,   _alloc);
+			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links,   _alloc);
+			_destroy_released_dhcp_allocations(local_domain);
 
-				/* log received packet if desired */
-				if (local_domain.verbose_packets()) {
-					log("[", local_domain, "] rcv ", eth); }
+			/* log received packet if desired */
+			if (local_domain.verbose_packets()) {
+				log("[", local_domain, "] rcv ", eth); }
 
-				if (local_domain.trace_packets())
-					Genode::Trace::Ethernet_packet(local_domain.name().string(),
-					                               Genode::Trace::Ethernet_packet::Direction::RECV,
-					                               eth_base,
-					                               size_guard.total_size());
+			if (local_domain.trace_packets())
+				Genode::Trace::Ethernet_packet(local_domain.name().string(),
+				                               Genode::Trace::Ethernet_packet::Direction::RECV,
+				                               eth_base,
+				                               size_guard.total_size());
 
-				/* try to handle ethernet frame */
-				_handle_eth(eth, size_guard, pkt, local_domain).with_result(
-					[&] (Packet_ok) { },
-					[&] (Packet_error error) {
-						if (local_domain.verbose_packet_drop())
-							log("[", local_domain, "] drop packet (", error.string, ")"); });
-			}
-			catch (Alloc_dhcp_msg_buffer_failed) {
-				if (_config().verbose()) {
-					log("[", local_domain, "] failed to allocate buffer for "
-					    "DHCP reply");
-				}
-			}
+			/* try to handle ethernet frame */
+			_handle_eth(eth, size_guard, pkt, local_domain).with_result(
+				[&] (Packet_ok) { },
+				[&] (Packet_error error) {
+					if (local_domain.verbose_packet_drop())
+						log("[", local_domain, "] drop packet (", error.string, ")"); });
 		}
 		catch (Size_guard::Exceeded) {
 			if (_config().verbose()) {
