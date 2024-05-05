@@ -31,7 +31,7 @@ bool Net::dynamic_port(Port const port)
  ** Port_allocator **
  ********************/
 
-Port Net::Port_allocator::alloc()
+bool Net::Port_allocator::alloc_any_port(Port &port)
 {
 	for (unsigned nr_of_trials { 0 };
 	     nr_of_trials < NR_OF_PORTS;
@@ -41,23 +41,23 @@ Port Net::Port_allocator::alloc()
 		_next_port_offset = (_next_port_offset + 1) % NR_OF_PORTS;
 		try {
 			_bit_allocator.alloc_addr(port_offset);
-			return Port { (uint16_t)(port_offset + FIRST_PORT) };
+			port = Port((uint16_t)(port_offset + FIRST_PORT));
+			return true;
 		}
 		catch (Bit_allocator<NR_OF_PORTS>::Range_conflict) { }
 	}
-	throw Out_of_indices();
+	return false;
 }
 
 
-void Net::Port_allocator::alloc(Port const port)
+bool Net::Port_allocator::alloc_given_port(Port port)
 {
 	try {
 		_bit_allocator.alloc_addr(port.value - FIRST_PORT);
+		return true;
 	}
-	catch (Bit_allocator<NR_OF_PORTS>::Range_conflict) {
-
-		throw Allocation_conflict();
-	}
+	catch (Bit_allocator<NR_OF_PORTS>::Range_conflict) { }
+	return false;
 }
 
 
@@ -71,29 +71,29 @@ void Port_allocator::free(Port const port)
  ** Port_allocator_guard **
  **************************/
 
-Port Port_allocator_guard::alloc()
+bool Port_allocator_guard::alloc_any_port(Port &port)
 {
-	if (_used_nr_of_ports == _max_nr_of_ports) {
-		throw Out_of_indices();
-	}
-	try {
-		Port const port = _port_alloc.alloc();
-		_used_nr_of_ports++;
-		return port;
-	}
-	catch (Port_allocator::Out_of_indices) {
-		throw Out_of_indices();
-	}
+	if (_used_nr_of_ports == _max_nr_of_ports)
+		return false;
+
+	if (!_port_alloc.alloc_any_port(port))
+		return false;
+
+	_used_nr_of_ports++;
+	return true;
 }
 
 
-void Port_allocator_guard::alloc(Port const port)
+bool Port_allocator_guard::alloc_given_port(Port port)
 {
-	if (_used_nr_of_ports == _max_nr_of_ports) {
-		throw Out_of_indices();
-	}
-	_port_alloc.alloc(port);
+	if (_used_nr_of_ports == _max_nr_of_ports)
+		return false;
+
+	if (!_port_alloc.alloc_given_port(port))
+		return false;
+
 	_used_nr_of_ports++;
+	return true;
 }
 
 
