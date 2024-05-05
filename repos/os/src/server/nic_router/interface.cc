@@ -626,37 +626,37 @@ Packet_state Interface::_nat_link_and_pass(Ethernet_frame         &eth,
                                            Domain                 &remote_domain)
 {
 	Packet_state result = Packet_ok();
-	try {
-		Pointer<Port_allocator_guard> remote_port_alloc;
-		remote_domain.nat_rules().find_by_domain(
-			local_domain,
-			[&] /* handle_match */ (Nat_rule &nat)
-			{
-				if(_config().verbose()) {
-					log("[", local_domain, "] using NAT rule: ", nat); }
+	Pointer<Port_allocator_guard> remote_port_alloc;
+	remote_domain.nat_rules().find_by_domain(
+		local_domain,
+		[&] /* handle_match */ (Nat_rule &nat)
+		{
+			if(_config().verbose()) {
+				log("[", local_domain, "] using NAT rule: ", nat); }
 
-				_src_port(prot, prot_base, nat.port_alloc(prot).alloc());
-				ip.src(remote_domain.ip_config().interface().address, ip_icd);
-				remote_port_alloc = nat.port_alloc(prot);
-			},
-			[&] /* no_match */ () { }
-		);
-		Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
-		                                 ip.src(), _src_port(prot, prot_base) };
-		result = _new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
-		if (result.failed())
-			return result;
-		_pass_prot_to_domain(
-			remote_domain, eth, size_guard, ip, ip_icd, prot, prot_base,
-			prot_size);
+			Port src_port(0);
+			if (!nat.port_alloc(prot).alloc_any_port(src_port)) {
+				result = Packet_error("no available NAT ports");
+				switch (prot) {
+				case L3_protocol::TCP: _tcp_stats.refused_for_ports++; break;
+				case L3_protocol::UDP: _udp_stats.refused_for_ports++; break;
+				case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
+				default: throw Bad_transport_protocol(); }
+				return;
+			}
+			_src_port(prot, prot_base, src_port);
+			ip.src(remote_domain.ip_config().interface().address, ip_icd);
+			remote_port_alloc = nat.port_alloc(prot);
+		},
+		[&] /* no_match */ () { }
+	);
+	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
+	                                 ip.src(), _src_port(prot, prot_base) };
+	result = _new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
+	if (result.failed())
+		return result;
 
-	} catch (Port_allocator_guard::Out_of_indices) {
-		switch (prot) {
-		case L3_protocol::TCP:  _tcp_stats.refused_for_ports++;  break;
-		case L3_protocol::UDP:  _udp_stats.refused_for_ports++;  break;
-		case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
-		default: throw Bad_transport_protocol(); }
-	}
+	_pass_prot_to_domain(remote_domain, eth, size_guard, ip, ip_icd, prot, prot_base, prot_size);
 	return result;
 }
 
@@ -1810,10 +1810,6 @@ void Interface::_handle_eth(void              *const  eth_base,
 						if (local_domain.verbose_packet_drop())
 							log("[", local_domain, "] drop packet (", error.string, ")"); });
 			}
-			catch (Port_allocator_guard::Out_of_indices) {
-				if (_config().verbose()) {
-					log("[", local_domain, "] no available NAT ports"); }
-			}
 			catch (Alloc_dhcp_msg_buffer_failed) {
 				if (_config().verbose()) {
 					log("[", local_domain, "] failed to allocate buffer for "
@@ -1943,9 +1939,8 @@ bool Interface::_try_update_link(Link        &link,
 		[&] /* handle_match */ (Nat_rule &nat)
 		{
 			Port_allocator_guard &remote_port_alloc { nat.port_alloc(prot) };
-			try { remote_port_alloc.alloc(link.server().dst_port()); }
-			catch (Port_allocator::Allocation_conflict)  { return; }
-			catch (Port_allocator_guard::Out_of_indices) { return; }
+			if (!remote_port_alloc.alloc_given_port(link.server().dst_port()))
+				return;
 
 			link.handle_config(
 				cln_dom, new_srv_dom, remote_port_alloc, _config());

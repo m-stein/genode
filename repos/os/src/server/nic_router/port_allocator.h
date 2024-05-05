@@ -43,12 +43,9 @@ class Net::Port_allocator
 
 	public:
 
-		struct Allocation_conflict : Genode::Exception { };
-		struct Out_of_indices      : Genode::Exception { };
+		[[nodiscard]] bool alloc_any_port(Port &);
 
-		Port alloc();
-
-		void alloc(Port const port);
+		[[nodiscard]] bool alloc_given_port(Port);
 
 		void free(Port const port);
 };
@@ -64,11 +61,9 @@ class Net::Port_allocator_guard
 
 	public:
 
-		class Out_of_indices : Genode::Exception {};
+		[[nodiscard]] bool alloc_any_port(Port &);
 
-		Port alloc();
-
-		void alloc(Port const port);
+		[[nodiscard]] bool alloc_given_port(Port);
 
 		void free(Port const port);
 
