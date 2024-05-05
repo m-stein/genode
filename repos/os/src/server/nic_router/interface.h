@@ -369,10 +369,9 @@ class Net::Interface : private Interface_list::Element
 
 	public:
 
-		struct Bad_send_dhcp_args           : Genode::Exception { };
-		struct Bad_transport_protocol       : Genode::Exception { };
-		struct Packet_postponed             : Genode::Exception { };
-		struct Alloc_dhcp_msg_buffer_failed : Genode::Exception { };
+		struct Bad_send_dhcp_args : Genode::Exception { };
+		struct Bad_transport_protocol : Genode::Exception { };
+		struct Packet_postponed : Genode::Exception { };
 
 		Interface(Genode::Entrypoint     &ep,
 		          Cached_timer           &timer,
