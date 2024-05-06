@@ -126,9 +126,6 @@ class Net::Interface : private Interface_list::Element
 		enum { IPV4_TIME_TO_LIVE          = 64 };
 		enum { MAX_FREE_OPS_PER_EMERGENCY = 1024 };
 
-		struct Dismiss_link       : Genode::Exception { };
-		struct Dismiss_arp_waiter : Genode::Exception { };
-
 		struct Update_domain
 		{
 			Domain &old_domain;
