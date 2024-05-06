@@ -149,7 +149,7 @@ Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 		case State::SELECT:
 
 			if (msg_type != Message_type::OFFER) {
-				return Packet_error("DHCP client expects an offer");
+				return Packet_error::drop("DHCP client expects an offer");
 			}
 			enum { REQUEST_PKT_SIZE = 321 };
 			_set_state(State::REQUEST, _config().dhcp_request_timeout());
@@ -163,18 +163,18 @@ Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 		case State::REBIND:
 			{
 				if (msg_type != Message_type::ACK) {
-					return Packet_error("DHCP client expects an acknowledgement");
+					return Packet_error::drop("DHCP client expects an acknowledgement");
 				}
 				_lease_time_sec = dhcp.option<Dhcp_packet::Ip_lease_time>().value();
 				_set_state(State::BOUND, _rerequest_timeout(1));
 				_domain().ip_config_from_dhcp_ack(dhcp);
 				break;
 			}
-		default: return Packet_error("DHCP client doesn't expect a packet");
+		default: return Packet_error::drop("DHCP client doesn't expect a packet");
 		}
 	}
 	catch (Dhcp_packet::Option_not_found) {
-		return Packet_error("DHCP reply misses required option");
+		return Packet_error::drop("DHCP reply misses required option");
 	}
 	return Packet_ok();
 }
