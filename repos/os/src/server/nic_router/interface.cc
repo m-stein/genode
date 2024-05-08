@@ -976,24 +976,24 @@ bool Interface::link_state() const
 
 void Interface::handle_interface_link_state()
 {
-	struct Keep_ip_config : Exception { };
 	try {
 		attach_to_domain_finish();
 
 		/* if the whole domain is down, discard IP config */
 		Domain &domain_ = domain();
 		if (!link_state() && domain_.ip_config().valid()) {
+			discard_ip_config = true;
 			domain_.interfaces().for_each([&] (Interface &interface) {
-				if (interface.link_state()) {
-					throw Keep_ip_config(); }
-			});
-			domain_.discard_ip_config();
-			domain_.arp_cache().destroy_all_entries();
+				if (interface.link_state())
+					discard_ip_config = false; });
+			if (discard_ip_config) {
+				domain_.discard_ip_config();
+				domain_.arp_cache().destroy_all_entries();
+			}
 		}
 	}
 	catch (Pointer<Domain>::Invalid) { }
 	catch (Domain::Ip_config_static) { }
-	catch (Keep_ip_config) { }
 
 	/* force report if configured */
 	try { _config().report().handle_interface_link_state(); }
