@@ -58,7 +58,7 @@ Link_side::Link_side(Domain             &domain,
 {
 	if (src_port() == Port(22) || dst_port() == Port(22)) {
 		log("[", domain, "] new ", l3_protocol_name(link.protocol()),
-		    " link time ", timer.curr_time().trunc_to_plain_us(), " ", is_client() ? "client" : "server", ": ", *this);
+		    " link time ", timer.curr_time().trunc_to_plain_us().value/1000/1000, " ", is_client() ? "client" : "server", ": ", *this);
 	}
 }
 
@@ -125,7 +125,7 @@ Link::~Link() { _stats.destroyed++; }
 
 void Link::_handle_dissolve_timeout(Duration x)
 {
-	dissolve(true, {last_timeout, " us timeout, time ", x.trunc_to_plain_us()});
+	dissolve(true, {last_timeout, " us timeout, time ", x.trunc_to_plain_us().value/1000/1000});
 	_client_interface.links(_protocol).remove(this);
 	_client_interface.dissolved_links(_protocol).insert(this);
 }
@@ -147,7 +147,7 @@ void Link::dissolve(bool timeout, Genode::String<64> const &reason)
 
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
-	log("Dissolve (", reason, ") time ", timer.curr_time().trunc_to_plain_us(), l3_protocol_name(_protocol), " link: ", *this);
+	log("Dissolve (", reason, ") time ", timer.curr_time().trunc_to_plain_us().value/1000/1000, " ", l3_protocol_name(_protocol), " link: ", *this);
 
 	try {
 			log("Free ", l3_protocol_name(_protocol),
