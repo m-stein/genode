@@ -270,16 +270,6 @@ Domain::~Domain()
 }
 
 
-Dhcp_server &Domain::dhcp_server()
-{
-	Dhcp_server &dhcp_server = _dhcp_server();
-	if (dhcp_server.has_invalid_remote_dns_cfg()) {
-		throw Pointer<Dhcp_server>::Invalid();
-	}
-	return dhcp_server;
-}
-
-
 void Domain::init(Domain_dict &domains)
 {
 	/* read DHCP server configuration */
@@ -369,14 +359,11 @@ void Domain::deinit()
 	_tcp_rules.destroy_each(_alloc);
 	_udp_forward_rules.destroy_each(_alloc);
 	_tcp_forward_rules.destroy_each(_alloc);
-	try {
-		Dhcp_server &dhcp_server = _dhcp_server();
+	with_dhcp_server([&] (Dhcp_server &dhcp_server) {
 		_dhcp_server = Pointer<Dhcp_server>();
 		dhcp_server.with_dns_config_from([&] (Domain &domain) {
 			domain.ip_config_dependents().remove(this); });
-		destroy(_alloc, &dhcp_server);
-	}
-	catch (Pointer<Dhcp_server>::Invalid) { }
+		destroy(_alloc, &dhcp_server); });
 }
 
 
