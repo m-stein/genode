@@ -51,15 +51,13 @@ Transport_rule::Transport_rule(Domain_dict    &domains,
 	_permit_any_rule(_read_permit_any_rule(domains, node, alloc))
 {
 	/* skip specific permit rules if all ports are permitted anyway */
-	try {
-		Permit_any_rule &permit_any_rule = _permit_any_rule();
+	if (_permit_any_rule.valid()) {
 		if (config.verbose()) {
-			log("[", domain, "] ", protocol, " permit-any rule: ", permit_any_rule);
+			log("[", domain, "] ", protocol, " permit-any rule: ", _permit_any_rule());
 			log("[", domain, "] ", protocol, " rule: dst ", _dst);
 		}
 		return;
-	} catch (Pointer<Permit_any_rule>::Invalid) { }
-
+	}
 	/* read specific permit rules */
 	node.for_each_sub_node("permit", [&] (Xml_node const node) {
 		Permit_single_rule &rule = *new (alloc)
@@ -81,6 +79,6 @@ Transport_rule::Transport_rule(Domain_dict    &domains,
 Transport_rule::~Transport_rule()
 {
 	_permit_single_rules.destroy_each(_alloc);
-	try { destroy(_alloc, &_permit_any_rule()); }
-	catch (Pointer<Permit_any_rule>::Invalid) { }
+	if (_permit_any_rule.valid())
+		destroy(_alloc, &_permit_any_rule());
 }
