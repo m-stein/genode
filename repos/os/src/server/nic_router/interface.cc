@@ -481,15 +481,14 @@ void Interface::_reset_and_refetch_domain_ready_state()
 
 void Interface::_detach_from_domain()
 {
-	try {
-		detach_from_ip_config(domain());
-		_detach_from_domain_raw();
-	}
-	catch (Pointer<Domain>::Invalid) { }
+	with_domain([&] (Domain &domain) {
+		detach_from_ip_config(domain);
+		_detach_from_domain_raw(); });
 }
 
 
 Packet_state Interface::_new_link(L3_protocol             const  protocol,
+                                  Domain                        &local_domain,
                                   Link_side_id            const &local,
                                   Pointer<Port_allocator_guard>  remote_port_alloc,
                                   Domain                        &remote_domain,
@@ -500,7 +499,7 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::TCP:
 		try {
 			new (_alloc)
-				Tcp_link { *this, local, remote_port_alloc, remote_domain,
+				Tcp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
 		catch (Out_of_ram)  {
@@ -515,7 +514,7 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::UDP:
 		try {
 			new (_alloc)
-				Udp_link { *this, local, remote_port_alloc, remote_domain,
+				Udp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
 				           remote, _timer, _config(), protocol, _udp_stats };
 		}
 		catch (Out_of_ram) {
@@ -530,7 +529,7 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::ICMP:
 		try {
 			new (_alloc)
-				Icmp_link { *this, local, remote_port_alloc, remote_domain,
+				Icmp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
 				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
 		catch (Out_of_ram) {
@@ -655,7 +654,7 @@ Packet_state Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
-	result = _new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
+	result = _new_link(prot, local_domain, local_id, remote_port_alloc, remote_domain, remote_id);
 	if (result.failed())
 		return result;
 
@@ -984,19 +983,19 @@ void Interface::handle_interface_link_state()
 		attach_to_domain_finish();
 
 		/* if the whole domain is down, discard IP config */
-		Domain &domain_ = domain();
-		if (!link_state() && domain_.ip_config().valid()) {
-			bool discard_ip_config = true;
-			domain_.interfaces().for_each([&] (Interface &interface) {
-				if (interface.link_state())
-					discard_ip_config = false; });
-			if (discard_ip_config) {
-				domain_.discard_ip_config();
-				domain_.arp_cache().destroy_all_entries();
+		with_domain([&] (Domain &domain) {
+			if (!link_state() && domain.ip_config().valid()) {
+				bool discard_ip_config = true;
+				domain.interfaces().for_each([&] (Interface &interface) {
+					if (interface.link_state())
+						discard_ip_config = false; });
+				if (discard_ip_config) {
+					domain.discard_ip_config();
+					domain.arp_cache().destroy_all_entries();
+				}
 			}
-		}
+		});
 	}
-	catch (Pointer<Domain>::Invalid) { }
 	catch (Domain::Ip_config_static) { }
 
 	/* force report if configured */
@@ -1290,7 +1289,7 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 					if (!_dhcp_client.constructed()) {
 						return Packet_error::drop("DHCP reply while DHCP client inactive"); }
 
-					return _dhcp_client->handle_dhcp_reply(dhcp);
+					return _dhcp_client->handle_dhcp_reply(dhcp, local_domain);
 
 				default: return Packet_error::drop("Bad DHCP opcode");
 				}
@@ -1616,12 +1615,14 @@ Packet_state Interface::_handle_arp(Ethernet_frame &eth,
 
 void Interface::_drop_packet(Packet_descriptor const &pkt, char const *reason)
 {
-	if (_domain.valid() && _domain().verbose_packet_drop())
-		log("[", _domain(), "] drop packet (", reason, ")");
-	else if (_config().verbose())
-		log("[?] drop packet (", reason, ")");
-
 	_ack_packet(pkt);
+	with_domain(
+		[&] /* domain_fn */ (Domain &domain) {
+			if (domain .verbose_packet_drop())
+				log("[", domain, "] drop packet (", reason, ")"); },
+		[&] /* no_domain_fn */ {
+			if (_config().verbose())
+				log("[?] drop packet (", reason, ")"); });
 }
 
 
@@ -1778,7 +1779,7 @@ Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
 				if (!_dhcp_client.constructed()) {
 					return Packet_error::drop("Expecting DHCP client to be active"); }
 
-				return _dhcp_client->handle_dhcp_reply(dhcp);
+				return _dhcp_client->handle_dhcp_reply(dhcp, local_domain);
 
 			default:
 
@@ -1800,34 +1801,39 @@ Packet_state Interface::_handle_eth(void              *const  eth_base,
                                     Size_guard               &size_guard,
                                     Packet_descriptor  const &pkt)
 {
+	Packet_state result = Packet_ok();
 	try {
 		Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
-		if (!_domain.valid()) {
+		auto domain_fn = [&] (Domain &domain) {
+
+			domain.raise_rx_bytes(size_guard.total_size());
+
+			/* do garbage collection over transport-layer links and DHCP allocations */
+			_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
+			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
+			_destroy_released_dhcp_allocations(domain);
+
+			/* log received packet if desired */
+			if (domain.verbose_packets()) {
+				log("[", domain, "] rcv ", eth); }
+
+			if (domain.trace_packets())
+				Genode::Trace::Ethernet_packet(
+					domain.name().string(), Genode::Trace::Ethernet_packet::Direction::RECV,
+						eth_base, size_guard.total_size());
+
+			result = _handle_eth(eth, size_guard, pkt, domain);
+		};
+		auto no_domain_fn = [&] /* no_domain_fn */ {
 			if (_config().verbose_packets())
 				log("[?] rcv ", eth);
-			return Packet_error::drop("no domain");
-		}
-		Domain &local_domain = _domain();
-		local_domain.raise_rx_bytes(size_guard.total_size());
-
-		/* do garbage collection over transport-layer links and DHCP allocations */
-		_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
-		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
-		_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
-		_destroy_released_dhcp_allocations(local_domain);
-
-		/* log received packet if desired */
-		if (local_domain.verbose_packets()) {
-			log("[", local_domain, "] rcv ", eth); }
-
-		if (local_domain.trace_packets())
-			Genode::Trace::Ethernet_packet(
-				local_domain.name().string(), Genode::Trace::Ethernet_packet::Direction::RECV,
-			        eth_base, size_guard.total_size());
-
-		return _handle_eth(eth, size_guard, pkt, local_domain);
+			result = Packet_error::drop("no domain");
+		};
+		with_domain(domain_fn, no_domain_fn);
 	}
-	catch (Size_guard::Exceeded) { return Packet_error::drop("packet size-guard exceeded"); }
+	catch (Size_guard::Exceeded) { result = Packet_error::drop("packet size-guard exceeded"); }
+	return result;
 }
 
 
@@ -2108,9 +2114,9 @@ void Interface::handle_config_1(Configuration &config)
 	_config = config;
 	_policy.handle_config(config);
 	Domain_name const &new_domain_name = _policy.determine_domain_name();
-	try {
+	with_domain([&] (Domain &old_domain) {
+
 		/* destroy state objects that are not needed anymore */
-		Domain &old_domain = domain();
 		_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
 		_destroy_dissolved_links<Udp_link> (_dissolved_udp_links,  _alloc);
 		_destroy_dissolved_links<Tcp_link> (_dissolved_tcp_links,  _alloc);
@@ -2129,8 +2135,7 @@ void Interface::handle_config_1(Configuration &config)
 			},
 			[&] /* no_match_fn */ () { }
 		);
-	}
-	catch (Pointer<Domain>::Invalid) { }
+	});
 }
 
 
@@ -2158,8 +2163,7 @@ void Interface::_failed_to_send_packet_alloc()
 void Interface::handle_config_2()
 {
 	Domain_name const &new_domain_name = _policy.determine_domain_name();
-	try {
-		Domain &old_domain = domain();
+	auto domain_fn = [&] (Domain &old_domain) {
 		_config().domains().with_element(
 			new_domain_name,
 			[&] /* match_fn */ (Domain &new_domain)
@@ -2207,9 +2211,8 @@ void Interface::handle_config_2()
 				}
 			}
 		);
-	}
-	catch (Pointer<Domain>::Invalid) {
-
+	};
+	auto no_domain_fn = [&] {
 		/* the interface had no domain but now it may get one */
 		_config().domains().with_element(
 			new_domain_name,
@@ -2224,7 +2227,8 @@ void Interface::handle_config_2()
 			},
 			[&] /* no_match_fn */ () { }
 		);
-	}
+	};
+	with_domain(domain_fn, no_domain_fn);
 }
 
 
@@ -2262,8 +2266,7 @@ void Interface::handle_config_3()
 	catch (Constructible<Update_domain>::Deref_unconstructed_object) {
 
 		/* if the interface moved to another domain, finish the operation */
-		try { attach_to_domain_finish(); }
-		catch (Pointer<Domain>::Invalid) { }
+		with_domain([&] (Domain &) { attach_to_domain_finish(); });
 	}
 }
 
@@ -2282,16 +2285,7 @@ void Interface::_ack_packet(Packet_descriptor const &pkt)
 
 void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 {
-	try {
-		Domain &domain = _domain();
-		if (domain.verbose_packet_drop()) {
-			log("[", domain, "] drop packet (ARP got cancelled)"); }
-	}
-	catch (Pointer<Domain>::Invalid) {
-		if (_config().verbose_packet_drop()) {
-			log("[?] drop packet (ARP got cancelled)"); }
-	}
-	_ack_packet(waiter.packet());
+	_drop_packet(waiter.packet(), "ARP got cancelled");
 	destroy(_alloc, &waiter);
 }
 

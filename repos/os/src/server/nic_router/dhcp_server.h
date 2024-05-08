@@ -139,6 +139,12 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		bool config_equal_to_that_of(Dhcp_server const &dhcp_server) const;
 
+		void with_dns_config_from(auto const &fn) const
+		{
+			if (_dns_config_from.valid())
+				fn(_dns_config_from());
+		}
+
 
 		/*********
 		 ** log **
@@ -151,7 +157,6 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 		 ** Accessors **
 		 ***************/
 
-		Domain               &dns_config_from()     { return _dns_config_from(); }
 		Genode::Microseconds  ip_lease_time() const { return _ip_lease_time; }
 };
 

@@ -206,6 +206,7 @@ class Net::Link : public Link_list::Element
 		struct No_port_allocator : Genode::Exception { };
 
 		Link(Interface                           &cln_interface,
+		     Domain                              &cln_domain,
 		     Link_side_id                  const &cln_id,
 		     Pointer<Port_allocator_guard>        srv_port_alloc,
 		     Domain                              &srv_domain,
@@ -273,6 +274,7 @@ class Net::Tcp_link : public Link
 	public:
 
 		Tcp_link(Interface                     &cln_interface,
+		         Domain                        &cln_domain,
 		         Link_side_id            const &cln_id,
 		         Pointer<Port_allocator_guard>  srv_port_alloc,
 		         Domain                        &srv_domain,
@@ -291,6 +293,7 @@ class Net::Tcp_link : public Link
 struct Net::Udp_link : Link
 {
 	Udp_link(Interface                     &cln_interface,
+	         Domain                        &cln_domain,
 	         Link_side_id            const &cln_id,
 	         Pointer<Port_allocator_guard>  srv_port_alloc,
 	         Domain                        &srv_domain,
@@ -309,6 +312,7 @@ struct Net::Udp_link : Link
 struct Net::Icmp_link : Link
 {
 	Icmp_link(Interface                     &cln_interface,
+	          Domain                        &cln_domain,
 	          Link_side_id            const &cln_id,
 	          Pointer<Port_allocator_guard>  srv_port_alloc,
 	          Domain                        &srv_domain,

@@ -45,12 +45,6 @@ void append_param_req_list(Dhcp_options &dhcp_opts)
  ** Dhcp_client **
  *****************/
 
-Configuration &Dhcp_client::_config() { return _domain().config(); };
-
-
-Domain &Dhcp_client::_domain() { return _interface.domain(); }
-
-
 Dhcp_client::Dhcp_client(Cached_timer      &timer,
                          Interface         &interface)
 :
@@ -62,17 +56,17 @@ Dhcp_client::Dhcp_client(Cached_timer      &timer,
 void Dhcp_client::discover()
 {
 	enum { DISCOVER_PKT_SIZE = 309 };
-	_set_state(State::SELECT, _config().dhcp_discover_timeout());
+	_set_state(State::SELECT, _interface.config().dhcp_discover_timeout());
 	_send(Message_type::DISCOVER, Ipv4_address(), Ipv4_address(),
 	      Ipv4_address(), DISCOVER_PKT_SIZE);
 }
 
 
-void Dhcp_client::_rerequest(State next_state)
+void Dhcp_client::_rerequest(State next_state, Domain &domain)
 {
 	enum { REREQUEST_PKT_SIZE = 309 };
-	_set_state(next_state, _rerequest_timeout(2));
-	Ipv4_address const client_ip = _domain().ip_config().interface().address;
+	_set_state(next_state, _rerequest_timeout(2, domain));
+	Ipv4_address client_ip = domain.ip_config().interface().address;
 	_send(Message_type::REQUEST, client_ip, Ipv4_address(), client_ip,
 	      REREQUEST_PKT_SIZE);
 }
@@ -85,7 +79,7 @@ void Dhcp_client::_set_state(State state, Microseconds timeout)
 }
 
 
-Microseconds Dhcp_client::_rerequest_timeout(unsigned lease_time_div_log2)
+Microseconds Dhcp_client::_rerequest_timeout(unsigned lease_time_div_log2, Domain &domain)
 {
 	/* FIXME limit the time because of shortcomings in timeout framework */
 	enum { MAX_TIMEOUT_SEC = 3600 };
@@ -93,14 +87,8 @@ Microseconds Dhcp_client::_rerequest_timeout(unsigned lease_time_div_log2)
 
 	if (timeout_sec > MAX_TIMEOUT_SEC) {
 		timeout_sec = MAX_TIMEOUT_SEC;
-		if (_interface.config().verbose()) {
-			try {
-				log("[", _interface.domain(), "] prune re-request timeout of "
-				    "DHCP client");
-			}
-			catch (Pointer<Domain>::Invalid) {
-				log("[?] prune re-request timeout of DHCP client"); }
-		}
+		if (_interface.config().verbose())
+			log("[", domain, "] prune re-request timeout of DHCP client");
 	}
 	return Microseconds(timeout_sec * 1000 * 1000);
 }
@@ -108,16 +96,27 @@ Microseconds Dhcp_client::_rerequest_timeout(unsigned lease_time_div_log2)
 
 void Dhcp_client::_handle_timeout(Duration)
 {
-	switch (_state) {
-	case State::BOUND:  _rerequest(State::RENEW);      break;
-	case State::RENEW:  _rerequest(State::REBIND);     break;
-	case State::REBIND: _domain().discard_ip_config(); [[fallthrough]];
-	default:            discover();
-	}
+	_interface.with_domain(
+		[&] /* domain_fn */ (Domain &domain) {
+			switch (_state) {
+			case State::BOUND: _rerequest(State::RENEW, domain); break;
+			case State::RENEW: _rerequest(State::REBIND, domain); break;
+			case State::REBIND:
+
+				domain.discard_ip_config();
+				discover();
+				break;
+
+			default: discover(); break;
+			}
+		},
+		[&] /* no_domain_fn */ {
+			if (_interface.config().verbose())
+				log("[?] no domain on DHCP timeout"); });
 }
 
 
-Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
+Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 {
 	try {
 		Message_type const msg_type =
@@ -136,7 +135,7 @@ Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 				try { router_ip = dhcp.option<Dhcp_packet::Router_ipv4>().value(); }
 				catch (Net::Dhcp_packet::Option_not_found) { }
 
-				log("[", _interface.domain(), "] dhcp offer from ",
+				log("[", domain, "] dhcp offer from ",
 				    dhcp.siaddr(),
 				    ", offering ", dhcp.yiaddr(),
 				    ", subnet-mask ", subnet_mask,
@@ -144,15 +143,14 @@ Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 			        ", DNS server ", dns_server);
 			}
 		}
-
 		switch (_state) {
 		case State::SELECT:
 
-			if (msg_type != Message_type::OFFER) {
+			if (msg_type != Message_type::OFFER)
 				return Packet_error::drop("DHCP client expects an offer");
-			}
+
 			enum { REQUEST_PKT_SIZE = 321 };
-			_set_state(State::REQUEST, _config().dhcp_request_timeout());
+			_set_state(State::REQUEST, _interface.config().dhcp_request_timeout());
 			_send(Message_type::REQUEST, Ipv4_address(),
 			      dhcp.option<Dhcp_packet::Server_ipv4>().value(),
 			      dhcp.yiaddr(), REQUEST_PKT_SIZE);
@@ -166,8 +164,8 @@ Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp)
 					return Packet_error::drop("DHCP client expects an acknowledgement");
 				}
 				_lease_time_sec = dhcp.option<Dhcp_packet::Ip_lease_time>().value();
-				_set_state(State::BOUND, _rerequest_timeout(1));
-				_domain().ip_config_from_dhcp_ack(dhcp);
+				_set_state(State::BOUND, _rerequest_timeout(1, domain));
+				domain.ip_config_from_dhcp_ack(dhcp);
 				break;
 			}
 		default: return Packet_error::drop("DHCP client doesn't expect a packet");
