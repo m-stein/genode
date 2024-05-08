@@ -84,14 +84,11 @@ Net::Nic_client::Nic_client(Session_label const &label_arg,
 Net::Nic_client::~Nic_client()
 {
 	/* if the interface was yet not reused by another NIC client, destroy it */
-	try {
-		Nic_client_interface &interface = _interface();
+	if (_interface.valid()) {
 		if (_config.verbose()) {
 			log("[", domain(), "] destroy NIC client: ", label()); }
-
-		destroy(_alloc, &interface);
+		destroy(_alloc, &_interface());
 	}
-	catch (Pointer<Nic_client_interface>::Invalid) { }
 }
 
 
