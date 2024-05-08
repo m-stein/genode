@@ -224,6 +224,16 @@ class Net::Domain : public List<Domain>::Element,
 
 		void update_ready_state();
 
+		void with_dhcp_server(auto const &dhcp_server_fn, auto const &no_dhcp_server_fn)
+		{
+			if (_dhcp_server.valid()) {
+				if (!_dhcp_server().has_invalid_remote_dns_cfg())
+					dhcp_server_fn(_dhcp_server());
+			} else
+				no_dhcp_server_fn();
+		}
+
+		void with_dhcp_server(auto const &fn) { with_dhcp_server(fn, []{}); }
 
 		/*********
 		 ** log **
@@ -254,7 +264,6 @@ class Net::Domain : public List<Domain>::Element,
 		Nat_rule_tree               &nat_rules()                 { return _nat_rules; }
 		Interface_list              &interfaces()                { return _interfaces; }
 		Configuration               &config()              const { return _config; }
-		Dhcp_server                 &dhcp_server();
 		Arp_cache                   &arp_cache()                 { return _arp_cache; }
 		Arp_waiter_list             &foreign_arp_waiters()       { return _foreign_arp_waiters; }
 		Link_side_tree              &tcp_links()                 { return _tcp_links; }

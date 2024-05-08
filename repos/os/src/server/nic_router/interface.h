@@ -169,6 +169,7 @@ class Net::Interface : private Interface_list::Element
 		unsigned long                         _dropped_fragm_ipv4        { 0 };
 
 		[[nodiscard]] Packet_state _new_link(L3_protocol             const  protocol,
+		                                     Domain                        &local_domain,
 		                                     Link_side_id            const &local_id,
 		                                     Pointer<Port_allocator_guard>  remote_port_alloc,
 		                                     Domain                        &remote_domain,
@@ -225,6 +226,7 @@ class Net::Interface : private Interface_list::Element
 		                     Arp_packet     &request_arp);
 
 		[[nodiscard]] Packet_state _handle_dhcp_request(Ethernet_frame            &eth,
+		                                                Dhcp_server               &dhcp_srv,
 		                                                Dhcp_packet               &dhcp,
 		                                                Domain                    &local_domain,
 		                                                Ipv4_address_prefix const &local_intf);
@@ -447,13 +449,22 @@ class Net::Interface : private Interface_list::Element
 
 		void destroy_link(Link &link);
 
+		void with_domain(auto const &domain_fn, auto const &no_domain_fn)
+		{
+			if (_domain.valid())
+				domain_fn(_domain());
+			else
+				no_domain_fn();
+		}
+
+		void with_domain(auto const &fn) { with_domain(fn, []{}); }
+
 
 		/***************
 		 ** Accessors **
 		 ***************/
 
 		Configuration       const &config()                    const { return _config(); }
-		Domain                    &domain()                          { return _domain(); }
 		Mac_address         const &router_mac()                const { return _router_mac; }
 		Mac_address         const &mac()                       const { return _mac; }
 		Arp_waiter_list           &own_arp_waiters()                 { return _own_arp_waiters; }

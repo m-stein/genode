@@ -77,6 +77,8 @@ class Net::Configuration
 
 		~Configuration();
 
+		void with_report(auto const &fn) { if (_report.valid()) fn(_report()); }
+
 
 		/***************
 		 ** Accessors **
@@ -98,7 +100,6 @@ class Net::Configuration
 		Genode::Microseconds  tcp_idle_timeout()               const { return _tcp_idle_timeout; }
 		Genode::Microseconds  tcp_max_segm_lifetime()          const { return _tcp_max_segm_lifetime; }
 		Domain_dict          &domains()                              { return _domains; }
-		Report               &report()                               { return _report(); }
 		Genode::Xml_node      node()                           const { return _node; }
 };
 
