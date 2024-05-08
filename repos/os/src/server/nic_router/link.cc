@@ -86,6 +86,7 @@ void Link::print(Output &output) const
 
 
 Link::Link(Interface                     &cln_interface,
+           Domain                        &cln_domain,
            Link_side_id            const &cln_id,
            Pointer<Port_allocator_guard>  srv_port_alloc,
            Domain                        &srv_domain,
@@ -103,7 +104,7 @@ Link::Link(Interface                     &cln_interface,
 	                  Microseconds { 100 * 1000 }),
 	_dissolve_timeout_us(dissolve_timeout),
 	_protocol(protocol),
-	_client(cln_interface.domain(), cln_id, *this),
+	_client(cln_domain, cln_id, *this),
 	_server(srv_domain, srv_id, *this),
 	_stats(stats),
 	_stats_curr(stats.opening)
@@ -197,6 +198,7 @@ void Link::handle_config(Domain                        &cln_domain,
  **************/
 
 Tcp_link::Tcp_link(Interface                     &cln_interface,
+                   Domain                        &cln_domain,
                    Link_side_id            const &cln_id,
                    Pointer<Port_allocator_guard>  srv_port_alloc,
                    Domain                        &srv_domain,
@@ -206,7 +208,7 @@ Tcp_link::Tcp_link(Interface                     &cln_interface,
                    L3_protocol             const  protocol,
                    Interface_link_stats          &stats)
 :
-	Link(cln_interface, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
+	Link(cln_interface, cln_domain, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
 	     config, protocol, config.tcp_idle_timeout(), stats)
 { }
 
@@ -278,6 +280,7 @@ void Tcp_link::server_packet(Tcp_packet &tcp)
  **************/
 
 Udp_link::Udp_link(Interface                     &cln_interface,
+                   Domain                        &cln_domain,
                    Link_side_id            const &cln_id,
                    Pointer<Port_allocator_guard>  srv_port_alloc,
                    Domain                        &srv_domain,
@@ -287,7 +290,7 @@ Udp_link::Udp_link(Interface                     &cln_interface,
                    L3_protocol             const  protocol,
                    Interface_link_stats          &stats)
 :
-	Link(cln_interface, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
+	Link(cln_interface, cln_domain, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
 	     config, protocol, config.udp_idle_timeout(), stats)
 { }
 
@@ -309,6 +312,7 @@ void Udp_link::server_packet()
  ***************/
 
 Icmp_link::Icmp_link(Interface                     &cln_interface,
+                     Domain                        &cln_domain,
                      Link_side_id            const &cln_id,
                      Pointer<Port_allocator_guard>  srv_port_alloc,
                      Domain                        &srv_domain,
@@ -318,7 +322,7 @@ Icmp_link::Icmp_link(Interface                     &cln_interface,
                      L3_protocol             const  protocol,
                      Interface_link_stats          &stats)
 :
-	Link(cln_interface, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
+	Link(cln_interface, cln_domain, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
 	     config, protocol, config.icmp_idle_timeout(), stats)
 { }
 

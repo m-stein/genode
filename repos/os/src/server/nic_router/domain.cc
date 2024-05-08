@@ -293,11 +293,8 @@ void Domain::init(Domain_dict &domains)
 				Dhcp_server(dhcp_server_node, *this, _alloc,
 				            ip_config().interface(), domains);
 
-			try {
-				dhcp_server.
-					dns_config_from().ip_config_dependents().insert(this);
-			}
-			catch (Pointer<Domain>::Invalid) { }
+			dhcp_server.with_dns_config_from([&] (Domain &domain) {
+				domain.ip_config_dependents().insert(this); });
 
 			_dhcp_server = dhcp_server;
 			if (_config.verbose()) {
@@ -375,8 +372,8 @@ void Domain::deinit()
 	try {
 		Dhcp_server &dhcp_server = _dhcp_server();
 		_dhcp_server = Pointer<Dhcp_server>();
-		try { dhcp_server.dns_config_from().ip_config_dependents().remove(this); }
-		catch (Pointer<Domain>::Invalid) { }
+		dhcp_server.with_dns_config_from([&] (Domain &domain) {
+			domain.ip_config_dependents().remove(this); });
 		destroy(_alloc, &dhcp_server);
 	}
 	catch (Pointer<Dhcp_server>::Invalid) { }
