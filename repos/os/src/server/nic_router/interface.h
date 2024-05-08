@@ -226,6 +226,7 @@ class Net::Interface : private Interface_list::Element
 		                     Arp_packet     &request_arp);
 
 		[[nodiscard]] Packet_state _handle_dhcp_request(Ethernet_frame            &eth,
+		                                                Dhcp_server               &dhcp_srv,
 		                                                Dhcp_packet               &dhcp,
 		                                                Domain                    &local_domain,
 		                                                Ipv4_address_prefix const &local_intf);
