@@ -137,8 +137,8 @@ void Dhcp_server::print(Output &output) const
 	_dns_domain_name.with_string([&] (Dns_domain_name::String const &str) {
 		Genode::print(output, "DNS domain name ", str, ", ");
 	});
-	try { Genode::print(output, "DNS config from ", _dns_config_from(), ", "); }
-	catch (Pointer<Domain>::Invalid) { }
+	with_dns_config_from([&] (Domain &domain) {
+		Genode::print(output, "DNS config from ", domain, ", "); });
 
 	Genode::print(output, "IP first ", _ip_first,
 	                        ", last ", _ip_last,

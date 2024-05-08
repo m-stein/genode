@@ -124,8 +124,7 @@ void Domain::_finish_reconstructing_ip_config()
 		});
 	}
 	/* force report if configured */
-	try { _config.report().handle_config(); }
-	catch (Pointer<Report>::Invalid) { }
+	_config.with_report([&] (Report &r) { r.handle_config(); });
 }
 
 
@@ -271,16 +270,6 @@ Domain::~Domain()
 }
 
 
-Dhcp_server &Domain::dhcp_server()
-{
-	Dhcp_server &dhcp_server = _dhcp_server();
-	if (dhcp_server.has_invalid_remote_dns_cfg()) {
-		throw Pointer<Dhcp_server>::Invalid();
-	}
-	return dhcp_server;
-}
-
-
 void Domain::init(Domain_dict &domains)
 {
 	/* read DHCP server configuration */
@@ -294,11 +283,8 @@ void Domain::init(Domain_dict &domains)
 				Dhcp_server(dhcp_server_node, *this, _alloc,
 				            ip_config().interface(), domains);
 
-			try {
-				dhcp_server.
-					dns_config_from().ip_config_dependents().insert(this);
-			}
-			catch (Pointer<Domain>::Invalid) { }
+			dhcp_server.with_dns_config_from([&] (Domain &domain) {
+				domain.ip_config_dependents().insert(this); });
 
 			_dhcp_server = dhcp_server;
 			if (_config.verbose()) {
@@ -373,14 +359,11 @@ void Domain::deinit()
 	_tcp_rules.destroy_each(_alloc);
 	_udp_forward_rules.destroy_each(_alloc);
 	_tcp_forward_rules.destroy_each(_alloc);
-	try {
-		Dhcp_server &dhcp_server = _dhcp_server();
+	with_dhcp_server([&] (Dhcp_server &dhcp_server) {
 		_dhcp_server = Pointer<Dhcp_server>();
-		try { dhcp_server.dns_config_from().ip_config_dependents().remove(this); }
-		catch (Pointer<Domain>::Invalid) { }
-		destroy(_alloc, &dhcp_server);
-	}
-	catch (Pointer<Dhcp_server>::Invalid) { }
+		dhcp_server.with_dns_config_from([&] (Domain &domain) {
+			domain.ip_config_dependents().remove(this); });
+		destroy(_alloc, &dhcp_server); });
 }
 
 
@@ -421,41 +404,43 @@ void Domain::report(Xml_generator &xml)
 	xml.node("domain", [&] () {
 		bool empty = true;
 		xml.attribute("name", name());
-		if (_config.report().bytes()) {
-			xml.attribute("rx_bytes", _tx_bytes);
-			xml.attribute("tx_bytes", _rx_bytes);
-			empty = false;
-		}
-		if (_config.report().config()) {
-			xml.attribute("ipv4", String<19>(ip_config().interface()));
-			xml.attribute("gw",   String<16>(ip_config().gateway()));
-			ip_config().for_each_dns_server([&] (Dns_server const &dns_server) {
-				xml.node("dns", [&] () {
-					xml.attribute("ip", String<16>(dns_server.ip()));
+		_config.with_report([&] (Report &report) {
+			if (report.bytes()) {
+				xml.attribute("rx_bytes", _tx_bytes);
+				xml.attribute("tx_bytes", _rx_bytes);
+				empty = false;
+			}
+			if (report.config()) {
+				xml.attribute("ipv4", String<19>(ip_config().interface()));
+				xml.attribute("gw",   String<16>(ip_config().gateway()));
+				ip_config().for_each_dns_server([&] (Dns_server const &dns_server) {
+					xml.node("dns", [&] () {
+						xml.attribute("ip", String<16>(dns_server.ip()));
+					});
 				});
-			});
-			ip_config().dns_domain_name().with_string(
-				[&] (Dns_domain_name::String const &str)
-			{
-				xml.node("dns-domain", [&] () {
-					xml.attribute("name", str);
+				ip_config().dns_domain_name().with_string(
+					[&] (Dns_domain_name::String const &str)
+				{
+					xml.node("dns-domain", [&] () {
+						xml.attribute("name", str);
+					});
 				});
-			});
-			empty = false;
-		}
-		if (_config.report().stats()) {
-			try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-		}
-		if (_config.report().dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
-			xml.node("dropped-fragm-ipv4", [&] () {
-				xml.attribute("value", _dropped_fragm_ipv4);
-			});
-			empty = false;
-		}
+				empty = false;
+			}
+			if (report.stats()) {
+				try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+			}
+			if (report.dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
+				xml.node("dropped-fragm-ipv4", [&] () {
+					xml.attribute("value", _dropped_fragm_ipv4);
+				});
+				empty = false;
+			}
+		});
 		_interfaces.for_each([&] (Interface &interface) {
 			try {
 				interface.report(xml);
