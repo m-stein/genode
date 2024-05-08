@@ -183,13 +183,11 @@ Configuration::Configuration(Env                             &env,
 	try {
 		/* check whether we shall create a report generator */
 		Xml_node const report_node = node.sub_node("report");
-		try {
-			/* try to re-use existing reporter */
+		if (old_config._reporter.valid()) {
+			/* re-use existing reporter */
 			_reporter = old_config._reporter();
 			old_config._reporter = Pointer<Reporter>();
-		}
-		catch (Pointer<Reporter>::Invalid) {
-
+		} else {
 			/* there is no reporter by now, create a new one */
 			_reporter = *new (_alloc) Reporter(env, "state", nullptr, 4096 * 4);
 		}
@@ -248,8 +246,8 @@ Configuration::~Configuration()
 	_nic_clients.destroy_each(_alloc);
 
 	/* destroy reporter */
-	try { destroy(_alloc, &_reporter()); }
-	catch (Pointer<Reporter>::Invalid) { }
+	if (_reporter.valid())
+		destroy(_alloc, &_reporter());
 
 	/* destroy report generator */
 	if (_report.valid())
