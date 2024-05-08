@@ -100,6 +100,7 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 
 		Link_side(Domain             &domain,
 		          Link_side_id const &id,
+           Cached_timer                  &timer,
 		          Link               &link);
 
 		template <typename HANDLE_MATCH_FN,
@@ -188,6 +189,8 @@ class Net::Link : public Link_list::Element
 		Reference<Configuration>       _config;
 		Interface                     &_client_interface;
 		Pointer<Port_allocator_guard>  _server_port_alloc;
+Cached_timer                        &timer;
+Genode::Microseconds last_timeout;
 		Lazy_one_shot_timeout<Link>    _dissolve_timeout;
 		Genode::Microseconds           _dissolve_timeout_us;
 		L3_protocol             const  _protocol;
@@ -199,7 +202,7 @@ class Net::Link : public Link_list::Element
 
 		void _handle_dissolve_timeout(Genode::Duration);
 
-		void _packet() { _dissolve_timeout.schedule(_dissolve_timeout_us); }
+		void _packet() { last_timeout = _dissolve_timeout_us; _dissolve_timeout.schedule(last_timeout); }
 
 	public:
 
@@ -218,7 +221,7 @@ class Net::Link : public Link_list::Element
 
 		~Link();
 
-		void dissolve(bool timeout);
+		void dissolve(bool timeout, Genode::String<64> const &reason);
 
 		void handle_config(Domain                        &cln_domain,
 		                   Domain                        &srv_domain,

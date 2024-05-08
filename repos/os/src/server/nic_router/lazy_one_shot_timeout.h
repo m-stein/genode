@@ -44,7 +44,7 @@ class Net::Lazy_one_shot_timeout
 		using Duration         = Genode::Duration;
 		using uint64_t         = Genode::uint64_t;
 		using Handler_method   = void (HANDLER::*)(Duration);
-
+public:
 		Cached_timer         &_timer;
 		HANDLER              &_object;
 		Handler_method const  _method;

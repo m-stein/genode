@@ -77,9 +77,9 @@ static void _destroy_dissolved_links(Link_list   &dissolved_links,
 template <typename LINK_TYPE>
 static void _destroy_link(Link        &link,
                           Link_list   &links,
-                          Deallocator &dealloc)
+                          Deallocator &dealloc, Genode::String<64> const &reason)
 {
-	link.dissolve(false);
+	link.dissolve(false, reason);
 	links.remove(&link);
 	destroy(dealloc, static_cast<LINK_TYPE *>(&link));
 }
@@ -88,11 +88,11 @@ static void _destroy_link(Link        &link,
 template <typename LINK_TYPE>
 static void _destroy_links(Link_list   &links,
                            Link_list   &dissolved_links,
-                           Deallocator &dealloc)
+                           Deallocator &dealloc, Genode::String<64> const &reason)
 {
 	_destroy_dissolved_links<LINK_TYPE>(dissolved_links, dealloc);
 	while (Link *link = links.first()) {
-		_destroy_link<LINK_TYPE>(*link, links, dealloc); }
+		_destroy_link<LINK_TYPE>(*link, links, dealloc, reason); }
 }
 
 
@@ -112,7 +112,7 @@ static void _destroy_some_links(Link_list     &links,
 			return; }
 	}
 	while (Link *link = links.first()) {
-		_destroy_link<LINK_TYPE>(*link, links, dealloc);
+		_destroy_link<LINK_TYPE>(*link, links, dealloc, "free resources");
 		if (!--max) {
 			return; }
 	}
@@ -283,13 +283,13 @@ void Interface_object_stats::report(Genode::Xml_generator &xml)
  ** Interface **
  ***************/
 
-void Interface::destroy_link(Link &link)
+void Interface::destroy_link(Link &link, Genode::String<64> const &reason)
 {
 	L3_protocol const prot = link.protocol();
 	switch (prot) {
-	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _alloc);  break;
-	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _alloc);  break;
-	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _alloc); break;
+	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _alloc, reason);  break;
+	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _alloc, reason);  break;
+	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _alloc, reason); break;
 	default: throw Bad_transport_protocol(); }
 }
 
@@ -441,9 +441,9 @@ void Interface::detach_from_ip_config(Domain &domain)
 		cancel_arp_waiting(*_own_arp_waiters.first()->object());
 	}
 	/* destroy links */
-	_destroy_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc);
-	_destroy_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc);
-	_destroy_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc);
+	_destroy_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, "detach from ip config");
+	_destroy_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, "detach from ip config");
+	_destroy_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, "detach from ip config");
 
 	/* destroy DHCP allocations */
 	_destroy_released_dhcp_allocations(domain);
@@ -1770,8 +1770,7 @@ void Interface::_handle_eth(void              *const  eth_base,
 				try { _handle_eth(eth, size_guard, pkt, local_domain); }
 				catch (Free_resources_and_retry_handle_eth) {
 					try {
-						if (_config().verbose()) {
-							log("[", local_domain, "] free resources and retry to handle packet"); }
+						log("[", local_domain, "] free resources and retry to handle packet");
 
 						/*
 						 * Resources do not suffice, destroy some links
@@ -1926,7 +1925,7 @@ void Interface::_dismiss_link(Link &link)
 		log("[", link.client().domain(), "] dismiss link client: ", link.client());
 		log("[", link.server().domain(), "] dismiss link server: ", link.server());
 	}
-	destroy_link(link);
+	destroy_link(link, "reconfig");
 }
 
 

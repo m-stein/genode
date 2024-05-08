@@ -458,7 +458,7 @@ class Net::Interface : private Interface_list::Element
 
 		void handle_domain_ready_state(bool state);
 
-		void destroy_link(Link &link);
+		void destroy_link(Link &link, Genode::String<64> const &reason);
 
 
 		/***************

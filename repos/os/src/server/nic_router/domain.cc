@@ -92,15 +92,15 @@ void Domain::_prepare_reconstructing_ip_config()
 		 */
 		while (Link_side *link_side = _icmp_links.first()) {
 			Link &link { link_side->link() };
-			link.client_interface().destroy_link(link);
+			link.client_interface().destroy_link(link, "reconfig 2");
 		}
 		while (Link_side *link_side = _tcp_links.first()) {
 			Link &link { link_side->link() };
-			link.client_interface().destroy_link(link);
+			link.client_interface().destroy_link(link, "reconfig 2");
 		}
 		while (Link_side *link_side = _udp_links.first()) {
 			Link &link { link_side->link() };
-			link.client_interface().destroy_link(link);
+			link.client_interface().destroy_link(link, "reconfig 2");
 		}
 	}
 }
