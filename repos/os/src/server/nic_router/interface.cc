@@ -986,7 +986,7 @@ void Interface::handle_interface_link_state()
 		/* if the whole domain is down, discard IP config */
 		Domain &domain_ = domain();
 		if (!link_state() && domain_.ip_config().valid()) {
-			discard_ip_config = true;
+			bool discard_ip_config = true;
 			domain_.interfaces().for_each([&] (Interface &interface) {
 				if (interface.link_state())
 					discard_ip_config = false; });
@@ -1000,8 +1000,7 @@ void Interface::handle_interface_link_state()
 	catch (Domain::Ip_config_static) { }
 
 	/* force report if configured */
-	try { _config().report().handle_interface_link_state(); }
-	catch (Pointer<Report>::Invalid) { }
+	_config().with_report([&] (Report &r) { r.handle_interface_link_state(); });
 }
 
 
@@ -1889,8 +1888,7 @@ Interface::Interface(Genode::Entrypoint     &ep,
 	_interfaces                { interfaces }
 {
 	_interfaces.insert(this);
-	try { _config().report().handle_interface_link_state(); }
-	catch (Pointer<Report>::Invalid) { }
+	_config().with_report([&] (Report &r) { r.handle_interface_link_state(); });
 }
 
 
@@ -2300,8 +2298,7 @@ void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 
 Interface::~Interface()
 {
-	try { _config().report().handle_interface_link_state(); }
-	catch (Pointer<Report>::Invalid) { }
+	_config().with_report([&] (Report &r) { r.handle_interface_link_state(); });
 	_detach_from_domain();
 	_interfaces.remove(this);
 }
@@ -2312,29 +2309,31 @@ void Interface::report(Genode::Xml_generator &xml)
 	xml.node("interface",  [&] () {
 		bool empty { true };
 		xml.attribute("label", _policy.label());
-		if (_config().report().link_state()) {
-			xml.attribute("link_state", link_state());
-			empty = false;
-		}
-		if (_config().report().stats()) {
-			try {
-				_policy.report(xml);
+		_config().with_report([&] (Report &report) {
+			if (report.link_state()) {
+				xml.attribute("link_state", link_state());
 				empty = false;
 			}
-			catch (Report::Empty) { }
+			if (report.stats()) {
+				try {
+					_policy.report(xml);
+					empty = false;
+				}
+				catch (Report::Empty) { }
 
-			try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-			try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-		}
-		if (_config().report().dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
-			xml.node("dropped-fragm-ipv4", [&] () {
-				xml.attribute("value", _dropped_fragm_ipv4);
-			});
-			empty = false;
-		}
+				try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
+				try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
+			}
+			if (report.dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
+				xml.node("dropped-fragm-ipv4", [&] () {
+					xml.attribute("value", _dropped_fragm_ipv4);
+				});
+				empty = false;
+			}
+		});
 		if (empty) { throw Report::Empty(); }
 	});
 }

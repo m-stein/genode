@@ -252,8 +252,8 @@ Configuration::~Configuration()
 	catch (Pointer<Reporter>::Invalid) { }
 
 	/* destroy report generator */
-	try { destroy(_alloc, &_report()); }
-	catch (Pointer<Report>::Invalid) { }
+	if (_report.valid())
+		destroy(_alloc, &_report());
 
 	/* destroy domains */
 	_domains.destroy_each(_alloc);
