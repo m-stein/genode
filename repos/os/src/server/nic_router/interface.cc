@@ -2226,7 +2226,7 @@ void Interface::handle_config_2()
 
 void Interface::handle_config_3()
 {
-	try {
+	if (_update_domain.constructed()) {
 		/*
 		 * Update the domain object only if handle_config_2 determined that
 		 * the interface stays attached to the same domain. Otherwise the
@@ -2254,12 +2254,9 @@ void Interface::handle_config_3()
 		_update_icmp_links(new_domain);
 		_update_dhcp_allocations(old_domain, new_domain);
 		_update_own_arp_waiters(new_domain);
-	}
-	catch (Constructible<Update_domain>::Deref_unconstructed_object) {
-
+	} else
 		/* if the interface moved to another domain, finish the operation */
 		with_domain([&] (Domain &) { attach_to_domain_finish(); });
-	}
 }
 
 
