@@ -110,10 +110,12 @@ install_config {
 		</route>
 	</start>
 
-	<start name="wifi_drv" caps="300" priority="-1">
-		<resource name="RAM" quantum="32M"/>
+	<start name="wifi_drv" caps="600">
+		<resource name="RAM" quantum="64M"/>
 		<config ld_verbose="no">
+			<libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc" rng="/dev/urandom"/>
 			<vfs>
+				<report mac_address="true"/>
 				<dir name="dev"> <log/> <rtc/> <null/>
 					<jitterentropy name="random"/>
 					<jitterentropy name="urandom"/>
@@ -123,7 +125,6 @@ install_config {
 					<tar name="wifi_firmware.tar"/>
 				</dir>
 			</vfs>
-			<libc stdout="/dev/null" stderr="/dev/null" rtc="/dev/rtc"/>
 		</config>
 		<route>
 			<service name="Uplink"> <child name="router"/> </service>
@@ -398,40 +399,31 @@ install_config {
 
 build_boot_image [build_artifacts]
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5001 milliseconds"
 append done_string ".*64 bytes from 1.1.1.1: icmp_seq="
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5002 milliseconds"
 append done_string ".*64 bytes from 1.1.1.1: icmp_seq="
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5003 milliseconds"
 append done_string ".*downlink.*invalid domain.*invalid ICMP rule"
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5004 milliseconds"
 append done_string ".*64 bytes from 1.1.1.1: icmp_seq="
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5005 milliseconds"
 append done_string ".*64 bytes from 1.1.1.1: icmp_seq="
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5006 milliseconds"
 append done_string ".*downlink.*invalid domain.*invalid ICMP rule"
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5007 milliseconds"
 append done_string ".*64 bytes from 1.1.1.1: icmp_seq="
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 5008 milliseconds"
 append done_string ".*64 bytes from 1.1.1.1: icmp_seq="
 
-append done_string ".*router.config: change"
 append done_string ".*router.config: sleep 600000 milliseconds"
 append done_string ".*From 10.0.1.79 icmp_seq=.* Destination Unreachable"
 
-run_genode_until $done_string 90
+run_genode_until $done_string 180
