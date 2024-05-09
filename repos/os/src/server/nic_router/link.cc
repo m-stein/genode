@@ -147,7 +147,7 @@ void Link::dissolve(bool timeout)
 	if (_config().verbose()) {
 		log("Dissolve ", l3_protocol_name(_protocol), " link: ", *this); }
 
-	try {
+	if (_server_port_alloc.valid()) {
 		if (_config().verbose()) {
 			log("Free ", l3_protocol_name(_protocol),
 			    " port ", _server.dst_port(),
@@ -156,7 +156,6 @@ void Link::dissolve(bool timeout)
 		}
 		_server_port_alloc().free(_server.dst_port());
 	}
-	catch (Pointer<Port_allocator_guard>::Invalid) { }
 }
 
 
