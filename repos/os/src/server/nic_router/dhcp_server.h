@@ -181,7 +181,18 @@ class Net::Dhcp_allocation : public  Genode::Avl_node<Dhcp_allocation>,
 
 		~Dhcp_allocation();
 
-		Dhcp_allocation &find_by_mac(Mac_address const &mac);
+		void find_by_mac(Mac_address const &mac, auto const &match_fn, auto const &no_match_fn)
+		{
+			if (mac == _mac) {
+				match_fn(*this);
+				return;
+			}
+			Dhcp_allocation *allocation_ptr = child(_higher(mac));
+			if (allocation_ptr)
+				allocation_ptr->find_by_mac(mac, match_fn, no_match_fn);
+			else
+				no_match_fn();
+		}
 
 		void lifetime(Genode::Microseconds lifetime);
 
@@ -220,9 +231,13 @@ struct Net::Dhcp_allocation_tree
 
 	public:
 
-		struct No_match : Genode::Exception { };
-
-		Dhcp_allocation &find_by_mac(Mac_address const &mac) const;
+		void find_by_mac(Mac_address const &mac, auto const &match_fn, auto const &no_match_fn) const
+		{
+			if (_tree.first())
+				_tree.first()->find_by_mac(mac, match_fn, no_match_fn);
+			else
+				no_match_fn();
+		}
 
 		void insert(Dhcp_allocation &dhcp_alloc)
 		{
