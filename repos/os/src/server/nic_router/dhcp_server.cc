@@ -271,19 +271,6 @@ bool Dhcp_allocation::_higher(Mac_address const &mac) const
 }
 
 
-Dhcp_allocation &Dhcp_allocation::find_by_mac(Mac_address const &mac)
-{
-	if (mac == _mac) {
-		return *this; }
-
-	Dhcp_allocation *const allocation = child(_higher(mac));
-	if (!allocation) {
-		throw Dhcp_allocation_tree::No_match(); }
-
-	return allocation->find_by_mac(mac);
-}
-
-
 void Dhcp_allocation::print(Output &output) const
 {
 	Genode::print(output, "MAC ", _mac, " IP ", _ip);
@@ -293,18 +280,4 @@ void Dhcp_allocation::print(Output &output) const
 void Dhcp_allocation::_handle_timeout(Duration)
 {
 	_interface.dhcp_allocation_expired(*this);
-}
-
-
-/**************************
- ** Dhcp_allocation_tree **
- **************************/
-
-Dhcp_allocation &
-Dhcp_allocation_tree::find_by_mac(Mac_address const &mac) const
-{
-	if (!_tree.first()) {
-		throw No_match(); }
-
-	return _tree.first()->find_by_mac(mac);
 }
