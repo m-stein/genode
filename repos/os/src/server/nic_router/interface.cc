@@ -794,6 +794,7 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
                                              Domain                    &local_domain,
                                              Ipv4_address_prefix const &local_intf)
 {
+	Packet_state result = Packet_ok();
 	try {
 		/* try to get the DHCP server config of this interface */
 		Dhcp_server &dhcp_srv = local_domain.dhcp_server();
@@ -802,10 +803,8 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 		Dhcp_packet::Message_type const msg_type =
 			dhcp.option<Dhcp_packet::Message_type_option>().value();
 
-		try {
-			/* look up existing DHCP configuration for client */
-			Dhcp_allocation &allocation =
-				_dhcp_allocations.find_by_mac(dhcp.client_mac());
+		/* look up existing DHCP configuration for client */
+		auto dhcp_allocation_fn = [&] (Dhcp_allocation &allocation) {
 
 			switch (msg_type) {
 			case Dhcp_packet::Message_type::DISCOVER:
@@ -814,7 +813,8 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 
 					_release_dhcp_allocation(allocation, local_domain);
 					_destroy_dhcp_allocation(allocation, local_domain);
-					return _new_dhcp_allocation(eth, dhcp, dhcp_srv, local_domain);
+					result = _new_dhcp_allocation(eth, dhcp, dhcp_srv, local_domain);
+					return;
 
 				} else {
 					allocation.lifetime(_config().dhcp_offer_timeout());
@@ -822,7 +822,7 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 					                 allocation.ip(),
 					                 Dhcp_packet::Message_type::OFFER,
 					                 dhcp.xid(), local_intf);
-					return Packet_ok();
+					return;
 				}
 			case Dhcp_packet::Message_type::REQUEST:
 
@@ -832,7 +832,7 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 					                 allocation.ip(),
 					                 Dhcp_packet::Message_type::ACK,
 					                 dhcp.xid(), local_intf);
-					return Packet_ok();
+					return;
 
 				} else {
 					Dhcp_packet::Server_ipv4 &dhcp_srv_ip =
@@ -850,13 +850,13 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 						                 allocation.ip(),
 						                 Dhcp_packet::Message_type::ACK,
 						                 dhcp.xid(), local_intf);
-						return Packet_ok();
+						return;
 
 					} else {
 
 						_release_dhcp_allocation(allocation, local_domain);
 						_destroy_dhcp_allocation(allocation, local_domain);
-						return Packet_ok();
+						return;
 					}
 				}
 			case Dhcp_packet::Message_type::INFORM:
@@ -865,27 +865,28 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 				                 allocation.ip(),
 				                 Dhcp_packet::Message_type::ACK,
 				                 dhcp.xid(), local_intf);
-				return Packet_ok();
+				return;
 
 			case Dhcp_packet::Message_type::DECLINE:
 			case Dhcp_packet::Message_type::RELEASE:
 
 				_release_dhcp_allocation(allocation, local_domain);
 				_destroy_dhcp_allocation(allocation, local_domain);
-				return Packet_ok();
+				return;
 
-			case Dhcp_packet::Message_type::NAK:   return Packet_error::drop("DHCP NAK from client");
-			case Dhcp_packet::Message_type::OFFER: return Packet_error::drop("DHCP OFFER from client");
-			case Dhcp_packet::Message_type::ACK:   return Packet_error::drop("DHCP ACK from client");
-			default:                               return Packet_error::drop("DHCP request with broken message type");
+			case Dhcp_packet::Message_type::NAK:   result = Packet_error::drop("DHCP NAK from client"); return;
+			case Dhcp_packet::Message_type::OFFER: result = Packet_error::drop("DHCP OFFER from client"); return;
+			case Dhcp_packet::Message_type::ACK:   result = Packet_error::drop("DHCP ACK from client"); return;
+			default:                               result = Packet_error::drop("DHCP request with broken message type"); return;
 			}
-		}
-		catch (Dhcp_allocation_tree::No_match) {
+		};
+		auto no_dhcp_allocation_fn = [&] {
 
 			switch (msg_type) {
 			case Dhcp_packet::Message_type::DISCOVER:
 
-				return _new_dhcp_allocation(eth, dhcp, dhcp_srv, local_domain);
+				result = _new_dhcp_allocation(eth, dhcp, dhcp_srv, local_domain);
+				return;
 
 			case Dhcp_packet::Message_type::REQUEST:
 
@@ -893,21 +894,22 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 				                 Ipv4_address { },
 				                 Dhcp_packet::Message_type::NAK,
 				                 dhcp.xid(), local_intf);
-				return Packet_ok();
+				return;
 
-			case Dhcp_packet::Message_type::DECLINE: return Packet_error::drop("DHCP DECLINE from client without offered/acked IP");
-			case Dhcp_packet::Message_type::RELEASE: return Packet_error::drop("DHCP RELEASE from client without offered/acked IP");
-			case Dhcp_packet::Message_type::NAK:     return Packet_error::drop("DHCP NAK from client");
-			case Dhcp_packet::Message_type::OFFER:   return Packet_error::drop("DHCP OFFER from client");
-			case Dhcp_packet::Message_type::ACK:     return Packet_error::drop("DHCP ACK from client");
-			default:                                 return Packet_error::drop("DHCP request with broken message type");
+			case Dhcp_packet::Message_type::DECLINE: result = Packet_error::drop("DHCP DECLINE from client without offered/acked IP"); return;
+			case Dhcp_packet::Message_type::RELEASE: result = Packet_error::drop("DHCP RELEASE from client without offered/acked IP"); return;
+			case Dhcp_packet::Message_type::NAK:     result = Packet_error::drop("DHCP NAK from client"); return;
+			case Dhcp_packet::Message_type::OFFER:   result = Packet_error::drop("DHCP OFFER from client"); return;
+			case Dhcp_packet::Message_type::ACK:     result = Packet_error::drop("DHCP ACK from client"); return;
+			default:                                 result = Packet_error::drop("DHCP request with broken message type"); return;
 			}
-		}
+		};
+		_dhcp_allocations.find_by_mac(dhcp.client_mac(), dhcp_allocation_fn, no_dhcp_allocation_fn);
 	}
 	catch (Dhcp_packet::Option_not_found exception) {
-		return Packet_error::drop("DHCP request misses required option"); }
+		result = Packet_error::drop("DHCP request misses required option"); }
 
-	return Packet_ok();
+	return result;
 }
 
 
