@@ -795,15 +795,13 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
                                              Ipv4_address_prefix const &local_intf)
 {
 	Packet_state result = Packet_ok();
-	try {
-		/* determine type of DHCP request */
-		Dhcp_packet::Message_type const msg_type =
-			dhcp.option<Dhcp_packet::Message_type_option>().value();
+	auto no_msg_type_fn = [&] { result = Packet_error::drop("DHCP request misses option \"Message Type\""); };
+	auto msg_type_fn = [&] (Dhcp_packet::Message_type_option const &msg_type) {
 
 		/* look up existing DHCP configuration for client */
 		auto dhcp_allocation_fn = [&] (Dhcp_allocation &allocation) {
 
-			switch (msg_type) {
+			switch (msg_type.value()) {
 			case Dhcp_packet::Message_type::DISCOVER:
 
 				if (allocation.bound()) {
@@ -832,29 +830,33 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 					return;
 
 				} else {
-					Dhcp_packet::Server_ipv4 &dhcp_srv_ip =
-						dhcp.option<Dhcp_packet::Server_ipv4>();
 
-					if (dhcp_srv_ip.value() == local_intf.address)
-					{
-						allocation.set_bound();
-						allocation.lifetime(dhcp_srv.ip_lease_time());
-						if (_config().verbose()) {
-							log("[", local_domain, "] bind DHCP allocation: ",
-							    allocation);
+					auto no_server_ipv4_fn = [&] { result = Packet_error::drop("DHCP request misses option \"Server IPv4\""); };
+					auto server_ipv4_fn = [&] (Dhcp_packet::Server_ipv4 const &dhcp_srv_ip) {
+
+						if (dhcp_srv_ip.value() == local_intf.address)
+						{
+							allocation.set_bound();
+							allocation.lifetime(dhcp_srv.ip_lease_time());
+							if (_config().verbose()) {
+								log("[", local_domain, "] bind DHCP allocation: ",
+								    allocation);
+							}
+							_send_dhcp_reply(dhcp_srv, eth.src(), dhcp.client_mac(),
+							                 allocation.ip(),
+							                 Dhcp_packet::Message_type::ACK,
+							                 dhcp.xid(), local_intf);
+							return;
+
+						} else {
+
+							_release_dhcp_allocation(allocation, local_domain);
+							_destroy_dhcp_allocation(allocation, local_domain);
+							return;
 						}
-						_send_dhcp_reply(dhcp_srv, eth.src(), dhcp.client_mac(),
-						                 allocation.ip(),
-						                 Dhcp_packet::Message_type::ACK,
-						                 dhcp.xid(), local_intf);
-						return;
-
-					} else {
-
-						_release_dhcp_allocation(allocation, local_domain);
-						_destroy_dhcp_allocation(allocation, local_domain);
-						return;
-					}
+					};
+					dhcp.with_option<Dhcp_packet::Server_ipv4>(server_ipv4_fn, no_server_ipv4_fn);
+					return;
 				}
 			case Dhcp_packet::Message_type::INFORM:
 
@@ -879,7 +881,7 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 		};
 		auto no_dhcp_allocation_fn = [&] {
 
-			switch (msg_type) {
+			switch (msg_type.value()) {
 			case Dhcp_packet::Message_type::DISCOVER:
 
 				result = _new_dhcp_allocation(eth, dhcp, dhcp_srv, local_domain);
@@ -902,10 +904,8 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 			}
 		};
 		_dhcp_allocations.find_by_mac(dhcp.client_mac(), dhcp_allocation_fn, no_dhcp_allocation_fn);
-	}
-	catch (Dhcp_packet::Option_not_found exception) {
-		result = Packet_error::drop("DHCP request misses required option"); }
-
+	};
+	dhcp.with_option<Dhcp_packet::Message_type_option>(msg_type_fn, no_msg_type_fn);
 	return result;
 }
 
