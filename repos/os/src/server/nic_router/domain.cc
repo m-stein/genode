@@ -273,48 +273,47 @@ Domain::~Domain()
 void Domain::init(Domain_dict &domains)
 {
 	/* read DHCP server configuration */
-	try {
-		Xml_node const dhcp_server_node = _node.sub_node("dhcp-server");
-		if (_ip_config_dynamic) {
-			_invalid("DHCP server and client at once"); }
-
+	_node.with_optional_sub_node("dhcp-server", [&] (Xml_node const &dhcp_server_node) {
 		try {
-			Dhcp_server &dhcp_server = *new (_alloc)
-				Dhcp_server(dhcp_server_node, *this, _alloc,
-				            ip_config().interface(), domains);
+			if (_ip_config_dynamic) {
+				_invalid("DHCP server and client at once"); }
 
-			dhcp_server.with_dns_config_from([&] (Domain &domain) {
-				domain.ip_config_dependents().insert(this); });
+			try {
+				Dhcp_server &dhcp_server = *new (_alloc)
+					Dhcp_server(dhcp_server_node, *this, _alloc,
+					            ip_config().interface(), domains);
 
-			_dhcp_server = dhcp_server;
-			if (_config.verbose()) {
-				log("[", *this, "] DHCP server: ", _dhcp_server()); }
+				dhcp_server.with_dns_config_from([&] (Domain &domain) {
+					domain.ip_config_dependents().insert(this); });
+
+				_dhcp_server = dhcp_server;
+				if (_config.verbose()) {
+					log("[", *this, "] DHCP server: ", _dhcp_server()); }
+			}
+			catch (Bit_allocator_dynamic::Out_of_indices) {
+
+				/*
+				 * This message is printed independent from the routers
+				 * verbosity configuration in order to track down an exception
+				 * of type Bit_allocator_dynamic::Out_of_indices that was
+				 * previously not caught. We have observed this exception once,
+				 * but without a specific use pattern that would
+				 * enable for a systematic reproduction of the issue.
+				 * The uncaught exception was observed in a 21.03 Sculpt OS
+				 * with a manually configured router, re-configuration involved.
+				 */
+				log("[", *this, "] DHCP server: failed to initialize ",
+				    "(IP range: first ",
+				    dhcp_server_node.attribute_value("ip_first", Ipv4_address()),
+				    " last ",
+				    dhcp_server_node.attribute_value("ip_last", Ipv4_address()),
+				    ")");
+
+				throw Dhcp_server::Invalid { };
+			}
 		}
-		catch (Bit_allocator_dynamic::Out_of_indices) {
-
-			/*
-			 * This message is printed independent from the routers
-			 * verbosity configuration in order to track down an exception
-			 * of type Bit_allocator_dynamic::Out_of_indices that was
-			 * previously not caught. We have observed this exception once,
-			 * but without a specific use pattern that would
-			 * enable for a systematic reproduction of the issue.
-			 * The uncaught exception was observed in a 21.03 Sculpt OS
-			 * with a manually configured router, re-configuration involved.
-			 */
-			log("[", *this, "] DHCP server: failed to initialize ",
-			    "(IP range: first ",
-			    dhcp_server_node.attribute_value("ip_first", Ipv4_address()),
-			    " last ",
-			    dhcp_server_node.attribute_value("ip_last", Ipv4_address()),
-			    ")");
-
-			throw Dhcp_server::Invalid { };
-		}
-	}
-	catch (Xml_node::Nonexistent_sub_node) { }
-	catch (Dhcp_server::Invalid) { _invalid("invalid DHCP server"); }
-
+		catch (Dhcp_server::Invalid) { _invalid("invalid DHCP server"); }
+	});
 	/* read forward rules */
 	_read_forward_rules(tcp_name(), domains, _node, "tcp-forward",
 	                    _tcp_forward_rules);

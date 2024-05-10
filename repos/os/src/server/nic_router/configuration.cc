@@ -180,9 +180,7 @@ Configuration::Configuration(Env                             &env,
 		}
 		break;
 	}
-	try {
-		/* check whether we shall create a report generator */
-		Xml_node const report_node = node.sub_node("report");
+	node.with_optional_sub_node("report", [&] (Xml_node const &report_node) {
 		if (old_config._reporter.valid()) {
 			/* re-use existing reporter */
 			_reporter = old_config._reporter();
@@ -196,9 +194,7 @@ Configuration::Configuration(Env                             &env,
 			Report {
 				_verbose, report_node, timer, _domains, shared_quota, env.pd(),
 				_reporter(), report_signal_cap };
-	}
-	catch (Genode::Xml_node::Nonexistent_sub_node) { }
-
+	});
 	/* initialize NIC clients */
 	_node.for_each_sub_node("nic-client", [&] (Xml_node const node) {
 		try {
