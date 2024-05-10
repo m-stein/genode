@@ -29,13 +29,10 @@ Transport_rule::_read_permit_any_rule(Domain_dict    &domains,
                                       Xml_node const  node,
                                       Allocator      &alloc)
 {
-	try {
-		Xml_node sub_node = node.sub_node("permit-any");
-		return Pointer<Permit_any_rule>(*new (alloc)
-		                                Permit_any_rule(domains, sub_node));
-	}
-	catch (Xml_node::Nonexistent_sub_node) { }
-	return Pointer<Permit_any_rule>();
+	Pointer<Permit_any_rule> result = { };
+	node.with_optional_sub_node("permit-any", [&] (Xml_node const &sub_node) {
+		result = Pointer<Permit_any_rule>(*new (alloc) Permit_any_rule(domains, sub_node)); });
+	return result;
 }
 
 
