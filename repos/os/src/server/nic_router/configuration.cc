@@ -63,31 +63,25 @@ void Configuration::_invalid_domain(Domain     &domain,
 Icmp_packet::Code
 Configuration::_init_icmp_type_3_code_on_fragm_ipv4(Xml_node const &node) const
 {
-	char const *const attr_name { "icmp_type_3_code_on_fragm_ipv4" };
-	try {
-		Xml_attribute const &attr { node.attribute(attr_name) };
+	Icmp_packet::Code result = Icmp_packet::Code::INVALID;
+	node.with_optional_attribute("icmp_type_3_code_on_fragm_ipv4", [&] (Xml_attribute const &attr) {
 		if (attr.has_value("no")) {
-			return Icmp_packet::Code::INVALID;
+			return;
 		}
 		uint8_t attr_val { };
 		bool const attr_transl_succeeded { attr.value<uint8_t>(attr_val) };
-		Icmp_packet::Code const result {
-			Icmp_packet::code_from_uint8(
-				Icmp_packet::Type::DST_UNREACHABLE, attr_val) };
-
+		result = Icmp_packet::code_from_uint8(Icmp_packet::Type::DST_UNREACHABLE, attr_val);
 		if (!attr_transl_succeeded ||
 		    result == Icmp_packet::Code::INVALID) {
 
 			warning("attribute 'icmp_type_3_code_on_fragm_ipv4' has invalid "
 			        "value, assuming value \"no\"");
 
-			return Icmp_packet::Code::INVALID;
+			result = Icmp_packet::Code::INVALID;
 		}
-		return result;
-	}
-	catch (Xml_node::Nonexistent_attribute) {
-		return Icmp_packet::Code::INVALID;
-	}
+		return;
+	});
+	return result;
 }
 
 
