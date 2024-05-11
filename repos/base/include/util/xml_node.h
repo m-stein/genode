@@ -960,6 +960,44 @@ class Genode::Xml_node
 		}
 
 		/**
+		 * Apply functor 'found_fn' to first attribute of specified type
+		 *
+		 * The functor is called with the attribute as argument. If no matching
+		 * attribute exists, the functor 'not_found_fn' is called instead.
+		 */
+		void with_attribute(char const *type, auto const &found_fn, auto const &not_found_fn) const
+		{
+			if (_tags.start.has_attribute())
+				for (Xml_attribute attr = _tags.start.attribute(); ; ) {
+
+					/* match */
+					if (attr.has_type(type)) {
+						found_fn(attr);
+						return;
+					}
+					/* end of attribute */
+					Token const next = attr._next_token();
+					if (!Xml_attribute::_valid(next))
+						break;
+
+					/* keep searching */
+					attr = Xml_attribute(next);
+				}
+			not_found_fn();
+		}
+
+		/**
+		 * Apply functor 'fn' to first attribute of specified type
+		 *
+		 * The functor is called with the attribute as argument. If no matching
+		 * attribute exists, the functor is not called.
+		 */
+		void with_optional_attribute(char const *type, auto const &fn) const
+		{
+			with_attribute(type, [&] (Attribute const &attr) { fn(attr); }, []{});
+		}
+
+		/**
 		 * Return true if attribute of specified type exists
 		 */
 		bool has_attribute(char const *type) const
