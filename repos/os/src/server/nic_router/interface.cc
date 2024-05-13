@@ -2302,12 +2302,10 @@ void Interface::report(Genode::Xml_generator &xml)
 				empty = false;
 			}
 			if (report.stats()) {
-				try {
+				if (!_policy.report_empty()) {
 					_policy.report(xml);
 					empty = false;
 				}
-				catch (Report::Empty) { }
-
 				try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
 				try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
 				try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
