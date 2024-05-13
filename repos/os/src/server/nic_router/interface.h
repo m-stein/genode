@@ -95,7 +95,7 @@ struct Net::Interface_link_stats
 };
 
 
-struct Net::Interface_policy
+struct Net::Interface_policy : Genode::Interface
 {
 	virtual Domain_name determine_domain_name() const = 0;
 
@@ -107,7 +107,9 @@ struct Net::Interface_policy
 
 	virtual bool interface_link_state() const = 0;
 
-	virtual void report(Genode::Xml_generator &) const { throw Report::Empty(); }
+	virtual bool report_empty() const = 0;
+
+	virtual void report(Genode::Xml_generator &) const = 0;
 
 	virtual ~Interface_policy() { }
 };
