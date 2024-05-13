@@ -93,6 +93,8 @@ class Net::Nic_client_interface_base : public Interface_policy
 		Genode::Session_label const &label() const override { return _label; }
 		void handle_domain_ready_state(bool state) override;
 		bool interface_link_state() const override;
+		bool report_empty() const override { return true; };
+		void report(Genode::Xml_generator &) const override { };
 
 	public:
 
