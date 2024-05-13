@@ -398,56 +398,53 @@ void Domain::interface_updates_domain_object(Interface &interface)
 }
 
 
-void Domain::report(Xml_generator &xml)
+bool Domain::report_empty(Report const &report_cfg) const
 {
-	xml.node("domain", [&] () {
-		bool empty = true;
-		xml.attribute("name", name());
-		_config.with_report([&] (Report const &report_cfg) {
-			if (report_cfg.bytes()) {
-				xml.attribute("rx_bytes", _tx_bytes);
-				xml.attribute("tx_bytes", _rx_bytes);
-				empty = false;
-			}
-			if (report_cfg.config()) {
-				xml.attribute("ipv4", String<19>(ip_config().interface()));
-				xml.attribute("gw",   String<16>(ip_config().gateway()));
-				ip_config().for_each_dns_server([&] (Dns_server const &dns_server) {
-					xml.node("dns", [&] () {
-						xml.attribute("ip", String<16>(dns_server.ip()));
-					});
-				});
-				ip_config().dns_domain_name().with_string(
-					[&] (Dns_domain_name::String const &str)
-				{
-					xml.node("dns-domain", [&] () {
-						xml.attribute("name", str);
-					});
-				});
-				empty = false;
-			}
-			if (report_cfg.stats()) {
-				try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-				try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-				try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-				try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
-				try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
-			}
-			if (report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
-				xml.node("dropped-fragm-ipv4", [&] () {
-					xml.attribute("value", _dropped_fragm_ipv4);
-				});
-				empty = false;
-			}
-			_interfaces.for_each([&] (Interface &interface) {
-				if (!interface.report_empty(report_cfg)) {
-					xml.node("interface", [&] { interface.report(xml, report_cfg); });
-					empty = false;
-				}
-			});
-		});
-		if (empty) {
-			throw Report::Empty(); }
+	bool bytes = report_cfg.bytes();
+	bool cfg = report_cfg.config();
+	bool stats = report_cfg.stats() && (
+		!_tcp_stats.report_empty() || !_udp_stats.report_empty() ||
+		!_icmp_stats.report_empty() || !_arp_stats.report_empty() || _dhcp_stats.report_empty());
+	bool fragm_ip = report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4;
+	bool interfaces = false;
+	_interfaces.for_each([&] (Interface const &interface) {
+		if (!interface.report_empty(report_cfg))
+			interfaces = true; });
+
+	return !bytes && !cfg && !stats && !fragm_ip && !interfaces;
+}
+
+
+void Domain::report(Xml_generator &xml, Report const &report_cfg) const
+{
+	xml.attribute("name", name());
+	if (report_cfg.bytes()) {
+		xml.attribute("rx_bytes", _tx_bytes);
+		xml.attribute("tx_bytes", _rx_bytes);
+	}
+	if (report_cfg.config()) {
+		xml.attribute("ipv4", String<19>(ip_config().interface()));
+		xml.attribute("gw",   String<16>(ip_config().gateway()));
+		ip_config().for_each_dns_server([&] (Dns_server const &dns_server) {
+			xml.node("dns", [&] () {
+				xml.attribute("ip", String<16>(dns_server.ip())); }); });
+		ip_config().dns_domain_name().with_string([&] (Dns_domain_name::String const &str) {
+			xml.node("dns-domain", [&] () {
+				xml.attribute("name", str); }); });
+	}
+	if (report_cfg.stats()) {
+		if (!_tcp_stats.report_empty())  xml.node("tcp-links",        [&] { _tcp_stats.report(xml);  });
+		if (!_udp_stats.report_empty())  xml.node("udp-links",        [&] { _udp_stats.report(xml);  });
+		if (!_icmp_stats.report_empty()) xml.node("icmp-links",       [&] { _icmp_stats.report(xml); });
+		if (!_arp_stats.report_empty())  xml.node("arp-waiters",      [&] { _arp_stats.report(xml);  });
+		if (!_dhcp_stats.report_empty()) xml.node("dhcp-allocations", [&] { _dhcp_stats.report(xml); });
+	}
+	if (report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4)
+		xml.node("dropped-fragm-ipv4", [&] () {
+			xml.attribute("value", _dropped_fragm_ipv4); });
+	_interfaces.for_each([&] (Interface const &interface) {
+		if (!interface.report_empty(report_cfg))
+			xml.node("interface", [&] { interface.report(xml, report_cfg); });
 	});
 }
 
@@ -471,15 +468,14 @@ Domain_link_stats::dissolve_interface(Interface_link_stats const &stats)
 }
 
 
-void Domain_link_stats::report(Genode::Xml_generator &xml)
+bool Domain_link_stats::report_empty() const { return !refused_for_ram && !refused_for_ports && !destroyed; }
+
+
+void Domain_link_stats::report(Genode::Xml_generator &xml) const
 {
-	bool empty = true;
-
-	if (refused_for_ram)   { xml.node("refused_for_ram",   [&] () { xml.attribute("value", refused_for_ram); });   empty = false; }
-	if (refused_for_ports) { xml.node("refused_for_ports", [&] () { xml.attribute("value", refused_for_ports); }); empty = false; }
-	if (destroyed)         { xml.node("destroyed",         [&] () { xml.attribute("value", destroyed); });         empty = false; }
-
-	if (empty) { throw Report::Empty(); }
+	if (refused_for_ram)   xml.node("refused_for_ram",   [&] { xml.attribute("value", refused_for_ram); });
+	if (refused_for_ports) xml.node("refused_for_ports", [&] { xml.attribute("value", refused_for_ports); });
+	if (destroyed)         xml.node("destroyed",         [&] { xml.attribute("value", destroyed); });
 }
 
 
@@ -494,9 +490,10 @@ Domain_object_stats::dissolve_interface(Interface_object_stats const &stats)
 }
 
 
-void Domain_object_stats::report(Genode::Xml_generator &xml)
+bool Domain_object_stats::report_empty() const { return !destroyed; }
+
+
+void Domain_object_stats::report(Genode::Xml_generator &xml) const
 {
-	bool empty = true;
-	if (destroyed) { xml.node("destroyed", [&] () { xml.attribute("value", destroyed); }); empty = false; }
-	if (empty) { throw Report::Empty(); }
+	if (destroyed) xml.node("destroyed", [&] { xml.attribute("value", destroyed); });
 }
