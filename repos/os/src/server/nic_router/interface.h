@@ -447,7 +447,9 @@ class Net::Interface : private Interface_list::Element
 
 		void handle_interface_link_state();
 
-		void report(Genode::Xml_generator &xml);
+		bool report_empty(Report const &report_cfg) const;
+
+		void report(Genode::Xml_generator &xml, Report const &report_cfg) const;
 
 		void handle_domain_ready_state(bool state);
 

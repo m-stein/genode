@@ -2289,36 +2289,35 @@ Interface::~Interface()
 }
 
 
-void Interface::report(Genode::Xml_generator &xml)
+
+bool Interface::report_empty(Report const &report_cfg) const
 {
-	xml.node("interface",  [&] () {
-		bool empty { true };
-		xml.attribute("label", _policy.label());
-		_config().with_report([&] (Report &report) {
-			if (report.link_state()) {
-				xml.attribute("link_state", link_state());
-				empty = false;
-			}
-			if (report.stats()) {
-				if (!_policy.report_empty()) {
-					_policy.report(xml);
-					empty = false;
-				}
-				if (!_tcp_stats.report_empty())  { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; }
-				if (!_udp_stats.report_empty())  { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; }
-				if (!_icmp_stats.report_empty()) { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; }
-				if (!_arp_stats.report_empty())  { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; }
-				if (!_dhcp_stats.report_empty()) { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; }
-			}
-			if (report.dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
-				xml.node("dropped-fragm-ipv4", [&] () {
-					xml.attribute("value", _dropped_fragm_ipv4);
-				});
-				empty = false;
-			}
-		});
-		if (empty) { throw Report::Empty(); }
-	});
+	bool stats = report_cfg.stats() && (
+		!_policy.report_empty() || !_tcp_stats.report_empty() || !_udp_stats.report_empty() ||
+		!_icmp_stats.report_empty() || !_arp_stats.report_empty() || _dhcp_stats.report_empty());
+	bool lnk_state = report_cfg.link_state();
+	bool fragm_ip = report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4;
+	return !lnk_state && !stats && !fragm_ip;
+}
+
+
+void Interface::report(Genode::Xml_generator &xml, Report const &report_cfg) const
+{
+	xml.attribute("label", _policy.label());
+	if (report_cfg.link_state())
+		xml.attribute("link_state", link_state());
+
+	if (report_cfg.stats()) {
+		_policy.report(xml);
+		if (!_tcp_stats.report_empty())  xml.node("tcp-links",        [&] { _tcp_stats.report(xml);  });
+		if (!_udp_stats.report_empty())  xml.node("udp-links",        [&] { _udp_stats.report(xml);  });
+		if (!_icmp_stats.report_empty()) xml.node("icmp-links",       [&] { _icmp_stats.report(xml); });
+		if (!_arp_stats.report_empty())  xml.node("arp-waiters",      [&] { _arp_stats.report(xml);  });
+		if (!_dhcp_stats.report_empty()) xml.node("dhcp-allocations", [&] { _dhcp_stats.report(xml); });
+	}
+	if (report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4)
+		xml.node("dropped-fragm-ipv4", [&] {
+			xml.attribute("value", _dropped_fragm_ipv4); });
 }
 
 

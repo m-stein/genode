@@ -403,13 +403,13 @@ void Domain::report(Xml_generator &xml)
 	xml.node("domain", [&] () {
 		bool empty = true;
 		xml.attribute("name", name());
-		_config.with_report([&] (Report &report) {
-			if (report.bytes()) {
+		_config.with_report([&] (Report const &report_cfg) {
+			if (report_cfg.bytes()) {
 				xml.attribute("rx_bytes", _tx_bytes);
 				xml.attribute("tx_bytes", _rx_bytes);
 				empty = false;
 			}
-			if (report.config()) {
+			if (report_cfg.config()) {
 				xml.attribute("ipv4", String<19>(ip_config().interface()));
 				xml.attribute("gw",   String<16>(ip_config().gateway()));
 				ip_config().for_each_dns_server([&] (Dns_server const &dns_server) {
@@ -426,25 +426,25 @@ void Domain::report(Xml_generator &xml)
 				});
 				empty = false;
 			}
-			if (report.stats()) {
+			if (report_cfg.stats()) {
 				try { xml.node("tcp-links",        [&] () { _tcp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
 				try { xml.node("udp-links",        [&] () { _udp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
 				try { xml.node("icmp-links",       [&] () { _icmp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
 				try { xml.node("arp-waiters",      [&] () { _arp_stats.report(xml);  }); empty = false; } catch (Report::Empty) { }
 				try { xml.node("dhcp-allocations", [&] () { _dhcp_stats.report(xml); }); empty = false; } catch (Report::Empty) { }
 			}
-			if (report.dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
+			if (report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4) {
 				xml.node("dropped-fragm-ipv4", [&] () {
 					xml.attribute("value", _dropped_fragm_ipv4);
 				});
 				empty = false;
 			}
-		});
-		_interfaces.for_each([&] (Interface &interface) {
-			try {
-				interface.report(xml);
-				empty = false;
-			} catch (Report::Empty) { }
+			_interfaces.for_each([&] (Interface &interface) {
+				if (!interface.report_empty(report_cfg)) {
+					xml.node("interface", [&] { interface.report(xml, report_cfg); });
+					empty = false;
+				}
+			});
 		});
 		if (empty) {
 			throw Report::Empty(); }
