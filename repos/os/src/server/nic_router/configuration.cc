@@ -138,36 +138,27 @@ Configuration::Configuration(Env                             &env,
 	});
 	/* do parts of domain initialization that may lookup other domains */
 	while (true) {
+		Domain *invalid_domain_ptr { };
+		_domains.for_each([&] (Domain &domain) {
+			if (invalid_domain_ptr)
+				return;
+			try { domain.init(_domains); }
+			catch (Domain::Invalid) { invalid_domain_ptr = &domain; }
+			if (_verbose) {
+				log("[", domain, "] initiated domain"); }
+		});
+		if (!invalid_domain_ptr)
+			break;
 
-		struct Retry_without_domain : Genode::Exception
-		{
-			Domain &domain;
+		/* destroy domain that became invalid during initialization */
+		destroy(_alloc, invalid_domain_ptr);
 
-			Retry_without_domain(Domain &domain) : domain(domain) { }
-		};
-		try {
-			_domains.for_each([&] (Domain &domain) {
-				try { domain.init(_domains); }
-				catch (Domain::Invalid) { throw Retry_without_domain(domain); }
-				if (_verbose) {
-					log("[", domain, "] initiated domain"); }
-			});
-		}
-		catch (Retry_without_domain exception) {
-
-			/* destroy domain that became invalid during initialization */
-			destroy(_alloc, &exception.domain);
-
-			/* deinitialize the remaining domains again */
-			_domains.for_each([&] (Domain &domain) {
-				domain.deinit();
-				if (_verbose) {
-					log("[", domain, "] deinitiated domain"); }
-			});
-			/* retry to initialize the remaining domains */
-			continue;
-		}
-		break;
+		/* deinitialize the remaining domains again */
+		_domains.for_each([&] (Domain &domain) {
+			domain.deinit();
+			if (_verbose) {
+				log("[", domain, "] deinitiated domain"); }
+		});
 	}
 	node.with_optional_sub_node("report", [&] (Xml_node const &report_node) {
 		if (old_config._reporter.valid()) {
