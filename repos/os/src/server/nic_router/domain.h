@@ -54,7 +54,8 @@ struct Net::Domain_object_stats
 
 	void dissolve_interface(Interface_object_stats const &stats);
 
-	void report(Genode::Xml_generator &xml);
+	bool report_empty() const;
+	void report(Genode::Xml_generator &xml) const;
 };
 
 
@@ -66,7 +67,8 @@ struct Net::Domain_link_stats : Domain_object_stats
 
 	void dissolve_interface(Interface_link_stats const &stats);
 
-	void report(Genode::Xml_generator &xml);
+	bool report_empty() const;
+	void report(Genode::Xml_generator &xml) const;
 };
 
 
@@ -216,7 +218,9 @@ class Net::Domain : public List<Domain>::Element,
 
 		void raise_tx_bytes(Genode::size_t bytes) { _tx_bytes += bytes; }
 
-		void report(Genode::Xml_generator &xml);
+		bool report_empty(Report const &) const;
+
+		void report(Genode::Xml_generator &xml, Report const &) const;
 
 		void add_dropped_fragm_ipv4(unsigned long dropped_fragm_ipv4);
 

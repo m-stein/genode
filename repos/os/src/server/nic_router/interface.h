@@ -68,7 +68,8 @@ struct Net::Interface_object_stats
 	Genode::size_t alive     { 0 };
 	Genode::size_t destroyed { 0 };
 
-	void report(Genode::Xml_generator &xml);
+	bool report_empty() const;
+	void report(Genode::Xml_generator &xml) const;
 
 	~Interface_object_stats();
 };
@@ -89,13 +90,14 @@ struct Net::Interface_link_stats
 	Genode::size_t dissolved_no_timeout      { 0 };
 	Genode::size_t destroyed                 { 0 };
 
-	void report(Genode::Xml_generator &xml);
+	bool report_empty() const;
+	void report(Genode::Xml_generator &xml) const;
 
 	~Interface_link_stats();
 };
 
 
-struct Net::Interface_policy
+struct Net::Interface_policy : Genode::Interface
 {
 	virtual Domain_name determine_domain_name() const = 0;
 
@@ -107,7 +109,9 @@ struct Net::Interface_policy
 
 	virtual bool interface_link_state() const = 0;
 
-	virtual void report(Genode::Xml_generator &) const { throw Report::Empty(); }
+	virtual bool report_empty() const = 0;
+
+	virtual void report(Genode::Xml_generator &) const = 0;
 
 	virtual ~Interface_policy() { }
 };
@@ -443,7 +447,9 @@ class Net::Interface : private Interface_list::Element
 
 		void handle_interface_link_state();
 
-		void report(Genode::Xml_generator &xml);
+		bool report_empty(Report const &report_cfg) const;
+
+		void report(Genode::Xml_generator &xml, Report const &report_cfg) const;
 
 		void handle_domain_ready_state(bool state);
 
