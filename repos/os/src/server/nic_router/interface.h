@@ -68,7 +68,8 @@ struct Net::Interface_object_stats
 	Genode::size_t alive     { 0 };
 	Genode::size_t destroyed { 0 };
 
-	void report(Genode::Xml_generator &xml);
+	bool report_empty() const;
+	void report(Genode::Xml_generator &xml) const;
 
 	~Interface_object_stats();
 };
@@ -89,7 +90,8 @@ struct Net::Interface_link_stats
 	Genode::size_t dissolved_no_timeout      { 0 };
 	Genode::size_t destroyed                 { 0 };
 
-	void report(Genode::Xml_generator &xml);
+	bool report_empty() const;
+	void report(Genode::Xml_generator &xml) const;
 
 	~Interface_link_stats();
 };
