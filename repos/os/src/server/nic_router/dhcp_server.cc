@@ -161,7 +161,7 @@ Ipv4_config const &Dhcp_server::_resolve_dns_config_from() const
 }
 
 
-bool Dhcp_server::alloc_any_free_ip(Ipv4_address &ip)
+bool Dhcp_server::alloc_any_ip(Ipv4_address &ip)
 {
 	try {
 		ip = Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() + _ip_first_raw);

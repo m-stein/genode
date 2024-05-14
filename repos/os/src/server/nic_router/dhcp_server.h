@@ -97,7 +97,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 		            Ipv4_address_prefix const &interface,
 		            Domain_dict               &domains);
 
-		[[nodiscard]] bool alloc_any_free_ip(Ipv4_address &ip);
+		[[nodiscard]] bool alloc_any_ip(Ipv4_address &ip);
 
 		[[nodiscard]] bool alloc_given_ip(Ipv4_address const &ip);
 

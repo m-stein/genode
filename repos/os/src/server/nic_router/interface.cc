@@ -764,7 +764,7 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
                                              Domain         &local_domain)
 {
 	Ipv4_address ip;
-	if (!dhcp_srv.alloc_any_free_ip(ip))
+	if (!dhcp_srv.alloc_any_ip(ip))
 		return Packet_error("failed to allocate IP for DHCP client");
 
 	try {
