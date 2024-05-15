@@ -259,7 +259,7 @@ Link_side_tree &Domain::links(L3_protocol const protocol)
 	case L3_protocol::TCP:  return _tcp_links;
 	case L3_protocol::UDP:  return _udp_links;
 	case L3_protocol::ICMP: return _icmp_links;
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
