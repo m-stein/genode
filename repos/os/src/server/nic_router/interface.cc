@@ -610,7 +610,7 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
 				try { new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt }; }
 				catch (Out_of_ram)  { result = packet_dropped("out of RAM while creating ARP waiter"); }
 				catch (Out_of_caps) { result = packet_dropped("out of CAPs while creating ARP waiter"); }
-				result = Packet_error::postpone();
+				result = packet_postponed();
 			}
 		);
 	};
