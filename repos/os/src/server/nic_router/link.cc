@@ -169,7 +169,7 @@ void Link::handle_config(Domain                        &cln_domain,
 	case L3_protocol::TCP:  dissolve_timeout_us = config.tcp_idle_timeout();  break;
 	case L3_protocol::UDP:  dissolve_timeout_us = config.udp_idle_timeout();  break;
 	case L3_protocol::ICMP: dissolve_timeout_us = config.icmp_idle_timeout(); break;
-	default: throw Interface::Bad_transport_protocol();
+	default: ASSERT_NEVER_REACHED;
 	}
 	_dissolve_timeout_us = dissolve_timeout_us;
 	_dissolve_timeout.schedule(_dissolve_timeout_us);
