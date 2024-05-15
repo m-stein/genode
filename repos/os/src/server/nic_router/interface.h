@@ -206,12 +206,6 @@ class Net::Interface : private Interface_list::Element
 		                           Genode::size_t  icmp_sz,
 		                           Size_guard     &size_guard);
 
-		Forward_rule_tree &_forward_rules(Domain            &local_domain,
-		                                  L3_protocol const  prot) const;
-
-		Transport_rule_list &_transport_rules(Domain            &local_domain,
-		                                      L3_protocol const  prot) const;
-
 		[[nodiscard]] Packet_state _handle_arp(Ethernet_frame       &eth,
 		                                       Size_guard           &size_guard,
 		                                       Domain               &local_domain);

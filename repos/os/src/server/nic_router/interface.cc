@@ -23,6 +23,7 @@
 #include <interface.h>
 #include <configuration.h>
 #include <l3_protocol.h>
+#include <assertion.h>
 
 using namespace Net;
 using Genode::Deallocator;
@@ -151,7 +152,7 @@ static void _link_packet(L3_protocol  const  prot,
 			return;
 		}
 		return;
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -176,7 +177,7 @@ static void _update_checksum(L3_protocol   const prot,
 			                               sizeof(Icmp_packet));
 			return;
 		}
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -186,7 +187,7 @@ static Port _dst_port(L3_protocol const prot, void *const prot_base)
 	case L3_protocol::TCP:  return (*(Tcp_packet *)prot_base).dst_port();
 	case L3_protocol::UDP:  return (*(Udp_packet *)prot_base).dst_port();
 	case L3_protocol::ICMP: return Port((*(Icmp_packet *)prot_base).query_id());
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -198,7 +199,7 @@ static void _dst_port(L3_protocol  const prot,
 	case L3_protocol::TCP:  (*(Tcp_packet *)prot_base).dst_port(port);  return;
 	case L3_protocol::UDP:  (*(Udp_packet *)prot_base).dst_port(port);  return;
 	case L3_protocol::ICMP: (*(Icmp_packet *)prot_base).query_id(port.value); return;
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -208,7 +209,7 @@ static Port _src_port(L3_protocol const prot, void *const prot_base)
 	case L3_protocol::TCP:  return (*(Tcp_packet *)prot_base).src_port();
 	case L3_protocol::UDP:  return (*(Udp_packet *)prot_base).src_port();
 	case L3_protocol::ICMP: return Port((*(Icmp_packet *)prot_base).query_id());
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -220,7 +221,7 @@ static void _src_port(L3_protocol  const prot,
 	case L3_protocol::TCP:  ((Tcp_packet *)prot_base)->src_port(port);        return;
 	case L3_protocol::UDP:  ((Udp_packet *)prot_base)->src_port(port);        return;
 	case L3_protocol::ICMP: ((Icmp_packet *)prot_base)->query_id(port.value); return;
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -232,9 +233,35 @@ static void *_prot_base(L3_protocol const  prot,
 	case L3_protocol::TCP:  return &ip.data<Tcp_packet>(size_guard);
 	case L3_protocol::UDP:  return &ip.data<Udp_packet>(size_guard);
 	case L3_protocol::ICMP: return &ip.data<Icmp_packet>(size_guard);
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
+
+static bool _supported_transport_prot(L3_protocol prot)
+{
+	return
+		prot == L3_protocol::TCP ||
+		prot == L3_protocol::UDP ||
+		prot == L3_protocol::ICMP;
+}
+
+
+static void _with_forward_rule(Domain &dom, L3_protocol prot, Port port, auto const &fn)
+{
+	switch (prot) {
+	case L3_protocol::TCP: dom.tcp_forward_rules().find_by_port(port, [&] (Forward_rule const &r) { fn(r); }, []{}); break;
+	case L3_protocol::UDP: dom.udp_forward_rules().find_by_port(port, [&] (Forward_rule const &r) { fn(r); }, []{}); break;
+	default: break; }
+}
+
+
+static void _with_transport_rule(Domain &dom, L3_protocol prot, Ipv4_address const &ip, Port port, auto const &fn)
+{
+	switch (prot) {
+	case L3_protocol::TCP: dom.tcp_rules().find_best_match(ip, port, [&] (Transport_rule const &tr, Permit_rule const &pr) { fn(tr, pr); }, []{}); break;
+	case L3_protocol::UDP: dom.udp_rules().find_best_match(ip, port, [&] (Transport_rule const &tr, Permit_rule const &pr) { fn(tr, pr); }, []{}); break;
+	default: break; }
+}
 
 /**************************
  ** Interface_link_stats **
@@ -290,7 +317,7 @@ void Interface::destroy_link(Link &link)
 	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _alloc);  break;
 	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _alloc);  break;
 	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _alloc); break;
-	default: throw Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -315,26 +342,6 @@ void Interface::_pass_prot_to_domain(Domain                       &domain,
 		}
 		interface.send(eth, size_guard);
 	});
-}
-
-
-Forward_rule_tree &
-Interface::_forward_rules(Domain &local_domain, L3_protocol const prot) const
-{
-	switch (prot) {
-	case L3_protocol::TCP: return local_domain.tcp_forward_rules();
-	case L3_protocol::UDP: return local_domain.udp_forward_rules();
-	default: throw Bad_transport_protocol(); }
-}
-
-
-Transport_rule_list &
-Interface::_transport_rules(Domain &local_domain, L3_protocol const prot) const
-{
-	switch (prot) {
-	case L3_protocol::TCP: return local_domain.tcp_rules();
-	case L3_protocol::UDP: return local_domain.udp_rules();
-	default: throw Bad_transport_protocol(); }
 }
 
 
@@ -1253,7 +1260,8 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 	/* try to route via transport layer rules */
 	bool done { false };
 	try {
-		L3_protocol  const prot      = ip.protocol();
+	L3_protocol const prot = ip.protocol();
+	if (_supported_transport_prot(prot)) {
 		size_t       const prot_size = size_guard.unconsumed();
 		void        *const prot_base = _prot_base(prot, size_guard, ip);
 
@@ -1339,46 +1347,36 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 
 		/* try to route via forward rules */
 		if (local_id.dst_ip == local_intf.address) {
-
-			_forward_rules(local_domain, prot).find_by_port(
-				local_id.dst_port,
-				[&] /* handle_match */ (Forward_rule const &rule)
-				{
-					done = true;
-					if(_config().verbose()) {
-						log("[", local_domain, "] using forward rule: ",
-						    l3_protocol_name(prot), " ", rule);
-					}
-					Domain &remote_domain = rule.domain();
-					result = _adapt_eth(eth, rule.to_ip(), pkt, remote_domain);
-					if (result.failed())
-						return;
-					ip.dst(rule.to_ip(), ip_icd);
-					if (!(rule.to_port() == Port(0))) {
-						_dst_port(prot, prot_base, rule.to_port());
-					}
-					result = _nat_link_and_pass(
-						eth, size_guard, ip, ip_icd, prot, prot_base,
-						prot_size, local_id, local_domain, remote_domain);
-				},
-				[&] /* handle_no_match */ () { }
-			);
+			_with_forward_rule(local_domain, prot, local_id.dst_port, [&] (Forward_rule const &rule) {
+				done = true;
+				if(_config().verbose()) {
+					log("[", local_domain, "] using forward rule: ",
+						l3_protocol_name(prot), " ", rule);
+				}
+				Domain &remote_domain = rule.domain();
+				result = _adapt_eth(eth, rule.to_ip(), pkt, remote_domain);
+				if (result.failed())
+					return;
+				ip.dst(rule.to_ip(), ip_icd);
+				if (!(rule.to_port() == Port(0))) {
+					_dst_port(prot, prot_base, rule.to_port());
+				}
+				result = _nat_link_and_pass(
+					eth, size_guard, ip, ip_icd, prot, prot_base,
+					prot_size, local_id, local_domain, remote_domain);
+			});
 			if (done) {
 				return result;
 			}
 		}
 		/* try to route via transport and permit rules */
-		_transport_rules(local_domain, prot).find_best_match(
-			local_id.dst_ip,
-			local_id.dst_port,
-			[&] /* handle_match */ (Transport_rule const &transport_rule,
-			                        Permit_rule    const &permit_rule)
-			{
+		_with_transport_rule(local_domain, prot, local_id.dst_ip, local_id.dst_port,
+			[&] (Transport_rule const &transport_rule, Permit_rule const &permit_rule) {
 				done = true;
 				if(_config().verbose()) {
 					log("[", local_domain, "] using ",
-					    l3_protocol_name(prot), " rule: ",
-					    transport_rule, " ", permit_rule);
+						l3_protocol_name(prot), " rule: ",
+						transport_rule, " ", permit_rule);
 				}
 				Domain &remote_domain = permit_rule.domain();
 				result = _adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
@@ -1387,12 +1385,11 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 				result = _nat_link_and_pass(
 					eth, size_guard, ip, ip_icd, prot, prot_base, prot_size,
 					local_id, local_domain, remote_domain);
-			},
-			[&] /* handle_no_match */ () { }
-		);
+			});
 		if (done) {
 			return result;
 		}
+	}
 	}
 	catch (Interface::Bad_transport_protocol) { }
 
@@ -1953,49 +1950,35 @@ void Interface::_update_udp_tcp_links(L3_protocol  prot,
 {
 	links(prot).for_each([&] (Link &link) {
 
-		bool link_has_been_updated { false };
+		bool link_updated { false };
 
 		if (link.server().src_ip() != link.client().dst_ip()) {
 
-			_forward_rules(cln_dom, prot).find_by_port(
-				link.client().dst_port(),
-				[&] /* handle_match */ (Forward_rule const &rule)
-				{
-					if (rule.to_ip() != link.server().src_ip())
+			_with_forward_rule(cln_dom, prot, link.client().dst_port(), [&] (Forward_rule const &rule) {
+				if (rule.to_ip() != link.server().src_ip())
+					return;
+
+				if (rule.to_port() == Port { 0 }) {
+
+					if (link.server().src_port() !=
+						link.client().dst_port())
 						return;
 
-					if (rule.to_port() == Port { 0 }) {
+				} else {
 
-						if (link.server().src_port() !=
-						    link.client().dst_port())
-							return;
-
-					} else {
-
-						if (rule.to_port() != link.server().src_port())
-							return;
-					}
-					link_has_been_updated =
-						_try_update_link(link, rule.domain(), prot, cln_dom);
-				},
-				[&] /* handle_no_match */ () { }
-			);
+					if (rule.to_port() != link.server().src_port())
+						return;
+				}
+				link_updated = _try_update_link(link, rule.domain(), prot, cln_dom);
+			});
 
 		} else {
 
-			_transport_rules(cln_dom, prot).find_best_match(
-				link.client().dst_ip(),
-				link.client().dst_port(),
-				[&] /* handle_match */ (Transport_rule const &,
-				                        Permit_rule    const &rule)
-				{
-					link_has_been_updated =
-						_try_update_link(link, rule.domain(), prot, cln_dom);
-				},
-				[&] /* handle_no_match */ () { }
-			);
+			_with_transport_rule(cln_dom, prot, link.client().dst_ip(), link.client().dst_port(),
+				[&] (Transport_rule const &, Permit_rule const &rule) {
+					link_updated = _try_update_link(link, rule.domain(), prot, cln_dom); });
 		}
-		if (link_has_been_updated)
+		if (link_updated)
 			return;
 
 		_dismiss_link(link);
