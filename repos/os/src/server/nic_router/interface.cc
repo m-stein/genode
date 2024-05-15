@@ -1631,13 +1631,12 @@ void Interface::_handle_pkt()
 		return;
 	}
 	Size_guard size_guard(pkt.size());
-	_handle_eth(_sink.packet_content(pkt), size_guard, pkt).with_result(
-		[&] (Packet_ok) { _ack_packet(pkt); },
-		[&] (Packet_error error) {
-			switch (error.type) {
-			case Packet_error::DROP: _drop_packet(pkt, error.drop_reason); break;
-			case Packet_error::POSTPONE: break; }
-		});
+	Packet_result result = _handle_eth(_sink.packet_content(pkt), size_guard, pkt);
+	switch (result.type) {
+	case Packet_result::HANDLED: _ack_packet(pkt); break;
+	case Packet_result::POSTPONED: break;
+	case Packet_result::DROP: _drop_packet(pkt, result.drop_reason); break;
+	case Packet_result::INVALID: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -1707,14 +1706,12 @@ void Interface::_continue_handle_eth(Packet_descriptor const &pkt)
 		return;
 	}
 	Size_guard size_guard(pkt.size());
-	_handle_eth(_sink.packet_content(pkt), size_guard, pkt).with_result(
-		[&] (Packet_ok) { _ack_packet(pkt); },
-		[&] (Packet_error const &error) {
-			switch (error.type) {
-			case Packet_error::DROP: _drop_packet(pkt, error.drop_reason); break;
-			case Packet_error::POSTPONE: _drop_packet(pkt, "postponed twice"); break;
-			}
-		});
+	Packet_result result = _handle_eth(_sink.packet_content(pkt), size_guard, pkt);
+	switch (result.type) {
+	case Packet_result::HANDLED: _ack_packet(pkt); break;
+	case Packet_result::POSTPONED: _drop_packet(pkt, "postponed twice"); break;
+	case Packet_result::DROP: _drop_packet(pkt, result.drop_reason); break;
+	case Packet_result::INVALID: ASSERT_NEVER_REACHED; }
 }
 
 

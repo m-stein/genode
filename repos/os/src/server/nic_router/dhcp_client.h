@@ -24,17 +24,17 @@ namespace Net {
 
 	struct Packet_result
 	{
-		enum Type { INVALID, DROPPED, POSTPONED, HANDLED } type { INVALID };
+		enum Type { INVALID, DROP, POSTPONED, HANDLED } type { INVALID };
 		char const *drop_reason { "" };
 
 		bool valid() const { return type != INVALID; }
 	};
 
-	Packet_result packet_dropped(char const *reason) { return { Packet_result::DROPPED, reason }; }
+	inline Packet_result packet_dropped(char const *reason) { return { Packet_result::DROP, reason }; }
 
-	Packet_result packet_postponed() { return { Packet_result::POSTPONED, "" }; }
+	inline Packet_result packet_postponed() { return { Packet_result::POSTPONED, "" }; }
 
-	Packet_result packet_handled() { return { Packet_result::HANDLED, "" }; }
+	inline Packet_result packet_handled() { return { Packet_result::HANDLED, "" }; }
 
 	class Domain;
 	class Configuration;
