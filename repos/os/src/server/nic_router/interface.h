@@ -368,7 +368,6 @@ class Net::Interface : private Interface_list::Element
 	public:
 
 		struct Bad_send_dhcp_args : Genode::Exception { };
-		struct Bad_transport_protocol : Genode::Exception { };
 
 		Interface(Genode::Entrypoint     &ep,
 		          Cached_timer           &timer,

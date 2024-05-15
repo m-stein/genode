@@ -1259,11 +1259,11 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 	}
 
 	/* try to route via transport layer rules */
-	try {
 	L3_protocol const prot = ip.protocol();
 	if (_supported_transport_prot(prot)) {
-		size_t       const prot_size = size_guard.unconsumed();
-		void        *const prot_base = _prot_base(prot, size_guard, ip);
+
+		size_t const prot_size = size_guard.unconsumed();
+		void *const prot_base = _prot_base(prot, size_guard, ip);
 
 		/* try handling DHCP requests before trying any routing */
 		if (prot == L3_protocol::UDP) {
@@ -1386,9 +1386,6 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 				return result;
 		}
 	}
-	}
-	catch (Interface::Bad_transport_protocol) { }
-
 	/* try to route via IP rules */
 	local_domain.ip_rules().find_longest_prefix_match(
 		ip.dst(),
