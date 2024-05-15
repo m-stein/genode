@@ -61,5 +61,5 @@ Port_allocator_guard &Nat_rule::port_alloc(L3_protocol const prot)
 	case L3_protocol::TCP:  return _tcp_port_alloc;
 	case L3_protocol::UDP:  return _udp_port_alloc;
 	case L3_protocol::ICMP: return _icmp_port_alloc;
-	default: throw Interface::Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
