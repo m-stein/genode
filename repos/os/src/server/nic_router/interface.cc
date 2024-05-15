@@ -663,7 +663,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 		return result;
 
 	_pass_prot_to_domain(remote_domain, eth, size_guard, ip, ip_icd, prot, prot_base, prot_size);
-	return result;
+	return packet_handled();
 }
 
 
@@ -789,7 +789,7 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 	}
 	catch (Out_of_ram)  { return packet_drop("out of RAM while creating DHCP allocation"); }
 	catch (Out_of_caps) { return packet_drop("out of CAPs while creating DHCP allocation"); }
-	return { };
+	return packet_handled();
 }
 
 
@@ -822,6 +822,7 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 					                 allocation.ip(),
 					                 Dhcp_packet::Message_type::OFFER,
 					                 dhcp.xid(), local_intf);
+					result = packet_handled();
 					return;
 				}
 			case Dhcp_packet::Message_type::REQUEST:
@@ -832,6 +833,7 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 					                 allocation.ip(),
 					                 Dhcp_packet::Message_type::ACK,
 					                 dhcp.xid(), local_intf);
+					result = packet_handled();
 					return;
 
 				} else {
@@ -851,12 +853,14 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 							                 allocation.ip(),
 							                 Dhcp_packet::Message_type::ACK,
 							                 dhcp.xid(), local_intf);
+							result = packet_handled();
 							return;
 
 						} else {
 
 							_release_dhcp_allocation(allocation, local_domain);
 							_destroy_dhcp_allocation(allocation, local_domain);
+							result = packet_handled();
 							return;
 						}
 					};
@@ -869,6 +873,7 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 				                 allocation.ip(),
 				                 Dhcp_packet::Message_type::ACK,
 				                 dhcp.xid(), local_intf);
+				result = packet_handled();
 				return;
 
 			case Dhcp_packet::Message_type::DECLINE:
@@ -876,6 +881,7 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 
 				_release_dhcp_allocation(allocation, local_domain);
 				_destroy_dhcp_allocation(allocation, local_domain);
+				result = packet_handled();
 				return;
 
 			case Dhcp_packet::Message_type::NAK:   result = packet_drop("DHCP NAK from client"); return;
@@ -898,6 +904,7 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 				                 Ipv4_address { },
 				                 Dhcp_packet::Message_type::NAK,
 				                 dhcp.xid(), local_intf);
+				result = packet_handled();
 				return;
 
 			case Dhcp_packet::Message_type::DECLINE: result = packet_drop("DHCP DECLINE from client without offered/acked IP"); return;
@@ -1052,12 +1059,10 @@ Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
 	                                ip.dst(), _dst_port(prot, prot_base) };
 
 	/* try to route via existing ICMP links */
-	bool done { false };
 	local_domain.links(prot).find_by_id(
 		local_id,
 		[&] /* handle_match */ (Link_side const &local_side)
 		{
-			done = true;
 			Link &link = local_side.link();
 			bool const client = local_side.is_client();
 			Link_side &remote_side = client ? link.server() : link.client();
@@ -1078,19 +1083,18 @@ Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
 				prot_base, prot_size);
 
 			_link_packet(prot, prot_base, link, client);
+			result = packet_handled();
 		},
 		[&] /* handle_no_match */ () { }
 	);
-	if (done) {
+	if (result.valid())
 		return result;
-	}
 
 	/* try to route via ICMP rules */
 	local_domain.icmp_rules().find_longest_prefix_match(
 		ip.dst(),
 		[&] /* handle_match */ (Ip_rule const &rule)
 		{
-			done = true;
 			if(_config().verbose()) {
 				log("[", local_domain, "] using ICMP rule: ", rule); }
 
@@ -1103,11 +1107,7 @@ Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
 		},
 		[&] /* handle_no_match */ () { }
 	);
-	if (done) {
-		return result;
-	}
-
-	throw Bad_transport_protocol();
+	return result;
 }
 
 
@@ -1176,6 +1176,7 @@ Packet_result Interface::_handle_icmp_error(Ethernet_frame          &eth,
 			/* refresh link only if the error is not about an ICMP query */
 			if (embed_prot != L3_protocol::ICMP) {
 				_link_packet(embed_prot, embed_prot_base, link, client); }
+			result = packet_handled();
 		},
 		[&] /* handle_no_match */ ()
 		{
@@ -1254,11 +1255,10 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 		 * the router. Thus, forward it to all other interfaces of the domain.
 		 */
 		_domain_broadcast(eth, size_guard, local_domain);
-		return result;
+		return packet_handled();
 	}
 
 	/* try to route via transport layer rules */
-	bool done { false };
 	try {
 	L3_protocol const prot = ip.protocol();
 	if (_supported_transport_prot(prot)) {
@@ -1315,7 +1315,6 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 				local_id,
 				[&] /* handle_match */ (Link_side const &local_side)
 				{
-					done = true;
 					Link &link = local_side.link();
 					bool const client = local_side.is_client();
 					Link_side &remote_side =
@@ -1338,17 +1337,16 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 						prot_base, prot_size);
 
 					_link_packet(prot, prot_base, link, client);
+					result = packet_handled();
 				},
 				[&] /* handle_no_match */ () { }
 			);
-			if (done) {
+			if (result.valid())
 				return result;
-			}
 
 			/* try to route via forward rules */
 			if (local_id.dst_ip == local_intf.address) {
 				_with_forward_rule(local_domain, prot, local_id.dst_port, [&] (Forward_rule const &rule) {
-					done = true;
 					if(_config().verbose()) {
 						log("[", local_domain, "] using forward rule: ",
 							l3_protocol_name(prot), " ", rule);
@@ -1365,14 +1363,12 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 						eth, size_guard, ip, ip_icd, prot, prot_base,
 						prot_size, local_id, local_domain, remote_domain);
 				});
-				if (done) {
+				if (result.valid())
 					return result;
-				}
 			}
 			/* try to route via transport and permit rules */
 			_with_transport_rule(local_domain, prot, local_id.dst_ip, local_id.dst_port,
 				[&] (Transport_rule const &transport_rule, Permit_rule const &permit_rule) {
-					done = true;
 					if(_config().verbose()) {
 						log("[", local_domain, "] using ",
 							l3_protocol_name(prot), " rule: ",
@@ -1386,9 +1382,8 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 						eth, size_guard, ip, ip_icd, prot, prot_base, prot_size,
 						local_id, local_domain, remote_domain);
 				});
-			if (done) {
+			if (result.valid())
 				return result;
-			}
 		}
 	}
 	}
@@ -1399,7 +1394,6 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 		ip.dst(),
 		[&] /* handle_match */ (Ip_rule const &rule)
 		{
-			done = true;
 			if(_config().verbose()) {
 				log("[", local_domain, "] using IP rule: ", rule); }
 
@@ -1410,12 +1404,12 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 			remote_domain.interfaces().for_each([&] (Interface &interface) {
 				interface.send(eth, size_guard);
 			});
+			result = packet_handled();
 		},
 		[&] /* handle_no_match */ () { }
 	);
-	if (done) {
+	if (result.valid())
 		return result;
-	}
 
 	/*
 	 * Give up and drop packet. According to RFC 1812 section 4.3.2.7, an ICMP
@@ -1589,7 +1583,7 @@ Packet_result Interface::_handle_arp_request(Ethernet_frame &eth,
 			_send_arp_reply(eth, arp);
 		}
 	}
-	return { };
+	return packet_handled();
 }
 
 
@@ -1606,7 +1600,7 @@ Packet_result Interface::_handle_arp(Ethernet_frame &eth,
 	case Arp_packet::REPLY: _handle_arp_reply(eth, size_guard, arp, local_domain); break;
 	case Arp_packet::REQUEST: return _handle_arp_request(eth, size_guard, arp, local_domain);
 	default: return packet_drop("unknown ARP operation"); }
-	return { };
+	return packet_handled();
 }
 
 
@@ -1787,7 +1781,7 @@ Packet_result Interface::_handle_eth(Ethernet_frame           &eth,
 		default: return packet_drop("unknown network layer protocol");
 		}
 	}
-	return { };
+	ASSERT_NEVER_REACHED;
 }
 
 

@@ -149,6 +149,7 @@ Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 			_send(Message_type::REQUEST, Ipv4_address(),
 			      dhcp.option<Dhcp_packet::Server_ipv4>().value(),
 			      dhcp.yiaddr(), REQUEST_PKT_SIZE);
+			result = packet_handled();
 			break;
 
 		case State::REQUEST:
@@ -162,6 +163,7 @@ Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 				_lease_time_sec = dhcp.option<Dhcp_packet::Ip_lease_time>().value();
 				_set_state(State::BOUND, _rerequest_timeout(1, domain));
 				domain.ip_config_from_dhcp_ack(dhcp);
+				result = packet_handled();
 				break;
 			}
 		default: result = packet_drop("DHCP client doesn't expect a packet"); break;
