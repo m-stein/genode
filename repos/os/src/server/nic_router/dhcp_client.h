@@ -30,7 +30,7 @@ namespace Net {
 		bool valid() const { return type != INVALID; }
 	};
 
-	inline Packet_result packet_dropped(char const *reason) { return { Packet_result::DROP, reason }; }
+	inline Packet_result packet_drop(char const *reason) { return { Packet_result::DROP, reason }; }
 
 	inline Packet_result packet_postponed() { return { Packet_result::POSTPONED, "" }; }
 

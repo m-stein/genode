@@ -119,7 +119,7 @@ void Dhcp_client::_handle_timeout(Duration)
 Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 {
 	Packet_result result { };
-	auto no_msg_type_fn = [&] { result = packet_dropped("DHCP request misses option \"Message Type\""); };
+	auto no_msg_type_fn = [&] { result = packet_drop("DHCP request misses option \"Message Type\""); };
 	auto msg_type_fn = [&] (Dhcp_packet::Message_type_option const &msg_type) {
 
 		if (_interface.config().verbose_domain_state()) {
@@ -141,7 +141,7 @@ Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 		case State::SELECT:
 
 			if (msg_type.value() != Message_type::OFFER) {
-				result = packet_dropped("DHCP client expects an offer");
+				result = packet_drop("DHCP client expects an offer");
 				break;
 			}
 			enum { REQUEST_PKT_SIZE = 321 };
@@ -156,7 +156,7 @@ Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 		case State::REBIND:
 			{
 				if (msg_type.value() != Message_type::ACK) {
-					result = packet_dropped("DHCP client expects an acknowledgement");
+					result = packet_drop("DHCP client expects an acknowledgement");
 					break;
 				}
 				_lease_time_sec = dhcp.option<Dhcp_packet::Ip_lease_time>().value();
@@ -164,7 +164,7 @@ Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 				domain.ip_config_from_dhcp_ack(dhcp);
 				break;
 			}
-		default: result = packet_dropped("DHCP client doesn't expect a packet"); break;
+		default: result = packet_drop("DHCP client doesn't expect a packet"); break;
 		}
 	};
 	dhcp.with_option<Dhcp_packet::Message_type_option>(msg_type_fn, no_msg_type_fn);
