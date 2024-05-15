@@ -22,18 +22,19 @@
 
 namespace Net {
 
-	struct Packet_ok { };
-	struct Packet_error
+	struct Packet_result
 	{
-		enum Type { DROP, POSTPONE } type;
+		enum Type { DROP, POSTPONE, PENDING, HANDLED } type;
 		char const *drop_reason;
 
-		static Packet_error drop(char const *reason) { return { DROP, reason }; }
+		static Packet_result drop(char const *reason) { return { DROP, reason }; }
 
-		static Packet_error postpone() { return { POSTPONE, "" }; }
+		static Packet_result postpone() { return { POSTPONE, "" }; }
+
+		static Packet_result pending() { return { PENDING, "" }; }
+
+		static Packet_result handled() { return { PENDING, "" }; }
 	};
-
-	using Packet_state = Genode::Attempt<Packet_ok, Packet_error>;
 
 	class Domain;
 	class Configuration;

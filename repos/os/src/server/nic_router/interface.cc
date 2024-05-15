@@ -548,7 +548,7 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 			result = Packet_error::drop("out of CAPs while creating ICMP link");
 		}
 		break;
-	default: throw Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 	return result;
 }
 
@@ -566,7 +566,7 @@ Link_list &Interface::links(L3_protocol const protocol)
 	case L3_protocol::TCP:  return _tcp_links;
 	case L3_protocol::UDP:  return _udp_links;
 	case L3_protocol::ICMP: return _icmp_links;
-	default: throw Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -576,7 +576,7 @@ Link_list &Interface::dissolved_links(L3_protocol const protocol)
 	case L3_protocol::TCP:  return _dissolved_tcp_links;
 	case L3_protocol::UDP:  return _dissolved_udp_links;
 	case L3_protocol::ICMP: return _dissolved_icmp_links;
-	default: throw Bad_transport_protocol(); }
+	default: ASSERT_NEVER_REACHED; }
 }
 
 
@@ -647,7 +647,7 @@ Packet_state Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 				case L3_protocol::TCP: _tcp_stats.refused_for_ports++; break;
 				case L3_protocol::UDP: _udp_stats.refused_for_ports++; break;
 				case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
-				default: throw Bad_transport_protocol(); }
+				default: ASSERT_NEVER_REACHED; }
 				return;
 			}
 			_src_port(prot, prot_base, src_port);
@@ -1302,92 +1302,93 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 				}
 			}
 		}
-		else if (prot == L3_protocol::ICMP) {
+		if (prot == L3_protocol::ICMP) {
 			return _handle_icmp(eth, size_guard, ip, ip_icd, pkt, prot, prot_base,
 			                    prot_size, local_domain, local_intf);
-		}
+		} else {
 
-		Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
-		                                ip.dst(), _dst_port(prot, prot_base) };
+			Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
+			                                ip.dst(), _dst_port(prot, prot_base) };
 
-		/* try to route via existing UDP/TCP links */
-		local_domain.links(prot).find_by_id(
-			local_id,
-			[&] /* handle_match */ (Link_side const &local_side)
-			{
-				done = true;
-				Link &link = local_side.link();
-				bool const client = local_side.is_client();
-				Link_side &remote_side =
-					client ? link.server() : link.client();
+			/* try to route via existing UDP/TCP links */
+			local_domain.links(prot).find_by_id(
+				local_id,
+				[&] /* handle_match */ (Link_side const &local_side)
+				{
+					done = true;
+					Link &link = local_side.link();
+					bool const client = local_side.is_client();
+					Link_side &remote_side =
+						client ? link.server() : link.client();
 
-				Domain &remote_domain = remote_side.domain();
-				if (_config().verbose()) {
-					log("[", local_domain, "] using ", l3_protocol_name(prot),
-					    " link: ", link);
-				}
-				result = _adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
-				if (result.failed())
-					return;
-				ip.src(remote_side.dst_ip(), ip_icd);
-				ip.dst(remote_side.src_ip(), ip_icd);
-				_src_port(prot, prot_base, remote_side.dst_port());
-				_dst_port(prot, prot_base, remote_side.src_port());
-				_pass_prot_to_domain(
-					remote_domain, eth, size_guard, ip, ip_icd, prot,
-					prot_base, prot_size);
+					Domain &remote_domain = remote_side.domain();
+					if (_config().verbose()) {
+						log("[", local_domain, "] using ", l3_protocol_name(prot),
+						    " link: ", link);
+					}
+					result = _adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
+					if (result.failed())
+						return;
+					ip.src(remote_side.dst_ip(), ip_icd);
+					ip.dst(remote_side.src_ip(), ip_icd);
+					_src_port(prot, prot_base, remote_side.dst_port());
+					_dst_port(prot, prot_base, remote_side.src_port());
+					_pass_prot_to_domain(
+						remote_domain, eth, size_guard, ip, ip_icd, prot,
+						prot_base, prot_size);
 
-				_link_packet(prot, prot_base, link, client);
-			},
-			[&] /* handle_no_match */ () { }
-		);
-		if (done) {
-			return result;
-		}
-
-		/* try to route via forward rules */
-		if (local_id.dst_ip == local_intf.address) {
-			_with_forward_rule(local_domain, prot, local_id.dst_port, [&] (Forward_rule const &rule) {
-				done = true;
-				if(_config().verbose()) {
-					log("[", local_domain, "] using forward rule: ",
-						l3_protocol_name(prot), " ", rule);
-				}
-				Domain &remote_domain = rule.domain();
-				result = _adapt_eth(eth, rule.to_ip(), pkt, remote_domain);
-				if (result.failed())
-					return;
-				ip.dst(rule.to_ip(), ip_icd);
-				if (!(rule.to_port() == Port(0))) {
-					_dst_port(prot, prot_base, rule.to_port());
-				}
-				result = _nat_link_and_pass(
-					eth, size_guard, ip, ip_icd, prot, prot_base,
-					prot_size, local_id, local_domain, remote_domain);
-			});
+					_link_packet(prot, prot_base, link, client);
+				},
+				[&] /* handle_no_match */ () { }
+			);
 			if (done) {
 				return result;
 			}
-		}
-		/* try to route via transport and permit rules */
-		_with_transport_rule(local_domain, prot, local_id.dst_ip, local_id.dst_port,
-			[&] (Transport_rule const &transport_rule, Permit_rule const &permit_rule) {
-				done = true;
-				if(_config().verbose()) {
-					log("[", local_domain, "] using ",
-						l3_protocol_name(prot), " rule: ",
-						transport_rule, " ", permit_rule);
+
+			/* try to route via forward rules */
+			if (local_id.dst_ip == local_intf.address) {
+				_with_forward_rule(local_domain, prot, local_id.dst_port, [&] (Forward_rule const &rule) {
+					done = true;
+					if(_config().verbose()) {
+						log("[", local_domain, "] using forward rule: ",
+							l3_protocol_name(prot), " ", rule);
+					}
+					Domain &remote_domain = rule.domain();
+					result = _adapt_eth(eth, rule.to_ip(), pkt, remote_domain);
+					if (result.failed())
+						return;
+					ip.dst(rule.to_ip(), ip_icd);
+					if (!(rule.to_port() == Port(0))) {
+						_dst_port(prot, prot_base, rule.to_port());
+					}
+					result = _nat_link_and_pass(
+						eth, size_guard, ip, ip_icd, prot, prot_base,
+						prot_size, local_id, local_domain, remote_domain);
+				});
+				if (done) {
+					return result;
 				}
-				Domain &remote_domain = permit_rule.domain();
-				result = _adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
-				if (result.failed())
-					return;
-				result = _nat_link_and_pass(
-					eth, size_guard, ip, ip_icd, prot, prot_base, prot_size,
-					local_id, local_domain, remote_domain);
-			});
-		if (done) {
-			return result;
+			}
+			/* try to route via transport and permit rules */
+			_with_transport_rule(local_domain, prot, local_id.dst_ip, local_id.dst_port,
+				[&] (Transport_rule const &transport_rule, Permit_rule const &permit_rule) {
+					done = true;
+					if(_config().verbose()) {
+						log("[", local_domain, "] using ",
+							l3_protocol_name(prot), " rule: ",
+							transport_rule, " ", permit_rule);
+					}
+					Domain &remote_domain = permit_rule.domain();
+					result = _adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
+					if (result.failed())
+						return;
+					result = _nat_link_and_pass(
+						eth, size_guard, ip, ip_icd, prot, prot_base, prot_size,
+						local_id, local_domain, remote_domain);
+				});
+			if (done) {
+				return result;
+			}
 		}
 	}
 	}
