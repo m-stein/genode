@@ -76,7 +76,7 @@ class Net::Dhcp_client
 		Dhcp_client(Cached_timer      &timer,
 		            Interface         &interface);
 
-		[[nodiscard]] Packet_state handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain);
+		[[nodiscard]] Packet_result handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain);
 
 		void discover();
 };

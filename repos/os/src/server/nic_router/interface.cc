@@ -494,14 +494,14 @@ void Interface::_detach_from_domain()
 }
 
 
-Packet_state Interface::_new_link(L3_protocol             const  protocol,
-                                  Domain                        &local_domain,
-                                  Link_side_id            const &local,
-                                  Pointer<Port_allocator_guard>  remote_port_alloc,
-                                  Domain                        &remote_domain,
-                                  Link_side_id            const &remote)
+Packet_result Interface::_new_link(L3_protocol             const  protocol,
+                                   Domain                        &local_domain,
+                                   Link_side_id            const &local,
+                                   Pointer<Port_allocator_guard>  remote_port_alloc,
+                                   Domain                        &remote_domain,
+                                   Link_side_id            const &remote)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	switch (protocol) {
 	case L3_protocol::TCP:
 		try {
@@ -580,12 +580,12 @@ Link_list &Interface::dissolved_links(L3_protocol const protocol)
 }
 
 
-Packet_state Interface::_adapt_eth(Ethernet_frame          &eth,
-                                   Ipv4_address      const &dst_ip,
-                                   Packet_descriptor const &pkt,
-                                   Domain                  &remote_domain)
+Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
+                                    Ipv4_address      const &dst_ip,
+                                    Packet_descriptor const &pkt,
+                                    Domain                  &remote_domain)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	Ipv4_config const &remote_ip_cfg = remote_domain.ip_config();
 	if (!remote_ip_cfg.valid()) {
 		result = Packet_error::drop("target domain has yet no IP config");
@@ -620,18 +620,18 @@ Packet_state Interface::_adapt_eth(Ethernet_frame          &eth,
 }
 
 
-Packet_state Interface::_nat_link_and_pass(Ethernet_frame         &eth,
-                                           Size_guard             &size_guard,
-                                           Ipv4_packet            &ip,
-                                           Internet_checksum_diff &ip_icd,
-                                           L3_protocol      const  prot,
-                                           void            *const  prot_base,
-                                           size_t           const  prot_size,
-                                           Link_side_id     const &local_id,
-                                           Domain                 &local_domain,
-                                           Domain                 &remote_domain)
+Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
+                                            Size_guard             &size_guard,
+                                            Ipv4_packet            &ip,
+                                            Internet_checksum_diff &ip_icd,
+                                            L3_protocol      const  prot,
+                                            void            *const  prot_base,
+                                            size_t           const  prot_size,
+                                            Link_side_id     const &local_id,
+                                            Domain                 &local_domain,
+                                            Domain                 &remote_domain)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	Pointer<Port_allocator_guard> remote_port_alloc;
 	remote_domain.nat_rules().find_by_domain(
 		local_domain,
@@ -764,10 +764,10 @@ void Interface::_release_dhcp_allocation(Dhcp_allocation &allocation,
 }
 
 
-Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
-                                             Dhcp_packet    &dhcp,
-                                             Dhcp_server    &dhcp_srv,
-                                             Domain         &local_domain)
+Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
+                                              Dhcp_packet    &dhcp,
+                                              Dhcp_server    &dhcp_srv,
+                                              Domain         &local_domain)
 {
 	Ipv4_address ip;
 	if (!dhcp_srv.alloc_any_ip(ip))
@@ -793,13 +793,13 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 }
 
 
-Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
-                                             Dhcp_server               &dhcp_srv,
-                                             Dhcp_packet               &dhcp,
-                                             Domain                    &local_domain,
-                                             Ipv4_address_prefix const &local_intf)
+Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
+                                              Dhcp_server               &dhcp_srv,
+                                              Dhcp_packet               &dhcp,
+                                              Domain                    &local_domain,
+                                              Ipv4_address_prefix const &local_intf)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	auto no_msg_type_fn = [&] { result = Packet_error::drop("DHCP request misses option \"Message Type\""); };
 	auto msg_type_fn = [&] (Dhcp_packet::Message_type_option const &msg_type) {
 
@@ -1037,17 +1037,17 @@ void Interface::_send_icmp_echo_reply(Ethernet_frame &eth,
 }
 
 
-Packet_state Interface::_handle_icmp_query(Ethernet_frame          &eth,
-                                           Size_guard              &size_guard,
-                                           Ipv4_packet             &ip,
-                                           Internet_checksum_diff  &ip_icd,
-                                           Packet_descriptor const &pkt,
-                                           L3_protocol              prot,
-                                           void                    *prot_base,
-                                           size_t                   prot_size,
-                                           Domain                  &local_domain)
+Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
+                                            Size_guard              &size_guard,
+                                            Ipv4_packet             &ip,
+                                            Internet_checksum_diff  &ip_icd,
+                                            Packet_descriptor const &pkt,
+                                            L3_protocol              prot,
+                                            void                    *prot_base,
+                                            size_t                   prot_size,
+                                            Domain                  &local_domain)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
 	                                ip.dst(), _dst_port(prot, prot_base) };
 
@@ -1111,16 +1111,16 @@ Packet_state Interface::_handle_icmp_query(Ethernet_frame          &eth,
 }
 
 
-Packet_state Interface::_handle_icmp_error(Ethernet_frame          &eth,
-                                           Size_guard              &size_guard,
-                                           Ipv4_packet             &ip,
-                                           Internet_checksum_diff  &ip_icd,
-                                           Packet_descriptor const &pkt,
-                                           Domain                  &local_domain,
-                                           Icmp_packet             &icmp,
-                                           size_t                   icmp_sz)
+Packet_result Interface::_handle_icmp_error(Ethernet_frame          &eth,
+                                            Size_guard              &size_guard,
+                                            Ipv4_packet             &ip,
+                                            Internet_checksum_diff  &ip_icd,
+                                            Packet_descriptor const &pkt,
+                                            Domain                  &local_domain,
+                                            Icmp_packet             &icmp,
+                                            size_t                   icmp_sz)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	Ipv4_packet            &embed_ip     { icmp.data<Ipv4_packet>(size_guard) };
 	Internet_checksum_diff  embed_ip_icd { };
 
@@ -1186,19 +1186,19 @@ Packet_state Interface::_handle_icmp_error(Ethernet_frame          &eth,
 }
 
 
-Packet_state Interface::_handle_icmp(Ethernet_frame            &eth,
-                                     Size_guard                &size_guard,
-                                     Ipv4_packet               &ip,
-                                     Internet_checksum_diff    &ip_icd,
-                                     Packet_descriptor   const &pkt,
-                                     L3_protocol                prot,
-                                     void                      *prot_base,
-                                     size_t                     prot_size,
-                                     Domain                    &local_domain,
-                                     Ipv4_address_prefix const &local_intf)
+Packet_result Interface::_handle_icmp(Ethernet_frame            &eth,
+                                      Size_guard                &size_guard,
+                                      Ipv4_packet               &ip,
+                                      Internet_checksum_diff    &ip_icd,
+                                      Packet_descriptor   const &pkt,
+                                      L3_protocol                prot,
+                                      void                      *prot_base,
+                                      size_t                     prot_size,
+                                      Domain                    &local_domain,
+                                      Ipv4_address_prefix const &local_intf)
 {
 	/* drop packet if ICMP checksum is invalid */
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	Icmp_packet &icmp = *reinterpret_cast<Icmp_packet *>(prot_base);
 	if (icmp.checksum_error(size_guard.unconsumed())) {
 		return Packet_error::drop("bad ICMP checksum"); }
@@ -1224,12 +1224,12 @@ Packet_state Interface::_handle_icmp(Ethernet_frame            &eth,
 }
 
 
-Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
-                                   Size_guard              &size_guard,
-                                   Packet_descriptor const &pkt,
-                                   Domain                  &local_domain)
+Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
+                                    Size_guard              &size_guard,
+                                    Packet_descriptor const &pkt,
+                                    Domain                  &local_domain)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	Ipv4_packet            &ip     { eth.data<Ipv4_packet>(size_guard) };
 	Internet_checksum_diff  ip_icd { };
 
@@ -1540,10 +1540,10 @@ void Interface::_send_arp_reply(Ethernet_frame &request_eth,
 }
 
 
-Packet_state Interface::_handle_arp_request(Ethernet_frame &eth,
-                                            Size_guard     &size_guard,
-                                            Arp_packet     &arp,
-                                            Domain         &local_domain)
+Packet_result Interface::_handle_arp_request(Ethernet_frame &eth,
+                                             Size_guard     &size_guard,
+                                             Arp_packet     &arp,
+                                             Domain         &local_domain)
 {
 	Ipv4_config         const &local_ip_cfg = local_domain.ip_config();
 	Ipv4_address_prefix const &local_intf   = local_ip_cfg.interface();
@@ -1593,9 +1593,9 @@ Packet_state Interface::_handle_arp_request(Ethernet_frame &eth,
 }
 
 
-Packet_state Interface::_handle_arp(Ethernet_frame &eth,
-                                    Size_guard     &size_guard,
-                                    Domain         &local_domain)
+Packet_result Interface::_handle_arp(Ethernet_frame &eth,
+                                     Size_guard     &size_guard,
+                                     Domain         &local_domain)
 {
 	/* ignore ARP regarding protocols other than IPv4 via ethernet */
 	Arp_packet &arp = eth.data<Arp_packet>(size_guard);
@@ -1736,10 +1736,10 @@ void Interface::_destroy_released_dhcp_allocations(Domain &local_domain)
 }
 
 
-Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
-                                    Size_guard               &size_guard,
-                                    Packet_descriptor  const &pkt,
-                                    Domain                   &local_domain)
+Packet_result Interface::_handle_eth(Ethernet_frame           &eth,
+                                     Size_guard               &size_guard,
+                                     Packet_descriptor  const &pkt,
+                                     Domain                   &local_domain)
 {
 	if (local_domain.ip_config().valid()) {
 
@@ -1794,11 +1794,11 @@ Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
 }
 
 
-Packet_state Interface::_handle_eth(void              *const  eth_base,
-                                    Size_guard               &size_guard,
-                                    Packet_descriptor  const &pkt)
+Packet_result Interface::_handle_eth(void              *const  eth_base,
+                                     Size_guard               &size_guard,
+                                     Packet_descriptor  const &pkt)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	try {
 		Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
 		auto domain_fn = [&] (Domain &domain) {

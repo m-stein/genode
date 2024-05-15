@@ -116,9 +116,9 @@ void Dhcp_client::_handle_timeout(Duration)
 }
 
 
-Packet_state Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
+Packet_result Dhcp_client::handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain)
 {
-	Packet_state result = Packet_ok();
+	Packet_result result = Packet_ok();
 	auto no_msg_type_fn = [&] { result = Packet_error::drop("DHCP request misses option \"Message Type\""); };
 	auto msg_type_fn = [&] (Dhcp_packet::Message_type_option const &msg_type) {
 
