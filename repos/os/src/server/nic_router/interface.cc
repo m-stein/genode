@@ -789,7 +789,7 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 	}
 	catch (Out_of_ram)  { return packet_dropped("out of RAM while creating DHCP allocation"); }
 	catch (Out_of_caps) { return packet_dropped("out of CAPs while creating DHCP allocation"); }
-	return Packet_ok();
+	return { };
 }
 
 
@@ -1589,7 +1589,7 @@ Packet_result Interface::_handle_arp_request(Ethernet_frame &eth,
 			_send_arp_reply(eth, arp);
 		}
 	}
-	return Packet_ok();
+	return { };
 }
 
 
@@ -1606,7 +1606,7 @@ Packet_result Interface::_handle_arp(Ethernet_frame &eth,
 	case Arp_packet::REPLY: _handle_arp_reply(eth, size_guard, arp, local_domain); break;
 	case Arp_packet::REQUEST: return _handle_arp_request(eth, size_guard, arp, local_domain);
 	default: return packet_dropped("unknown ARP operation"); }
-	return Packet_ok();
+	return { };
 }
 
 
@@ -1790,7 +1790,7 @@ Packet_result Interface::_handle_eth(Ethernet_frame           &eth,
 		default: return packet_dropped("unknown network layer protocol");
 		}
 	}
-	return Packet_ok();
+	return { };
 }
 
 
