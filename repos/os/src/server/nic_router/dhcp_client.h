@@ -26,13 +26,13 @@ namespace Net {
 	{
 		enum Type { DROPPED, POSTPONED, PENDING, HANDLED } type { PENDING };
 		char const *drop_reason { "" };
-
-		static Packet_result dropped(char const *reason) { return { DROPPED, reason }; }
-
-		static Packet_result postponed() { return { POSTPONED, "" }; }
-
-		static Packet_result handled() { return { HANDLED, "" }; }
 	};
+
+	Packet_result packet_dropped(char const *reason) { return { Packet_result::DROPPED, reason }; }
+
+	Packet_result packet_postponed() { return { Packet_result::POSTPONED, "" }; }
+
+	Packet_result packet_handled() { return { Packet_result::HANDLED, "" }; }
 
 	class Domain;
 	class Configuration;
