@@ -16,24 +16,12 @@
 
 /* local includes */
 #include <cached_timer.h>
+#include <packet_result.h>
 
 /* Genode includes */
 #include <net/dhcp.h>
 
 namespace Net {
-
-	struct Packet_ok { };
-	struct Packet_error
-	{
-		enum Type { DROP, POSTPONE } type;
-		char const *drop_reason;
-
-		static Packet_error drop(char const *reason) { return { DROP, reason }; }
-
-		static Packet_error postpone() { return { POSTPONE, "" }; }
-	};
-
-	using Packet_state = Genode::Attempt<Packet_ok, Packet_error>;
 
 	class Domain;
 	class Configuration;
@@ -75,7 +63,7 @@ class Net::Dhcp_client
 		Dhcp_client(Cached_timer      &timer,
 		            Interface         &interface);
 
-		[[nodiscard]] Packet_state handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain);
+		[[nodiscard]] Packet_result handle_dhcp_reply(Dhcp_packet &dhcp, Domain &domain);
 
 		void discover();
 };

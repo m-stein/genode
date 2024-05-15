@@ -172,7 +172,7 @@ class Net::Interface : private Interface_list::Element
 		Interface_object_stats                _dhcp_stats                { };
 		unsigned long                         _dropped_fragm_ipv4        { 0 };
 
-		[[nodiscard]] Packet_state _new_link(L3_protocol             const  protocol,
+		[[nodiscard]] Packet_result _new_link(L3_protocol             const  protocol,
 		                                     Domain                        &local_domain,
 		                                     Link_side_id            const &local_id,
 		                                     Pointer<Port_allocator_guard>  remote_port_alloc,
@@ -187,7 +187,7 @@ class Net::Interface : private Interface_list::Element
 		void _release_dhcp_allocation(Dhcp_allocation &allocation,
 		                              Domain          &local_domain);
 
-		[[nodiscard]] Packet_state _new_dhcp_allocation(Ethernet_frame &eth,
+		[[nodiscard]] Packet_result _new_dhcp_allocation(Ethernet_frame &eth,
 		                                                Dhcp_packet    &dhcp,
 		                                                Dhcp_server    &dhcp_srv,
 		                                                Domain         &local_domain);
@@ -206,13 +206,7 @@ class Net::Interface : private Interface_list::Element
 		                           Genode::size_t  icmp_sz,
 		                           Size_guard     &size_guard);
 
-		Forward_rule_tree &_forward_rules(Domain            &local_domain,
-		                                  L3_protocol const  prot) const;
-
-		Transport_rule_list &_transport_rules(Domain            &local_domain,
-		                                      L3_protocol const  prot) const;
-
-		[[nodiscard]] Packet_state _handle_arp(Ethernet_frame       &eth,
+		[[nodiscard]] Packet_result _handle_arp(Ethernet_frame       &eth,
 		                                       Size_guard           &size_guard,
 		                                       Domain               &local_domain);
 
@@ -221,7 +215,7 @@ class Net::Interface : private Interface_list::Element
 		                       Arp_packet           &arp,
 		                       Domain               &local_domain);
 
-		[[nodiscard]] Packet_state _handle_arp_request(Ethernet_frame       &eth,
+		[[nodiscard]] Packet_result _handle_arp_request(Ethernet_frame       &eth,
 		                                               Size_guard           &size_guard,
 		                                               Arp_packet           &arp,
 		                                               Domain               &local_domain);
@@ -229,18 +223,18 @@ class Net::Interface : private Interface_list::Element
 		void _send_arp_reply(Ethernet_frame &request_eth,
 		                     Arp_packet     &request_arp);
 
-		[[nodiscard]] Packet_state _handle_dhcp_request(Ethernet_frame            &eth,
+		[[nodiscard]] Packet_result _handle_dhcp_request(Ethernet_frame            &eth,
 		                                                Dhcp_server               &dhcp_srv,
 		                                                Dhcp_packet               &dhcp,
 		                                                Domain                    &local_domain,
 		                                                Ipv4_address_prefix const &local_intf);
 
-		[[nodiscard]] Packet_state _handle_ip(Ethernet_frame          &eth,
+		[[nodiscard]] Packet_result _handle_ip(Ethernet_frame          &eth,
 		                                      Size_guard              &size_guard,
 		                                      Packet_descriptor const &pkt,
 		                                      Domain                  &local_domain);
 
-		[[nodiscard]] Packet_state _handle_icmp_query(Ethernet_frame          &eth,
+		[[nodiscard]] Packet_result _handle_icmp_query(Ethernet_frame          &eth,
 		                                Size_guard              &size_guard,
 		                                Ipv4_packet             &ip,
 		                                Internet_checksum_diff  &ip_icd,
@@ -250,7 +244,7 @@ class Net::Interface : private Interface_list::Element
 		                                Genode::size_t           prot_size,
 		                                Domain                  &local_domain);
 
-		[[nodiscard]] Packet_state _handle_icmp_error(Ethernet_frame          &eth,
+		[[nodiscard]] Packet_result _handle_icmp_error(Ethernet_frame          &eth,
 		                                              Size_guard              &size_guard,
 		                                              Ipv4_packet             &ip,
 		                                              Internet_checksum_diff  &ip_icd,
@@ -259,7 +253,7 @@ class Net::Interface : private Interface_list::Element
 		                                              Icmp_packet             &icmp,
 		                                              Genode::size_t           icmp_sz);
 
-		[[nodiscard]] Packet_state _handle_icmp(Ethernet_frame            &eth,
+		[[nodiscard]] Packet_result _handle_icmp(Ethernet_frame            &eth,
 		                                        Size_guard                &size_guard,
 		                                        Ipv4_packet               &ip,
 		                                        Internet_checksum_diff    &ip_icd,
@@ -270,12 +264,12 @@ class Net::Interface : private Interface_list::Element
 		                                        Domain                    &local_domain,
 		                                        Ipv4_address_prefix const &local_intf);
 
-		[[nodiscard]] Packet_state _adapt_eth(Ethernet_frame          &eth,
+		[[nodiscard]] Packet_result _adapt_eth(Ethernet_frame          &eth,
 		                                      Ipv4_address      const &dst_ip,
 		                                      Packet_descriptor const &pkt,
 		                                      Domain                  &remote_domain);
 
-		[[nodiscard]] Packet_state _nat_link_and_pass(Ethernet_frame         &eth,
+		[[nodiscard]] Packet_result _nat_link_and_pass(Ethernet_frame         &eth,
 		                                              Size_guard             &size_guard,
 		                                              Ipv4_packet            &ip,
 		                                              Internet_checksum_diff &ip_icd,
@@ -310,11 +304,11 @@ class Net::Interface : private Interface_list::Element
 
 		void _drop_packet(Packet_descriptor const &pkt, char const *reason);
 
-		[[nodiscard]] Packet_state _handle_eth(void              *const  eth_base,
+		[[nodiscard]] Packet_result _handle_eth(void              *const  eth_base,
 		                                       Size_guard               &size_guard,
 		                                       Packet_descriptor  const &pkt);
 
-		[[nodiscard]] Packet_state _handle_eth(Ethernet_frame           &eth,
+		[[nodiscard]] Packet_result _handle_eth(Ethernet_frame           &eth,
 		                                       Size_guard               &size_guard,
 		                                       Packet_descriptor  const &pkt,
 		                                       Domain                   &local_domain);
@@ -374,7 +368,6 @@ class Net::Interface : private Interface_list::Element
 	public:
 
 		struct Bad_send_dhcp_args : Genode::Exception { };
-		struct Bad_transport_protocol : Genode::Exception { };
 
 		Interface(Genode::Entrypoint     &ep,
 		          Cached_timer           &timer,
