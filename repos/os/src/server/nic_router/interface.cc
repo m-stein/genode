@@ -659,7 +659,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
 	result = _new_link(prot, local_domain, local_id, remote_port_alloc, remote_domain, remote_id);
-	if (result.failed())
+	if (result.valid())
 		return result;
 
 	_pass_prot_to_domain(remote_domain, eth, size_guard, ip, ip_icd, prot, prot_base, prot_size);
@@ -1067,7 +1067,7 @@ Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
 				    " link: ", link);
 			}
 			result = _adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
-			if (result.failed())
+			if (result.valid())
 				return;
 			ip.src(remote_side.dst_ip(), ip_icd);
 			ip.dst(remote_side.src_ip(), ip_icd);
@@ -1096,7 +1096,7 @@ Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
 
 			Domain &remote_domain = rule.domain();
 			result = _adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
-			if (result.failed())
+			if (result.valid())
 				return;
 			result = _nat_link_and_pass(
 				eth, size_guard, ip, ip_icd, prot, prot_base, prot_size, local_id, local_domain, remote_domain);
@@ -1151,7 +1151,7 @@ Packet_result Interface::_handle_icmp_error(Ethernet_frame          &eth,
 			}
 			/* adapt source and destination of Ethernet frame and IP packet */
 			result = _adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
-			if (result.failed())
+			if (result.valid())
 				return;
 			if (remote_side.dst_ip() == remote_domain.ip_config().interface().address) {
 				ip.src(remote_side.dst_ip(), ip_icd);
@@ -1327,7 +1327,7 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 						    " link: ", link);
 					}
 					result = _adapt_eth(eth, remote_side.src_ip(), pkt, remote_domain);
-					if (result.failed())
+					if (result.valid())
 						return;
 					ip.src(remote_side.dst_ip(), ip_icd);
 					ip.dst(remote_side.src_ip(), ip_icd);
@@ -1355,7 +1355,7 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 					}
 					Domain &remote_domain = rule.domain();
 					result = _adapt_eth(eth, rule.to_ip(), pkt, remote_domain);
-					if (result.failed())
+					if (result.valid())
 						return;
 					ip.dst(rule.to_ip(), ip_icd);
 					if (!(rule.to_port() == Port(0))) {
@@ -1380,7 +1380,7 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 					}
 					Domain &remote_domain = permit_rule.domain();
 					result = _adapt_eth(eth, local_id.dst_ip, pkt, remote_domain);
-					if (result.failed())
+					if (result.valid())
 						return;
 					result = _nat_link_and_pass(
 						eth, size_guard, ip, ip_icd, prot, prot_base, prot_size,
@@ -1405,7 +1405,7 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
 
 			Domain &remote_domain = rule.domain();
 			result = _adapt_eth(eth, ip.dst(), pkt, remote_domain);
-			if (result.failed())
+			if (result.valid())
 				return;
 			remote_domain.interfaces().for_each([&] (Interface &interface) {
 				interface.send(eth, size_guard);

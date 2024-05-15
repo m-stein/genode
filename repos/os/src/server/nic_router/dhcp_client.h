@@ -24,8 +24,10 @@ namespace Net {
 
 	struct Packet_result
 	{
-		enum Type { DROPPED, POSTPONED, PENDING, HANDLED } type { PENDING };
+		enum Type { INVALID, DROPPED, POSTPONED, HANDLED } type { INVALID };
 		char const *drop_reason { "" };
+
+		bool valid() const { return type != INVALID; }
 	};
 
 	Packet_result packet_dropped(char const *reason) { return { Packet_result::DROPPED, reason }; }
