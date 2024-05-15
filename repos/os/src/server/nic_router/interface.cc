@@ -501,7 +501,7 @@ Packet_result Interface::_new_link(L3_protocol             const  protocol,
                                    Domain                        &remote_domain,
                                    Link_side_id            const &remote)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	switch (protocol) {
 	case L3_protocol::TCP:
 		try {
@@ -585,7 +585,7 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
                                     Packet_descriptor const &pkt,
                                     Domain                  &remote_domain)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	Ipv4_config const &remote_ip_cfg = remote_domain.ip_config();
 	if (!remote_ip_cfg.valid()) {
 		result = Packet_error::drop("target domain has yet no IP config");
@@ -631,7 +631,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
                                             Domain                 &local_domain,
                                             Domain                 &remote_domain)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	Pointer<Port_allocator_guard> remote_port_alloc;
 	remote_domain.nat_rules().find_by_domain(
 		local_domain,
@@ -799,7 +799,7 @@ Packet_result Interface::_handle_dhcp_request(Ethernet_frame            &eth,
                                               Domain                    &local_domain,
                                               Ipv4_address_prefix const &local_intf)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	auto no_msg_type_fn = [&] { result = Packet_error::drop("DHCP request misses option \"Message Type\""); };
 	auto msg_type_fn = [&] (Dhcp_packet::Message_type_option const &msg_type) {
 
@@ -1047,7 +1047,7 @@ Packet_result Interface::_handle_icmp_query(Ethernet_frame          &eth,
                                             size_t                   prot_size,
                                             Domain                  &local_domain)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	Link_side_id const local_id = { ip.src(), _src_port(prot, prot_base),
 	                                ip.dst(), _dst_port(prot, prot_base) };
 
@@ -1120,7 +1120,7 @@ Packet_result Interface::_handle_icmp_error(Ethernet_frame          &eth,
                                             Icmp_packet             &icmp,
                                             size_t                   icmp_sz)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	Ipv4_packet            &embed_ip     { icmp.data<Ipv4_packet>(size_guard) };
 	Internet_checksum_diff  embed_ip_icd { };
 
@@ -1198,7 +1198,7 @@ Packet_result Interface::_handle_icmp(Ethernet_frame            &eth,
                                       Ipv4_address_prefix const &local_intf)
 {
 	/* drop packet if ICMP checksum is invalid */
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	Icmp_packet &icmp = *reinterpret_cast<Icmp_packet *>(prot_base);
 	if (icmp.checksum_error(size_guard.unconsumed())) {
 		return Packet_error::drop("bad ICMP checksum"); }
@@ -1229,7 +1229,7 @@ Packet_result Interface::_handle_ip(Ethernet_frame          &eth,
                                     Packet_descriptor const &pkt,
                                     Domain                  &local_domain)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	Ipv4_packet            &ip     { eth.data<Ipv4_packet>(size_guard) };
 	Internet_checksum_diff  ip_icd { };
 
@@ -1798,7 +1798,7 @@ Packet_result Interface::_handle_eth(void              *const  eth_base,
                                      Size_guard               &size_guard,
                                      Packet_descriptor  const &pkt)
 {
-	Packet_result result = Packet_ok();
+	Packet_result result { };
 	try {
 		Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
 		auto domain_fn = [&] (Domain &domain) {

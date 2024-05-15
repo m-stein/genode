@@ -24,16 +24,14 @@ namespace Net {
 
 	struct Packet_result
 	{
-		enum Type { DROP, POSTPONE, PENDING, HANDLED } type;
-		char const *drop_reason;
+		enum Type { DROPPED, POSTPONED, PENDING, HANDLED } type { PENDING };
+		char const *drop_reason { "" };
 
-		static Packet_result drop(char const *reason) { return { DROP, reason }; }
+		static Packet_result dropped(char const *reason) { return { DROPPED, reason }; }
 
-		static Packet_result postpone() { return { POSTPONE, "" }; }
+		static Packet_result postponed() { return { POSTPONED, "" }; }
 
-		static Packet_result pending() { return { PENDING, "" }; }
-
-		static Packet_result handled() { return { PENDING, "" }; }
+		static Packet_result handled() { return { HANDLED, "" }; }
 	};
 
 	class Domain;
