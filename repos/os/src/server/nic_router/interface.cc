@@ -989,25 +989,21 @@ bool Interface::link_state() const
 
 void Interface::handle_interface_link_state()
 {
-	try {
-		attach_to_domain_finish();
+	attach_to_domain_finish();
 
-		/* if the whole domain is down, discard IP config */
-		with_domain([&] (Domain &domain) {
-			if (!link_state() && domain.ip_config().valid()) {
-				bool discard_ip_config = true;
-				domain.interfaces().for_each([&] (Interface &interface) {
-					if (interface.link_state())
-						discard_ip_config = false; });
-				if (discard_ip_config) {
-					domain.discard_ip_config();
-					domain.arp_cache().destroy_all_entries();
-				}
+	/* discard dynamic IP config if the entire domain is down */
+	with_domain([&] (Domain &domain) {
+		if (domain.ip_config_dynamic() && !link_state() && domain.ip_config().valid()) {
+			bool discard_ip_config = true;
+			domain.interfaces().for_each([&] (Interface &interface) {
+				if (interface.link_state())
+					discard_ip_config = false; });
+			if (discard_ip_config) {
+				domain.discard_ip_config();
+				domain.arp_cache().destroy_all_entries();
 			}
-		});
-	}
-	catch (Domain::Ip_config_static) { }
-
+		}
+	});
 	/* force report if configured */
 	_config().with_report([&] (Report &r) { r.handle_interface_link_state(); });
 }
