@@ -237,8 +237,7 @@ void Dhcp_client::_send(Message_type msg_type,
 			}
 			break;
 
-		default:
-			throw Interface::Bad_send_dhcp_args();
+		default: ASSERT_NEVER_REACHED;
 		}
 		dhcp_opts.append_option<Dhcp_packet::Options_end>();
 
