@@ -367,8 +367,6 @@ class Net::Interface : private Interface_list::Element
 
 	public:
 
-		struct Bad_send_dhcp_args : Genode::Exception { };
-
 		Interface(Genode::Entrypoint     &ep,
 		          Cached_timer           &timer,
 		          Mac_address      const  router_mac,
