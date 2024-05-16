@@ -61,8 +61,7 @@ void Domain::update_ready_state()
 
 void Domain::_prepare_reconstructing_ip_config()
 {
-	if (!_ip_config_dynamic) {
-		throw Ip_config_static(); }
+	ASSERT(_ip_config_dynamic);
 
 	/* discard old IP config if any */
 	if (ip_config().valid()) {
