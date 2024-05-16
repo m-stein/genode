@@ -167,8 +167,7 @@ Net::Nic_session_component::Interface_policy::interface_link_state() const
 	case UP_DOWN:           return false;
 	case UP_DOWN_UP:        return true;
 	}
-	class Never_reached : Exception { };
-	throw Never_reached { };
+	ASSERT_NEVER_REACHED;
 }
 
 
@@ -214,8 +213,7 @@ Net::Nic_session_component::Interface_policy::read_and_ack_session_link_state()
 		_session_link_state_transition(DOWN_UP);
 		return true;
 	}
-	class Never_reached { };
-	throw Never_reached { };
+	ASSERT_NEVER_REACHED;
 }
 
 
