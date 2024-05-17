@@ -21,7 +21,6 @@
 #include <ip_rule.h>
 #include <arp_cache.h>
 #include <port_allocator.h>
-#include <pointer.h>
 #include <ipv4_config.h>
 #include <dhcp_server.h>
 #include <interface.h>
@@ -119,7 +118,7 @@ class Net::Domain : public List<Domain>::Element,
 		Nat_rule_tree                         _nat_rules            { };
 		Interface_list                        _interfaces           { };
 		unsigned long                         _interface_cnt        { 0 };
-		Pointer<Dhcp_server>                  _dhcp_server          { };
+		Dhcp_server                          *_dhcp_server_ptr      { };
 		Genode::Reconstructible<Ipv4_config>  _ip_config;
 		bool                            const _ip_config_dynamic    { !ip_config().valid() };
 		List<Domain>                          _ip_config_dependents { };
@@ -172,6 +171,12 @@ class Net::Domain : public List<Domain>::Element,
 		}
 
 		void __FIXME__dissolve_foreign_arp_waiters();
+
+		/*
+		 * Noncopyable
+		 */
+		Domain(Domain const &);
+		Domain &operator = (Domain const &);
 
 	public:
 
@@ -229,9 +234,9 @@ class Net::Domain : public List<Domain>::Element,
 
 		void with_dhcp_server(auto const &dhcp_server_fn, auto const &no_dhcp_server_fn)
 		{
-			if (_dhcp_server.valid()) {
-				if (!_dhcp_server().has_invalid_remote_dns_cfg())
-					dhcp_server_fn(_dhcp_server());
+			if (_dhcp_server_ptr) {
+				if (!_dhcp_server_ptr->has_invalid_remote_dns_cfg())
+					dhcp_server_fn(*_dhcp_server_ptr);
 			} else
 				no_dhcp_server_fn();
 		}

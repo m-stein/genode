@@ -83,10 +83,8 @@ void Dhcp_server_base::_invalid(Domain const &domain,
 
 bool Dhcp_server::dns_servers_empty() const
 {
-	if (_dns_config_from.valid()) {
-
+	if (_dns_config_from_ptr)
 		return _resolve_dns_config_from().dns_servers_empty();
-	}
 	return _dns_servers.empty();
 }
 
@@ -98,7 +96,7 @@ Dhcp_server::Dhcp_server(Xml_node            const  node,
                          Domain_dict               &domains)
 :
 	Dhcp_server_base(node, domain, alloc),
-	_dns_config_from(_init_dns_config_from(node, domains)),
+	_dns_config_from_ptr(_init_dns_config_from(node, domains)),
 	_ip_lease_time  (_init_ip_lease_time(node)),
 	_ip_first(node.attribute_value("ip_first", Ipv4_address())),
 	_ip_last(node.attribute_value("ip_last", Ipv4_address())),
@@ -157,7 +155,7 @@ bool Dhcp_server::config_equal_to_that_of(Dhcp_server const &other) const
 
 Ipv4_config const &Dhcp_server::_resolve_dns_config_from() const
 {
-	return _dns_config_from().ip_config();
+	return _dns_config_from_ptr->ip_config();
 }
 
 
@@ -183,29 +181,27 @@ void Dhcp_server::free_ip(Ipv4_address const &ip)
 }
 
 
-Pointer<Domain> Dhcp_server::_init_dns_config_from(Genode::Xml_node const  node,
-                                                   Domain_dict            &domains)
+Domain *Dhcp_server::_init_dns_config_from(Genode::Xml_node const node, Domain_dict &domains)
 {
 	if (!_dns_servers.empty() ||
 	    _dns_domain_name.valid()) {
 
-		return Pointer<Domain>();
+		return nullptr;
 	}
 	Domain_name dns_config_from =
 		node.attribute_value("dns_config_from", Domain_name());
 
 	if (dns_config_from == Domain_name()) {
-		return Pointer<Domain>();
+		return nullptr;
 	}
-	return domains.deprecated_find_by_name<Invalid>(dns_config_from);
+	return &domains.deprecated_find_by_name<Invalid>(dns_config_from);
 }
 
 
 bool Dhcp_server::has_invalid_remote_dns_cfg() const
 {
-	if (_dns_config_from.valid()) {
-		return !_dns_config_from().ip_config().valid();
-	}
+	if (_dns_config_from_ptr)
+		return !_dns_config_from_ptr->ip_config().valid();
 	return false;
 }
 
