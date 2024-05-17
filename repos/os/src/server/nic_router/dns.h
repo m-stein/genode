@@ -16,7 +16,6 @@
 
 /* local includes */
 #include <list.h>
-#include <pointer.h>
 
 /* Genode includes */
 #include <util/reconstructible.h>

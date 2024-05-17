@@ -17,7 +17,6 @@
 /* local includes */
 #include <direct_rule.h>
 #include <permit_rule.h>
-#include <pointer.h>
 
 namespace Genode { class Allocator; }
 
