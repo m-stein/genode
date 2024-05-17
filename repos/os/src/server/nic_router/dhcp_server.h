@@ -17,7 +17,6 @@
 /* local includes */
 #include <bit_allocator_dynamic.h>
 #include <list.h>
-#include <pointer.h>
 #include <dns.h>
 #include <ipv4_config.h>
 #include <cached_timer.h>
@@ -70,7 +69,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 {
 	private:
 
-		Pointer<Domain>      const    _dns_config_from;
+		Domain              *const    _dns_config_from_ptr;
 		Genode::Microseconds const    _ip_lease_time;
 		Ipv4_address         const    _ip_first;
 		Ipv4_address         const    _ip_last;
@@ -80,10 +79,15 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		Genode::Microseconds _init_ip_lease_time(Genode::Xml_node const node);
 
-		Pointer<Domain> _init_dns_config_from(Genode::Xml_node const  node,
-		                                      Domain_dict            &domains);
+		Domain *_init_dns_config_from(Genode::Xml_node const node, Domain_dict &domains);
 
 		Ipv4_config const &_resolve_dns_config_from() const;
+
+		/*
+		 * Noncopyable
+		 */
+		Dhcp_server(Dhcp_server const &);
+		Dhcp_server &operator = (Dhcp_server const &);
 
 	public:
 
@@ -111,7 +115,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 		template <typename FUNC>
 		void for_each_dns_server_ip(FUNC && functor) const
 		{
-			if (_dns_config_from.valid()) {
+			if (_dns_config_from_ptr) {
 
 				_resolve_dns_config_from().for_each_dns_server(
 					[&] (Dns_server const &dns_server) {
@@ -130,7 +134,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		Dns_domain_name const &dns_domain_name() const
 		{
-			if (_dns_config_from.valid()) {
+			if (_dns_config_from_ptr) {
 				return _resolve_dns_config_from().dns_domain_name();
 			}
 			return _dns_domain_name;
@@ -140,8 +144,8 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		void with_dns_config_from(auto const &fn) const
 		{
-			if (_dns_config_from.valid())
-				fn(_dns_config_from());
+			if (_dns_config_from_ptr)
+				fn(*_dns_config_from_ptr);
 		}
 
 

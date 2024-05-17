@@ -44,9 +44,15 @@ class Net::Nic_client : private Nic_client_dict::Element
 		Genode::Allocator             &_alloc;
 		Configuration           const &_config;
 		Domain_name             const  _domain;
-		Pointer<Nic_client_interface>  _interface { };
+		Nic_client_interface          *_interface_ptr { };
 
 		void _invalid(char const *reason) const;
+
+		/*
+		 * Noncopyable
+		 */
+		Nic_client(Nic_client const &);
+		Nic_client &operator = (Nic_client const &);
 
 	public:
 
