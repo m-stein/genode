@@ -333,9 +333,9 @@ void Domain::deinit()
 	_udp_forward_rules.destroy_each(_alloc);
 	_tcp_forward_rules.destroy_each(_alloc);
 	if (_dhcp_server_ptr) {
-		_dhcp_server_ptr = nullptr;
-		dhcp_server.with_dns_config_from([&] (Domain &domain) {
+		_dhcp_server_ptr->with_dns_config_from([&] (Domain &domain) {
 			domain.ip_config_dependents().remove(this); });
+		_dhcp_server_ptr = nullptr;
 		destroy(_alloc, _dhcp_server_ptr);
 	}
 }
