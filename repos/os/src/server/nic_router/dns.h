@@ -84,7 +84,13 @@ class Net::Dns_domain_name : private Genode::Noncopyable
 	private:
 
 		Genode::Allocator &_alloc;
-		Pointer<String>    _string { };
+		String            *_string_ptr { };
+
+		/*
+		 * Noncopyable
+		 */
+		Dns_domain_name(Dns_domain_name const &);
+		Dns_domain_name &operator = (Dns_domain_name const &);
 
 	public:
 
@@ -100,14 +106,13 @@ class Net::Dns_domain_name : private Genode::Noncopyable
 
 		void set_invalid();
 
-		bool valid() const { return _string.valid(); }
+		bool valid() const { return _string_ptr; }
 
 		template <typename FUNC>
 		void with_string(FUNC && func) const
 		{
-			if (_string.valid()) {
-				func(_string());
-			}
+			if (_string_ptr)
+				func(*_string_ptr);
 		}
 
 		bool equal_to(Dns_domain_name const &other) const;
