@@ -32,9 +32,9 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 {
 	private:
 
-		Genode::Allocator              &_alloc;
-		Permit_any_rule          *const _permit_any_rule_ptr;
-		Permit_single_rule_tree         _permit_single_rules { };
+		Genode::Allocator       &_alloc;
+		Permit_any_rule         *_permit_any_rule_ptr { };
+		Permit_single_rule_tree  _permit_single_rules { };
 
 		static Permit_any_rule *
 		_read_permit_any_rule(Domain_dict            &domains,
@@ -49,12 +49,8 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 
 	public:
 
-		Transport_rule(Domain_dict            &domains,
-		               Genode::Xml_node const  node,
-		               Genode::Allocator      &alloc,
-		               Genode::Cstring  const &protocol,
-		               Configuration          &config,
-		               Domain           const &domain);
+		Transport_rule(Ipv4_address_prefix const &dst,
+		               Genode::Allocator         &alloc);
 
 		~Transport_rule();
 
@@ -75,6 +71,12 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 					port, handle_match, handle_no_match);
 			}
 		}
+
+		[[nodiscard]] bool finish_construction(Domain_dict            &domains,
+		                                       Genode::Xml_node const  node,
+		                                       Genode::Cstring  const &protocol,
+		                                       Configuration          &config,
+		                                       Domain           const &domain);
 };
 
 

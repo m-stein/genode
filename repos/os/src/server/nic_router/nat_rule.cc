@@ -32,14 +32,14 @@ bool Nat_rule::higher(Nat_rule *rule)
 }
 
 
-Nat_rule::Nat_rule(Domain_dict    &domains,
+Nat_rule::Nat_rule(Domain         &domain,
                    Port_allocator &tcp_port_alloc,
                    Port_allocator &udp_port_alloc,
                    Port_allocator &icmp_port_alloc,
                    Xml_node const  node,
                    bool     const  verbose)
 :
-	_domain          { domains.deprecated_find_by_domain_attr<Invalid>(node) },
+	_domain          { domain },
 	_tcp_port_alloc  { tcp_port_alloc,  node.attribute_value("tcp-ports", 0U), verbose },
 	_udp_port_alloc  { udp_port_alloc,  node.attribute_value("udp-ports", 0U), verbose },
 	_icmp_port_alloc { icmp_port_alloc, node.attribute_value("icmp-ids",  0U), verbose }
