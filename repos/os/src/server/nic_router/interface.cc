@@ -494,19 +494,19 @@ void Interface::_detach_from_domain()
 }
 
 
-Packet_result Interface::_new_link(L3_protocol             const  protocol,
-                                   Domain                        &local_domain,
-                                   Link_side_id            const &local,
-                                   Pointer<Port_allocator_guard>  remote_port_alloc,
-                                   Domain                        &remote_domain,
-                                   Link_side_id            const &remote)
+Packet_result Interface::_new_link(L3_protocol          const  protocol,
+                                   Domain                     &local_domain,
+                                   Link_side_id         const &local,
+                                   Port_allocator_guard       *remote_port_alloc_ptr,
+                                   Domain                     &remote_domain,
+                                   Link_side_id         const &remote)
 {
 	Packet_result result { };
 	switch (protocol) {
 	case L3_protocol::TCP:
 		try {
 			new (_alloc)
-				Tcp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
+				Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
 		catch (Out_of_ram)  {
@@ -521,7 +521,7 @@ Packet_result Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::UDP:
 		try {
 			new (_alloc)
-				Udp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
+				Udp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _udp_stats };
 		}
 		catch (Out_of_ram) {
@@ -536,7 +536,7 @@ Packet_result Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::ICMP:
 		try {
 			new (_alloc)
-				Icmp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
+				Icmp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
 		catch (Out_of_ram) {
@@ -632,7 +632,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
                                             Domain                 &remote_domain)
 {
 	Packet_result result { };
-	Pointer<Port_allocator_guard> remote_port_alloc;
+	Port_allocator_guard *remote_port_alloc_ptr { };
 	remote_domain.nat_rules().find_by_domain(
 		local_domain,
 		[&] /* handle_match */ (Nat_rule &nat)
@@ -645,7 +645,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 				[&] (Port src_port) {
 					_src_port(prot, prot_base, src_port);
 					ip.src(remote_domain.ip_config().interface().address, ip_icd);
-					remote_port_alloc = nat.port_alloc(prot); },
+					remote_port_alloc_ptr = &nat.port_alloc(prot); },
 				[&] (auto) {
 					result = packet_drop("no available NAT ports");
 					switch (prot) {
@@ -661,7 +661,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
-	result = _new_link(prot, local_domain, local_id, remote_port_alloc, remote_domain, remote_id);
+	result = _new_link(prot, local_domain, local_id, remote_port_alloc_ptr, remote_domain, remote_id);
 	if (result.valid())
 		return result;
 
@@ -1909,11 +1909,7 @@ bool Interface::_try_update_link(Link        &link,
 		return false;
 
 	if (link.client().src_ip() == link.server().dst_ip()) {
-
-		link.handle_config(
-			cln_dom, new_srv_dom, Pointer<Port_allocator_guard> { },
-			_config());
-
+		link.handle_config(cln_dom, new_srv_dom, nullptr, _config());
 		return true;
 	}
 	if (link.server().dst_ip() != new_srv_dom.ip_config().interface().address)
@@ -1928,9 +1924,7 @@ bool Interface::_try_update_link(Link        &link,
 			if (!remote_port_alloc.alloc(link.server().dst_port()))
 				return;
 
-			link.handle_config(
-				cln_dom, new_srv_dom, remote_port_alloc, _config());
-
+			link.handle_config(cln_dom, new_srv_dom, &remote_port_alloc, _config());
 			keep_link = true;
 		},
 		[&] /* handle_no_match */ () { }

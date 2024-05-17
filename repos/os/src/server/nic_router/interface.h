@@ -172,12 +172,12 @@ class Net::Interface : private Interface_list::Element
 		Interface_object_stats                _dhcp_stats                { };
 		unsigned long                         _dropped_fragm_ipv4        { 0 };
 
-		[[nodiscard]] Packet_result _new_link(L3_protocol             const  protocol,
-		                                     Domain                        &local_domain,
-		                                     Link_side_id            const &local_id,
-		                                     Pointer<Port_allocator_guard>  remote_port_alloc,
-		                                     Domain                        &remote_domain,
-		                                     Link_side_id            const &remote_id);
+		[[nodiscard]] Packet_result _new_link(L3_protocol         const  protocol,
+		                                     Domain                     &local_domain,
+		                                     Link_side_id         const &local_id,
+		                                     Port_allocator_guard       *remote_port_alloc_ptr,
+		                                     Domain                     &remote_domain,
+		                                     Link_side_id         const &remote_id);
 
 		void _destroy_released_dhcp_allocations(Domain &local_domain);
 
