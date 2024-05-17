@@ -40,7 +40,6 @@
 /* local includes */
 #include <list.h>
 #include <reference.h>
-#include <pointer.h>
 #include <l3_protocol.h>
 #include <lazy_one_shot_timeout.h>
 

@@ -21,7 +21,6 @@
 #include <ip_rule.h>
 #include <arp_cache.h>
 #include <port_allocator.h>
-#include <pointer.h>
 #include <ipv4_config.h>
 #include <dhcp_server.h>
 #include <interface.h>

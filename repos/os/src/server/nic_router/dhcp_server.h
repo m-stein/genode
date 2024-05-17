@@ -17,7 +17,6 @@
 /* local includes */
 #include <bit_allocator_dynamic.h>
 #include <list.h>
-#include <pointer.h>
 #include <dns.h>
 #include <ipv4_config.h>
 #include <cached_timer.h>
