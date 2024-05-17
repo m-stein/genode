@@ -41,10 +41,9 @@ void Domain::_log_ip_config() const
 
 bool Domain::ready() const
 {
-	if (_dhcp_server.valid()) {
-		if (_dhcp_server().has_invalid_remote_dns_cfg()) {
+	if (_dhcp_server_ptr) {
+		if (_dhcp_server_ptr->has_invalid_remote_dns_cfg())
 			return false;
-		}
 	}
 	return true;
 }
@@ -283,9 +282,9 @@ void Domain::init(Domain_dict &domains)
 			dhcp_server.with_dns_config_from([&] (Domain &domain) {
 				domain.ip_config_dependents().insert(this); });
 
-			_dhcp_server = dhcp_server;
+			_dhcp_server_ptr = &dhcp_server;
 			if (_config.verbose()) {
-				log("[", *this, "] DHCP server: ", _dhcp_server()); }
+				log("[", *this, "] DHCP server: ", dhcp_server); }
 		}
 		catch (Dhcp_server::Invalid) { _invalid("invalid DHCP server"); }
 	});
@@ -334,7 +333,7 @@ void Domain::deinit()
 	_udp_forward_rules.destroy_each(_alloc);
 	_tcp_forward_rules.destroy_each(_alloc);
 	with_dhcp_server([&] (Dhcp_server &dhcp_server) {
-		_dhcp_server = Pointer<Dhcp_server>();
+		_dhcp_server_ptr = nullptr;
 		dhcp_server.with_dns_config_from([&] (Domain &domain) {
 			domain.ip_config_dependents().remove(this); });
 		destroy(_alloc, &dhcp_server); });

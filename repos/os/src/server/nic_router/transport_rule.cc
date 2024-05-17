@@ -24,15 +24,15 @@ using namespace Net;
 using namespace Genode;
 
 
-Pointer<Permit_any_rule>
+Permit_any_rule *
 Transport_rule::_read_permit_any_rule(Domain_dict    &domains,
                                       Xml_node const  node,
                                       Allocator      &alloc)
 {
-	Pointer<Permit_any_rule> result = { };
+	Permit_any_rule *ptr { };
 	node.with_optional_sub_node("permit-any", [&] (Xml_node const &sub_node) {
-		result = Pointer<Permit_any_rule>(*new (alloc) Permit_any_rule(domains, sub_node)); });
-	return result;
+		ptr = new (alloc) Permit_any_rule(domains, sub_node); });
+	return ptr;
 }
 
 
@@ -45,12 +45,12 @@ Transport_rule::Transport_rule(Domain_dict    &domains,
 :
 	Direct_rule(node),
 	_alloc(alloc),
-	_permit_any_rule(_read_permit_any_rule(domains, node, alloc))
+	_permit_any_rule_ptr(_read_permit_any_rule(domains, node, alloc))
 {
 	/* skip specific permit rules if all ports are permitted anyway */
-	if (_permit_any_rule.valid()) {
+	if (_permit_any_rule_ptr) {
 		if (config.verbose()) {
-			log("[", domain, "] ", protocol, " permit-any rule: ", _permit_any_rule());
+			log("[", domain, "] ", protocol, " permit-any rule: ", *_permit_any_rule_ptr);
 			log("[", domain, "] ", protocol, " rule: dst ", _dst);
 		}
 		return;
@@ -76,6 +76,6 @@ Transport_rule::Transport_rule(Domain_dict    &domains,
 Transport_rule::~Transport_rule()
 {
 	_permit_single_rules.destroy_each(_alloc);
-	if (_permit_any_rule.valid())
-		destroy(_alloc, &_permit_any_rule());
+	if (_permit_any_rule_ptr)
+		destroy(_alloc, _permit_any_rule_ptr);
 }

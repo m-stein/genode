@@ -88,7 +88,7 @@ void Link::print(Output &output) const
 Link::Link(Interface                     &cln_interface,
            Domain                        &cln_domain,
            Link_side_id            const &cln_id,
-           Pointer<Port_allocator_guard>  srv_port_alloc,
+           Port_allocator_guard          *srv_port_alloc_ptr,
            Domain                        &srv_domain,
            Link_side_id            const &srv_id,
            Cached_timer                  &timer,
@@ -99,7 +99,7 @@ Link::Link(Interface                     &cln_interface,
 :
 	_config(config),
 	_client_interface(cln_interface),
-	_server_port_alloc(srv_port_alloc),
+	_server_port_alloc_ptr(srv_port_alloc_ptr),
 	_dissolve_timeout(timer, *this, &Link::_handle_dissolve_timeout,
 	                  Microseconds { 100 * 1000 }),
 	_dissolve_timeout_us(dissolve_timeout),
@@ -147,22 +147,22 @@ void Link::dissolve(bool timeout)
 	if (_config().verbose()) {
 		log("Dissolve ", l3_protocol_name(_protocol), " link: ", *this); }
 
-	if (_server_port_alloc.valid()) {
+	if (_server_port_alloc_ptr) {
 		if (_config().verbose()) {
 			log("Free ", l3_protocol_name(_protocol),
 			    " port ", _server.dst_port(),
 			    " at ", _server.domain(),
 			    " that was used by ", _client.domain());
 		}
-		_server_port_alloc().free(_server.dst_port());
+		_server_port_alloc_ptr->free(_server.dst_port());
 	}
 }
 
 
-void Link::handle_config(Domain                        &cln_domain,
-                         Domain                        &srv_domain,
-                         Pointer<Port_allocator_guard>  srv_port_alloc,
-                         Configuration                 &config)
+void Link::handle_config(Domain               &cln_domain,
+                         Domain               &srv_domain,
+                         Port_allocator_guard *srv_port_alloc_ptr,
+                         Configuration        &config)
 {
 	Microseconds dissolve_timeout_us(0);
 	switch (_protocol) {
@@ -177,10 +177,10 @@ void Link::handle_config(Domain                        &cln_domain,
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
 
-	_config            = config;
-	_client._domain    = cln_domain;
-	_server._domain    = srv_domain;
-	_server_port_alloc = srv_port_alloc;
+	_config = config;
+	_client._domain = cln_domain;
+	_server._domain = srv_domain;
+	_server_port_alloc_ptr = srv_port_alloc_ptr;
 
 	cln_domain.links(_protocol).insert(&_client);
 	srv_domain.links(_protocol).insert(&_server);
@@ -196,18 +196,18 @@ void Link::handle_config(Domain                        &cln_domain,
  ** Tcp_link **
  **************/
 
-Tcp_link::Tcp_link(Interface                     &cln_interface,
-                   Domain                        &cln_domain,
-                   Link_side_id            const &cln_id,
-                   Pointer<Port_allocator_guard>  srv_port_alloc,
-                   Domain                        &srv_domain,
-                   Link_side_id            const &srv_id,
-                   Cached_timer                  &timer,
-                   Configuration                 &config,
-                   L3_protocol             const  protocol,
-                   Interface_link_stats          &stats)
+Tcp_link::Tcp_link(Interface                  &cln_interface,
+                   Domain                     &cln_domain,
+                   Link_side_id         const &cln_id,
+                   Port_allocator_guard       *srv_port_alloc_ptr,
+                   Domain                     &srv_domain,
+                   Link_side_id         const &srv_id,
+                   Cached_timer               &timer,
+                   Configuration              &config,
+                   L3_protocol          const  protocol,
+                   Interface_link_stats       &stats)
 :
-	Link(cln_interface, cln_domain, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
+	Link(cln_interface, cln_domain, cln_id, srv_port_alloc_ptr, srv_domain, srv_id, timer,
 	     config, protocol, config.tcp_idle_timeout(), stats)
 { }
 
@@ -278,18 +278,18 @@ void Tcp_link::server_packet(Tcp_packet &tcp)
  ** Udp_link **
  **************/
 
-Udp_link::Udp_link(Interface                     &cln_interface,
-                   Domain                        &cln_domain,
-                   Link_side_id            const &cln_id,
-                   Pointer<Port_allocator_guard>  srv_port_alloc,
-                   Domain                        &srv_domain,
-                   Link_side_id            const &srv_id,
-                   Cached_timer                  &timer,
-                   Configuration                 &config,
-                   L3_protocol             const  protocol,
-                   Interface_link_stats          &stats)
+Udp_link::Udp_link(Interface                  &cln_interface,
+                   Domain                     &cln_domain,
+                   Link_side_id         const &cln_id,
+                   Port_allocator_guard       *srv_port_alloc_ptr,
+                   Domain                     &srv_domain,
+                   Link_side_id         const &srv_id,
+                   Cached_timer               &timer,
+                   Configuration              &config,
+                   L3_protocol          const  protocol,
+                   Interface_link_stats       &stats)
 :
-	Link(cln_interface, cln_domain, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
+	Link(cln_interface, cln_domain, cln_id, srv_port_alloc_ptr, srv_domain, srv_id, timer,
 	     config, protocol, config.udp_idle_timeout(), stats)
 { }
 
@@ -310,18 +310,18 @@ void Udp_link::server_packet()
  ** Icmp_link **
  ***************/
 
-Icmp_link::Icmp_link(Interface                     &cln_interface,
-                     Domain                        &cln_domain,
-                     Link_side_id            const &cln_id,
-                     Pointer<Port_allocator_guard>  srv_port_alloc,
-                     Domain                        &srv_domain,
-                     Link_side_id            const &srv_id,
-                     Cached_timer                  &timer,
-                     Configuration                 &config,
-                     L3_protocol             const  protocol,
-                     Interface_link_stats          &stats)
+Icmp_link::Icmp_link(Interface                  &cln_interface,
+                     Domain                     &cln_domain,
+                     Link_side_id         const &cln_id,
+                     Port_allocator_guard       *srv_port_alloc_ptr,
+                     Domain                     &srv_domain,
+                     Link_side_id         const &srv_id,
+                     Cached_timer               &timer,
+                     Configuration              &config,
+                     L3_protocol          const  protocol,
+                     Interface_link_stats       &stats)
 :
-	Link(cln_interface, cln_domain, cln_id, srv_port_alloc, srv_domain, srv_id, timer,
+	Link(cln_interface, cln_domain, cln_id, srv_port_alloc_ptr, srv_domain, srv_id, timer,
 	     config, protocol, config.icmp_idle_timeout(), stats)
 { }
 
