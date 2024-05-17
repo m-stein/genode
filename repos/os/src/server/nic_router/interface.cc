@@ -347,7 +347,7 @@ void Interface::_pass_prot_to_domain(Domain                       &domain,
 
 void Interface::_attach_to_domain_raw(Domain &domain)
 {
-	_domain = domain;
+	_domain_ptr = &domain;
 	_refetch_domain_ready_state();
 	_interfaces.remove(this);
 	domain.attach_interface(*this);
@@ -356,10 +356,10 @@ void Interface::_attach_to_domain_raw(Domain &domain)
 
 void Interface::_detach_from_domain_raw()
 {
-	Domain &domain = _domain();
+	Domain &domain = *_domain_ptr;
 	domain.detach_interface(*this);
 	_interfaces.insert(this);
-	_domain = Pointer<Domain>();
+	_domain_ptr = nullptr;
 	_refetch_domain_ready_state();
 
 	domain.add_dropped_fragm_ipv4(_dropped_fragm_ipv4);
@@ -374,10 +374,10 @@ void Interface::_detach_from_domain_raw()
 void Interface::_update_domain_object(Domain &new_domain) {
 
 	/* detach raw */
-	Domain &old_domain = _domain();
+	Domain &old_domain = *_domain_ptr;
 	old_domain.interface_updates_domain_object(*this);
 	_interfaces.insert(this);
-	_domain = Pointer<Domain>();
+	_domain_ptr = nullptr;
 	_refetch_domain_ready_state();
 
 	old_domain.add_dropped_fragm_ipv4(_dropped_fragm_ipv4);
@@ -388,7 +388,7 @@ void Interface::_update_domain_object(Domain &new_domain) {
 	old_domain.dhcp_stats().dissolve_interface(_dhcp_stats);
 
 	/* attach raw */
-	_domain = new_domain;
+	_domain_ptr = &new_domain;
 	_refetch_domain_ready_state();
 	_interfaces.remove(this);
 	new_domain.attach_interface(*this);
@@ -420,7 +420,7 @@ void Interface::attach_to_domain_finish()
 		return; }
 
 	/* if domain has yet no IP config, participate in requesting one */
-	Domain &domain = _domain();
+	Domain &domain = *_domain_ptr;
 	Ipv4_config const &ip_config = domain.ip_config();
 	if (!ip_config.valid()) {
 		_dhcp_client->discover();
@@ -471,11 +471,10 @@ void Interface::handle_domain_ready_state(bool state)
 
 void Interface::_refetch_domain_ready_state()
 {
-	if (_domain.valid()) {
-		handle_domain_ready_state(_domain().ready());
-	} else {
+	if (_domain_ptr)
+		handle_domain_ready_state(_domain_ptr->ready());
+	else
 		handle_domain_ready_state(false);
-	}
 }
 
 
@@ -494,19 +493,19 @@ void Interface::_detach_from_domain()
 }
 
 
-Packet_result Interface::_new_link(L3_protocol             const  protocol,
-                                   Domain                        &local_domain,
-                                   Link_side_id            const &local,
-                                   Pointer<Port_allocator_guard>  remote_port_alloc,
-                                   Domain                        &remote_domain,
-                                   Link_side_id            const &remote)
+Packet_result Interface::_new_link(L3_protocol          const  protocol,
+                                   Domain                     &local_domain,
+                                   Link_side_id         const &local,
+                                   Port_allocator_guard       *remote_port_alloc_ptr,
+                                   Domain                     &remote_domain,
+                                   Link_side_id         const &remote)
 {
 	Packet_result result { };
 	switch (protocol) {
 	case L3_protocol::TCP:
 		try {
 			new (_alloc)
-				Tcp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
+				Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
 		catch (Out_of_ram)  {
@@ -521,7 +520,7 @@ Packet_result Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::UDP:
 		try {
 			new (_alloc)
-				Udp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
+				Udp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _udp_stats };
 		}
 		catch (Out_of_ram) {
@@ -536,7 +535,7 @@ Packet_result Interface::_new_link(L3_protocol             const  protocol,
 	case L3_protocol::ICMP:
 		try {
 			new (_alloc)
-				Icmp_link { *this, local_domain, local, remote_port_alloc, remote_domain,
+				Icmp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
 		catch (Out_of_ram) {
@@ -555,7 +554,7 @@ Packet_result Interface::_new_link(L3_protocol             const  protocol,
 
 void Interface::dhcp_allocation_expired(Dhcp_allocation &allocation)
 {
-	_release_dhcp_allocation(allocation, _domain());
+	_release_dhcp_allocation(allocation, *_domain_ptr);
 	_released_dhcp_allocations.insert(&allocation);
 }
 
@@ -634,7 +633,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
                                             Domain                 &remote_domain)
 {
 	Packet_result result { };
-	Pointer<Port_allocator_guard> remote_port_alloc;
+	Port_allocator_guard *remote_port_alloc_ptr { };
 	remote_domain.nat_rules().find_by_domain(
 		local_domain,
 		[&] /* handle_match */ (Nat_rule &nat)
@@ -647,7 +646,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 				[&] (Port src_port) {
 					_src_port(prot, prot_base, src_port);
 					ip.src(remote_domain.ip_config().interface().address, ip_icd);
-					remote_port_alloc = nat.port_alloc(prot); },
+					remote_port_alloc_ptr = &nat.port_alloc(prot); },
 				[&] (auto) {
 					result = packet_drop("no available NAT ports");
 					switch (prot) {
@@ -663,7 +662,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
-	result = _new_link(prot, local_domain, local_id, remote_port_alloc, remote_domain, remote_id);
+	result = _new_link(prot, local_domain, local_id, remote_port_alloc_ptr, remote_domain, remote_id);
 	if (result.valid())
 		return result;
 
@@ -1835,7 +1834,7 @@ void Interface::_send_submit_pkt(Packet_descriptor &pkt,
                                  void            * &pkt_base,
                                  size_t             pkt_size)
 {
-	Domain &local_domain = _domain();
+	Domain &local_domain = *_domain_ptr;
 	local_domain.raise_tx_bytes(pkt_size);
 	if (local_domain.verbose_packets()) {
 		try {
@@ -1904,11 +1903,7 @@ bool Interface::_try_update_link(Link        &link,
 		return false;
 
 	if (link.client().src_ip() == link.server().dst_ip()) {
-
-		link.handle_config(
-			cln_dom, new_srv_dom, Pointer<Port_allocator_guard> { },
-			_config());
-
+		link.handle_config(cln_dom, new_srv_dom, nullptr, _config());
 		return true;
 	}
 	if (link.server().dst_ip() != new_srv_dom.ip_config().interface().address)
@@ -1923,9 +1918,7 @@ bool Interface::_try_update_link(Link        &link,
 			if (!remote_port_alloc.alloc(link.server().dst_port()))
 				return;
 
-			link.handle_config(
-				cln_dom, new_srv_dom, remote_port_alloc, _config());
-
+			link.handle_config(cln_dom, new_srv_dom, &remote_port_alloc, _config());
 			keep_link = true;
 		},
 		[&] /* handle_no_match */ () { }
@@ -2108,21 +2101,21 @@ void Interface::handle_config_1(Configuration &config)
 void Interface::_failed_to_send_packet_link()
 {
 	if (_config().verbose()) {
-		log("[", _domain(), "] failed to send packet (link down)"); }
+		log("[", *_domain_ptr, "] failed to send packet (link down)"); }
 }
 
 
 void Interface::_failed_to_send_packet_submit()
 {
 	if (_config().verbose()) {
-		log("[", _domain(), "] failed to send packet (queue full)"); }
+		log("[", *_domain_ptr, "] failed to send packet (queue full)"); }
 }
 
 
 void Interface::_failed_to_send_packet_alloc()
 {
 	if (_config().verbose()) {
-		log("[", _domain(), "] failed to send packet (packet alloc failed)"); }
+		log("[", *_domain_ptr, "] failed to send packet (packet alloc failed)"); }
 }
 
 
@@ -2238,7 +2231,7 @@ void Interface::_ack_packet(Packet_descriptor const &pkt)
 {
 	if (!_sink.try_ack_packet(pkt)) {
 		if (_config().verbose()) {
-			log("[", _domain(), "] leak packet (sink not ready to "
+			log("[", *_domain_ptr, "] leak packet (sink not ready to "
 			    "acknowledge)");
 		}
 		return;

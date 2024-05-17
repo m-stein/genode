@@ -152,7 +152,7 @@ class Net::Interface : private Interface_list::Element
 		Interface_policy                     &_policy;
 		Cached_timer                         &_timer;
 		Genode::Allocator                    &_alloc;
-		Pointer<Domain>                       _domain                    { };
+		Domain                               *_domain_ptr                { };
 		Arp_waiter_list                       _own_arp_waiters           { };
 		Link_list                             _tcp_links                 { };
 		Link_list                             _udp_links                 { };
@@ -172,12 +172,18 @@ class Net::Interface : private Interface_list::Element
 		Interface_object_stats                _dhcp_stats                { };
 		unsigned long                         _dropped_fragm_ipv4        { 0 };
 
-		[[nodiscard]] Packet_result _new_link(L3_protocol             const  protocol,
-		                                     Domain                        &local_domain,
-		                                     Link_side_id            const &local_id,
-		                                     Pointer<Port_allocator_guard>  remote_port_alloc,
-		                                     Domain                        &remote_domain,
-		                                     Link_side_id            const &remote_id);
+		/*
+		 * Noncopyable
+		 */
+		Interface(Interface const &);
+		Interface &operator = (Interface const &);
+
+		[[nodiscard]] Packet_result _new_link(L3_protocol         const  protocol,
+		                                     Domain                     &local_domain,
+		                                     Link_side_id         const &local_id,
+		                                     Port_allocator_guard       *remote_port_alloc_ptr,
+		                                     Domain                     &remote_domain,
+		                                     Link_side_id         const &remote_id);
 
 		void _destroy_released_dhcp_allocations(Domain &local_domain);
 
@@ -448,8 +454,8 @@ class Net::Interface : private Interface_list::Element
 
 		void with_domain(auto const &domain_fn, auto const &no_domain_fn)
 		{
-			if (_domain.valid())
-				domain_fn(_domain());
+			if (_domain_ptr)
+				domain_fn(*_domain_ptr);
 			else
 				no_domain_fn();
 		}

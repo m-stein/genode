@@ -161,19 +161,18 @@ Configuration::Configuration(Env                             &env,
 		});
 	}
 	node.with_optional_sub_node("report", [&] (Xml_node const &report_node) {
-		if (old_config._reporter.valid()) {
+		if (old_config._reporter_ptr) {
 			/* re-use existing reporter */
-			_reporter = old_config._reporter();
-			old_config._reporter = Pointer<Reporter>();
+			_reporter_ptr = old_config._reporter_ptr;
+			old_config._reporter_ptr = nullptr;
 		} else {
 			/* there is no reporter by now, create a new one */
-			_reporter = *new (_alloc) Reporter(env, "state", nullptr, 4096 * 4);
+			_reporter_ptr = new (_alloc) Reporter(env, "state", nullptr, 4096 * 4);
 		}
 		/* create report generator */
-		_report = *new (_alloc)
-			Report {
-				_verbose, report_node, timer, _domains, shared_quota, env.pd(),
-				_reporter(), report_signal_cap };
+		_report.construct(
+			_verbose, report_node, timer, _domains, shared_quota, env.pd(),
+			*_reporter_ptr, report_signal_cap);
 	});
 	/* initialize NIC clients */
 	_node.for_each_sub_node("nic-client", [&] (Xml_node const node) {
@@ -222,12 +221,8 @@ Configuration::~Configuration()
 	_nic_clients.destroy_each(_alloc);
 
 	/* destroy reporter */
-	if (_reporter.valid())
-		destroy(_alloc, &_reporter());
-
-	/* destroy report generator */
-	if (_report.valid())
-		destroy(_alloc, &_report());
+	if (_reporter_ptr)
+		destroy(_alloc, _reporter_ptr);
 
 	/* destroy domains */
 	_domains.destroy_each(_alloc);
