@@ -50,31 +50,4 @@ class Net::Pointer
 		bool valid() const { return _obj != nullptr; }
 };
 
-
-template <typename T>
-class Net::Const_pointer
-{
-	private:
-
-		T const *_obj;
-
-	public:
-
-		struct Invalid : Genode::Exception { };
-
-		Const_pointer() : _obj(nullptr) { }
-
-		Const_pointer(T const &obj) : _obj(&obj) { }
-
-		T const &operator () () const
-		{
-			if (_obj == nullptr)
-				throw Invalid();
-
-			return *_obj;
-		}
-
-		bool valid() const { return _obj != nullptr; }
-};
-
 #endif /* _POINTER_H_ */
