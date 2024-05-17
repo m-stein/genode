@@ -56,10 +56,10 @@ Net::Nic_client::Nic_client(Session_label const &label_arg,
 		[&] /* handle_match */ (Nic_client &old_nic_client)
 		{
 			/* reuse existing interface */
-			Nic_client_interface &interface = old_nic_client._interface();
-			old_nic_client._interface = Pointer<Nic_client_interface>();
+			Nic_client_interface &interface = *old_nic_client._interface_ptr;
+			old_nic_client._interface_ptr = nullptr;
 			interface.domain_name(domain());
-			_interface = interface;
+			_interface_ptr = &interface;
 		},
 		[&] /* handle_no_match */ ()
 		{
@@ -68,7 +68,7 @@ Net::Nic_client::Nic_client(Session_label const &label_arg,
 				log("[", domain(), "] create NIC client: ", label()); }
 
 			try {
-				_interface = *new (_alloc)
+				_interface_ptr = new (_alloc)
 					Nic_client_interface {
 						env, timer, alloc, interfaces, config, domain(),
 						label() };
@@ -84,10 +84,10 @@ Net::Nic_client::Nic_client(Session_label const &label_arg,
 Net::Nic_client::~Nic_client()
 {
 	/* if the interface was yet not reused by another NIC client, destroy it */
-	if (_interface.valid()) {
+	if (_interface_ptr) {
 		if (_config.verbose()) {
 			log("[", domain(), "] destroy NIC client: ", label()); }
-		destroy(_alloc, &_interface());
+		destroy(_alloc, _interface_ptr);
 	}
 }
 
