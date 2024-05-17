@@ -332,11 +332,12 @@ void Domain::deinit()
 	_tcp_rules.destroy_each(_alloc);
 	_udp_forward_rules.destroy_each(_alloc);
 	_tcp_forward_rules.destroy_each(_alloc);
-	with_dhcp_server([&] (Dhcp_server &dhcp_server) {
+	if (_dhcp_server_ptr) {
 		_dhcp_server_ptr = nullptr;
 		dhcp_server.with_dns_config_from([&] (Domain &domain) {
 			domain.ip_config_dependents().remove(this); });
-		destroy(_alloc, &dhcp_server); });
+		destroy(_alloc, _dhcp_server_ptr);
+	}
 }
 
 
