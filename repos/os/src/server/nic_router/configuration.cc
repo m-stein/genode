@@ -182,36 +182,33 @@ Configuration::Configuration(Env                             &env,
 	});
 	/* initialize NIC clients */
 	_node.for_each_sub_node("nic-client", [&] (Xml_node const node) {
-		try {
-			Session_label const label {
-				node.attribute_value("label",  Session_label::String { }) };
+		Session_label const label {
+			node.attribute_value("label",  Session_label::String { }) };
 
-			Domain_name const domain {
-				node.attribute_value("domain", Domain_name { }) };
+		Domain_name const domain {
+			node.attribute_value("domain", Domain_name { }) };
 
-			_nic_clients.with_element(
-				label,
-				[&] /* match */ (Nic_client &nic_client)
-				{
-					if (_verbose) {
+		_nic_clients.with_element(
+			label,
+			[&] /* match */ (Nic_client &nic_client)
+			{
+				if (_verbose) {
 
-						log("[", domain, "] invalid NIC client: ",
-						    label, " (label not unique)");
+					log("[", domain, "] invalid NIC client: ",
+					    label, " (label not unique)");
 
-						log("[", nic_client.domain(), "] invalid NIC client: ",
-						    nic_client.label(), " (label not unique)");
-					}
-					destroy(_alloc, &nic_client);
-				},
-				[&] /* no_match */ ()
-				{
-					new (_alloc) Nic_client {
-						label, domain, alloc, old_config._nic_clients,
-						_nic_clients, env, timer, interfaces, *this };
+					log("[", nic_client.domain(), "] invalid NIC client: ",
+					    nic_client.label(), " (label not unique)");
 				}
-			);
-		}
-		catch (Nic_client::Invalid) { }
+				destroy(_alloc, &nic_client);
+			},
+			[&] /* no_match */ ()
+			{
+				Nic_client &nic_client = *new (_alloc) Nic_client { label, domain, alloc, _nic_clients, *this };
+				if (!nic_client.finish_construction(env, timer, interfaces, old_config._nic_clients))
+					destroy(_alloc, &nic_client);
+			}
+		);
 	});
 	/*
 	 * Destroy old NIC clients to ensure that NIC client interfaces that were
