@@ -99,7 +99,7 @@ Link::Link(Interface                     &cln_interface,
 :
 	_config(config),
 	_client_interface(cln_interface),
-	_server_port_alloc(srv_port_alloc),
+	_server_port_alloc_ptr(&srv_port_alloc),
 	_dissolve_timeout(timer, *this, &Link::_handle_dissolve_timeout,
 	                  Microseconds { 100 * 1000 }),
 	_dissolve_timeout_us(dissolve_timeout),
@@ -147,14 +147,14 @@ void Link::dissolve(bool timeout)
 	if (_config().verbose()) {
 		log("Dissolve ", l3_protocol_name(_protocol), " link: ", *this); }
 
-	if (_server_port_alloc.valid()) {
+	if (_server_port_alloc_ptr) {
 		if (_config().verbose()) {
 			log("Free ", l3_protocol_name(_protocol),
 			    " port ", _server.dst_port(),
 			    " at ", _server.domain(),
 			    " that was used by ", _client.domain());
 		}
-		_server_port_alloc().free(_server.dst_port());
+		_server_port_alloc_ptr->free(_server.dst_port());
 	}
 }
 
@@ -177,10 +177,10 @@ void Link::handle_config(Domain                        &cln_domain,
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
 
-	_config            = config;
-	_client._domain    = cln_domain;
-	_server._domain    = srv_domain;
-	_server_port_alloc = srv_port_alloc;
+	_config = config;
+	_client._domain = cln_domain;
+	_server._domain = srv_domain;
+	_server_port_alloc_ptr = &srv_port_alloc;
 
 	cln_domain.links(_protocol).insert(&_client);
 	srv_domain.links(_protocol).insert(&_server);

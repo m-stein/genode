@@ -187,7 +187,7 @@ class Net::Link : public Link_list::Element
 
 		Reference<Configuration>       _config;
 		Interface                     &_client_interface;
-		Pointer<Port_allocator_guard>  _server_port_alloc;
+		Port_allocator_guard          *_server_port_alloc_ptr;
 		Lazy_one_shot_timeout<Link>    _dissolve_timeout;
 		Genode::Microseconds           _dissolve_timeout_us;
 		L3_protocol             const  _protocol;
@@ -200,6 +200,12 @@ class Net::Link : public Link_list::Element
 		void _handle_dissolve_timeout(Genode::Duration);
 
 		void _packet() { _dissolve_timeout.schedule(_dissolve_timeout_us); }
+
+		/*
+		 * Noncopyable
+		 */
+		Link(Link const &);
+		Link &operator = (Link const &);
 
 	public:
 
