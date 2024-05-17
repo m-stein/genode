@@ -75,26 +75,12 @@ class Net::Domain_dict : public Dictionary<Domain, Domain_name>
 {
 	public:
 
-		template <typename NO_MATCH_EXCEPTION>
-		Domain &deprecated_find_by_name(Domain_name const &domain_name)
+		void find_by_domain_attr(Genode::Xml_node const &node, auto const &ok_fn, auto const &failed_fn)
 		{
-			Domain *dom_ptr { nullptr };
-			with_element(
-				domain_name,
-				[&] /* match_fn */ (Domain &dom) { dom_ptr = &dom; },
-				[&] /* no_match_fn */ () { throw NO_MATCH_EXCEPTION { }; }
-			);
-			return *dom_ptr;
+			with_element(node.attribute_value("domain", Domain_name()),
+				[&] (Domain &domain) { ok_fn(domain); }, [&] { failed_fn(); });
 		}
 
-		template <typename NO_MATCH_EXCEPTION>
-		Domain &deprecated_find_by_domain_attr(Genode::Xml_node const &node)
-		{
-			Domain_name const domain_name {
-				node.attribute_value("domain", Domain_name { }) };
-
-			return deprecated_find_by_name<NO_MATCH_EXCEPTION>(domain_name);
-		}
 };
 
 
@@ -142,19 +128,19 @@ class Net::Domain : public List<Domain>::Element,
 		Domain_object_stats                   _dhcp_stats           { };
 		unsigned long                         _dropped_fragm_ipv4   { 0 };
 
-		void _read_forward_rules(Genode::Cstring  const &protocol,
-		                         Domain_dict            &domains,
-		                         Genode::Xml_node const  node,
-		                         char             const *type,
-		                         Forward_rule_tree      &rules);
+		[[nodiscard]] bool _read_forward_rules(Genode::Cstring  const &protocol,
+		                                       Domain_dict            &domains,
+		                                       Genode::Xml_node const  node,
+		                                       char             const *type,
+		                                       Forward_rule_tree      &rules);
 
-		void _read_transport_rules(Genode::Cstring  const &protocol,
-		                           Domain_dict            &domains,
-		                           Genode::Xml_node const  node,
-		                           char             const *type,
-		                           Transport_rule_list    &rules);
+		[[nodiscard]] bool _read_transport_rules(Genode::Cstring  const &protocol,
+		                                         Domain_dict            &domains,
+		                                         Genode::Xml_node const  node,
+		                                         char             const *type,
+		                                         Transport_rule_list    &rules);
 
-		void _invalid(char const *reason) const;
+		[[nodiscard]] bool _invalid(char const *reason) const;
 
 		void _log_ip_config() const;
 
@@ -190,7 +176,9 @@ class Net::Domain : public List<Domain>::Element,
 
 		~Domain();
 
-		void init(Domain_dict &domains);
+		[[nodiscard]] bool finish_construction() const;
+
+		[[nodiscard]] bool init(Domain_dict &domains);
 
 		void deinit();
 
