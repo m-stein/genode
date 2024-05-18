@@ -64,12 +64,6 @@ Transport_rule::Transport_rule(Domain_dict    &domains,
 		if (config.verbose()) {
 			log("[", domain, "] ", protocol, " permit rule: ", rule); }
 	});
-	/* drop the transport rule if it has no permitted ports */
-	if (!_permit_single_rules.first()) {
-		throw Invalid(); }
-
-	if (config.verbose()) {
-		log("[", domain, "] ", protocol, " rule: dst ", _dst); }
 }
 
 

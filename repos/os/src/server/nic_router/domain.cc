@@ -199,10 +199,18 @@ void Domain::_read_transport_rules(Cstring  const      &protocol,
 {
 	node.for_each_sub_node(type, [&] (Xml_node const node) {
 		try {
-			rules.insert(*new (_alloc)
-				Transport_rule(domains, node, _alloc, protocol, _config, *this));
+			Transport_rule &rule = *new (_alloc)
+				Transport_rule(domains, node, _alloc, protocol, _config, *this);
+
+			if (rule.valid()) {
+				rules.insert(rule);
+				if (_config.verbose())
+					log("[", *this, "] ", protocol, " rule: ", rule);
+			} else {
+				destroy(_alloc, &rule);
+				_invalid("invalid transport rule");
+			}
 		}
-		catch (Transport_rule::Invalid)     { _invalid("invalid transport rule"); }
 		catch (Permit_any_rule::Invalid)    { _invalid("invalid permit-any rule"); }
 		catch (Permit_single_rule::Invalid) { _invalid("invalid permit rule"); }
 	});

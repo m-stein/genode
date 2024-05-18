@@ -29,5 +29,5 @@ Direct_rule_base::Direct_rule_base(Xml_node const node)
 
 void Direct_rule_base::print(Output &output) const
 {
-	Genode::print(output, _dst);
+	Genode::print(output, "dst ", _dst);
 }

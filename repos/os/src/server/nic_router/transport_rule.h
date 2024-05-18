@@ -58,6 +58,8 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 
 		~Transport_rule();
 
+		bool valid() const { return _permit_single_rules.first(); }
+
 		template <typename HANDLE_MATCH_FN,
 		          typename HANDLE_NO_MATCH_FN>
 		void
