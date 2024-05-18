@@ -36,14 +36,15 @@ Transport_rule::_read_permit_any_rule(Domain_dict    &domains,
 }
 
 
-Transport_rule::Transport_rule(Domain_dict    &domains,
-                               Xml_node const  node,
-                               Allocator      &alloc,
-                               Cstring  const &protocol,
-                               Configuration  &config,
-                               Domain   const &domain)
+Transport_rule::Transport_rule(Domain_dict               &domains,
+                               Ipv4_address_prefix const &dst,
+                               Xml_node            const  node,
+                               Allocator                 &alloc,
+                               Cstring             const  &protocol,
+                               Configuration             &config,
+                               Domain              const  &domain)
 :
-	Direct_rule(node),
+	Direct_rule(dst),
 	_alloc(alloc),
 	_permit_any_rule_ptr(_read_permit_any_rule(domains, node, alloc))
 {

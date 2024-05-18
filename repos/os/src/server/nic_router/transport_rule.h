@@ -49,16 +49,17 @@ class Net::Transport_rule : public Direct_rule<Transport_rule>
 
 	public:
 
-		Transport_rule(Domain_dict            &domains,
-		               Genode::Xml_node const  node,
-		               Genode::Allocator      &alloc,
-		               Genode::Cstring  const &protocol,
-		               Configuration          &config,
-		               Domain           const &domain);
+		Transport_rule(Domain_dict               &domains,
+		               Ipv4_address_prefix const &dst,
+		               Genode::Xml_node    const  node,
+		               Genode::Allocator         &alloc,
+		               Genode::Cstring     const &protocol,
+		               Configuration             &config,
+		               Domain              const &domain);
 
 		~Transport_rule();
 
-		bool valid() const { return _permit_single_rules.first(); }
+		bool valid() const { return _permit_any_rule_ptr || _permit_single_rules.first(); }
 
 		template <typename HANDLE_MATCH_FN,
 		          typename HANDLE_NO_MATCH_FN>

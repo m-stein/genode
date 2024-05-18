@@ -197,10 +197,15 @@ void Domain::_read_transport_rules(Cstring  const      &protocol,
                                    char     const      *type,
                                    Transport_rule_list &rules)
 {
+
 	node.for_each_sub_node(type, [&] (Xml_node const node) {
+		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
+		if (!dst.valid())
+			_invalid("invalid transport rule");
+
 		try {
 			Transport_rule &rule = *new (_alloc)
-				Transport_rule(domains, node, _alloc, protocol, _config, *this);
+				Transport_rule(domains, dst, node, _alloc, protocol, _config, *this);
 
 			if (rule.valid()) {
 				rules.insert(rule);
@@ -320,13 +325,23 @@ void Domain::init(Domain_dict &domains)
 	});
 	/* read ICMP rules */
 	_node.for_each_sub_node("icmp", [&] (Xml_node const node) {
-		try { _icmp_rules.insert(*new (_alloc) Ip_rule(domains, node)); }
-		catch (Ip_rule::Invalid) { _invalid("invalid ICMP rule"); }
+		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
+		if (!dst.valid())
+			_invalid("invalid ICMP rule");
+
+		domains.find_by_domain_attr(node,
+			[&] (Domain &domain) { _icmp_rules.insert(*new (_alloc) Ip_rule(dst, domain)); },
+			[&] { _invalid("invalid ICMP rule"); });
 	});
 	/* read IP rules */
 	_node.for_each_sub_node("ip", [&] (Xml_node const node) {
-		try { _ip_rules.insert(*new (_alloc) Ip_rule(domains, node)); }
-		catch (Ip_rule::Invalid) { _invalid("invalid IP rule"); }
+		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
+		if (!dst.valid())
+			_invalid("invalid IP rule");
+
+		domains.find_by_domain_attr(node,
+			[&] (Domain &domain) { _ip_rules.insert(*new (_alloc) Ip_rule(dst, domain)); },
+			[&] { _invalid("invalid IP rule"); });
 	});
 }
 
