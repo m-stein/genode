@@ -203,21 +203,19 @@ void Domain::_read_transport_rules(Cstring  const      &protocol,
 		if (!dst.valid())
 			_invalid("invalid transport rule");
 
-		try {
-			Transport_rule &rule = *new (_alloc)
-				Transport_rule(domains, dst, node, _alloc, protocol, _config, *this);
-
-			if (rule.valid()) {
-				rules.insert(rule);
-				if (_config.verbose())
-					log("[", *this, "] ", protocol, " rule: ", rule);
-			} else {
-				destroy(_alloc, &rule);
-				_invalid("invalid transport rule");
-			}
+		Transport_rule &rule = *new (_alloc) Transport_rule(dst, _alloc);
+		if (!rule.construct_permit_rules(domains, node, protocol, _config, *this)) {
+			destroy(_alloc, &rule);
+			_invalid("invalid permit or permit-any rule");
 		}
-		catch (Permit_any_rule::Invalid)    { _invalid("invalid permit-any rule"); }
-		catch (Permit_single_rule::Invalid) { _invalid("invalid permit rule"); }
+		if (rule.valid()) {
+			rules.insert(rule);
+			if (_config.verbose())
+				log("[", *this, "] ", protocol, " rule: ", rule);
+		} else {
+			destroy(_alloc, &rule);
+			_invalid("invalid transport rule");
+		}
 	});
 }
 
