@@ -315,15 +315,15 @@ void Domain::init(Domain_dict &domains)
 
 	/* read NAT rules */
 	_node.for_each_sub_node("nat", [&] (Xml_node const node) {
-		try {
-			Nat_rule &rule = *new (_alloc)
-				Nat_rule(domains, _tcp_port_alloc, _udp_port_alloc,
-				         _icmp_port_alloc, node, _config.verbose());
-			_nat_rules.insert(&rule);
-			if (_config.verbose()) {
-				log("[", *this, "] NAT rule: ", rule); }
-		}
-		catch (Nat_rule::Invalid) { _invalid("invalid NAT rule"); }
+		domains.find_by_domain_attr(node,
+			[&] (Domain &domain) {
+				Nat_rule &rule = *new (_alloc)
+					Nat_rule(domain, _tcp_port_alloc, _udp_port_alloc,
+					         _icmp_port_alloc, node, _config.verbose());
+				_nat_rules.insert(&rule);
+				if (_config.verbose())
+					log("[", *this, "] NAT rule: ", rule); },
+			[&] { _invalid("invalid NAT rule"); });
 	});
 	/* read ICMP rules */
 	_node.for_each_sub_node("icmp", [&] (Xml_node const node) {
