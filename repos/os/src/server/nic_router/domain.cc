@@ -172,13 +172,22 @@ void Domain::_read_forward_rules(Cstring  const    &protocol,
                                  Forward_rule_tree &rules)
 {
 	node.for_each_sub_node(type, [&] (Xml_node const node) {
-		try {
-			Forward_rule &rule = *new (_alloc) Forward_rule(domains, node);
-			rules.insert(&rule);
-			if (_config.verbose()) {
-				log("[", *this, "] ", protocol, " forward rule: ", rule); }
-		}
-		catch (Forward_rule::Invalid) { _invalid("invalid forward rule"); }
+		Port port = node.attribute_value("port", Port(0));
+		if (port == Port(0) || dynamic_port(port))
+			_invalid("invalid forward rule");
+
+		Ipv4_address to_ip = node.attribute_value("to", Ipv4_address());
+		if (!to_ip.valid())
+			_invalid("invalid forward rule");
+
+		domains.find_by_domain_attr(node,
+			[&] (Domain &domain) {
+				Forward_rule &rule = *new (_alloc)
+					Forward_rule(port, to_ip, node.attribute_value("to_port", Port(0)), domain);
+				rules.insert(&rule);
+				if (_config.verbose())
+					log("[", *this, "] ", protocol, " forward rule: ", rule); },
+			[&] { _invalid("invalid forward rule"); });
 	});
 }
 
