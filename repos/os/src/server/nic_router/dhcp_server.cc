@@ -26,26 +26,31 @@ using namespace Genode;
  ** Dhcp_server_base **
  **********************/
 
-Dhcp_server_base::Dhcp_server_base(Xml_node const &node,
-                                   Domain   const &domain,
-                                   Allocator      &alloc)
-:
-	_alloc { alloc }
+Dhcp_server_base::Dhcp_server_base(Allocator &alloc) : _alloc { alloc } { }
+
+
+bool Dhcp_server_base::finish_construction(Xml_node const &node, Domain const &domain)
 {
+	bool result = true;
 	node.for_each_sub_node("dns-server", [&] (Xml_node const &sub_node) {
+		if (!result)
+			return;
 
 		Dns_server::construct(
-			alloc, sub_node.attribute_value("ip", Ipv4_address { }),
+			_alloc, sub_node.attribute_value("ip", Ipv4_address { }),
 			[&] /* handle_success */ (Dns_server &server)
 			{
 				_dns_servers.insert_as_tail(server);
 			},
 			[&] /* handle_failure */ ()
 			{
-				_invalid(domain, "invalid DNS server entry");
+				result = _invalid(domain, "invalid DNS server entry");
 			}
 		);
 	});
+	if (!result)
+		return result;
+
 	node.with_optional_sub_node("dns-domain", [&] (Xml_node const &sub_node) {
 		xml_node_with_attribute(sub_node, "name", [&] (Xml_attribute const &attr) {
 			_dns_domain_name.set_to(attr);
@@ -58,6 +63,7 @@ Dhcp_server_base::Dhcp_server_base(Xml_node const &node,
 			}
 		});
 	});
+	return result;
 }
 
 
@@ -67,13 +73,13 @@ Dhcp_server_base::~Dhcp_server_base()
 }
 
 
-void Dhcp_server_base::_invalid(Domain const &domain,
+bool Dhcp_server_base::_invalid(Domain const &domain,
                                 char   const *reason)
 {
 	if (domain.config().verbose()) {
 		log("[", domain, "] invalid DHCP server (", reason, ")"); }
 
-	throw Domain::Invalid();
+	return false;
 }
 
 
@@ -89,29 +95,47 @@ bool Dhcp_server::dns_servers_empty() const
 }
 
 
-Dhcp_server::Dhcp_server(Xml_node            const  node,
-                         Domain                    &domain,
-                         Allocator                 &alloc,
-                         Ipv4_address_prefix const &interface,
-                         Domain_dict               &domains)
+Dhcp_server::Dhcp_server(Xml_node const node, Allocator &alloc)
 :
-	Dhcp_server_base(node, domain, alloc),
-	_dns_config_from_ptr(_init_dns_config_from(node, domains)),
+	Dhcp_server_base(alloc),
 	_ip_lease_time  (_init_ip_lease_time(node)),
 	_ip_first(node.attribute_value("ip_first", Ipv4_address())),
 	_ip_last(node.attribute_value("ip_last", Ipv4_address())),
 	_ip_first_raw(_ip_first.to_uint32_little_endian()),
 	_ip_count(_ip_last.to_uint32_little_endian() - _ip_first_raw + 1),
 	_ip_alloc(alloc, _ip_count)
+{ }
+
+
+bool Dhcp_server::finish_construction(Xml_node const node,
+                                      Domain_dict &domains,
+                                      Domain &domain,
+                                      Ipv4_address_prefix const &interface)
 {
+	if (!Dhcp_server_base::finish_construction(node, domain))
+		return false;
+
+	if (_dns_servers.empty() && !_dns_domain_name.valid()) {
+		Domain_name dns_config_from = node.attribute_value("dns_config_from", Domain_name());
+		if (dns_config_from != Domain_name()) {
+			bool result = true;
+			domains.with_element(dns_config_from,
+				[&] (Domain &remote_domain) { _dns_config_from_ptr = &remote_domain; },
+				[&] { result = _invalid(domain, "invalid dns_config_from attribute"); });
+			if (!result)
+				return result;
+		}
+	}
 	if (!interface.prefix_matches(_ip_first)) {
-		_invalid(domain, "first IP does not match domain subnet"); }
+		return _invalid(domain, "first IP does not match domain subnet"); }
 
 	if (!interface.prefix_matches(_ip_last)) {
-		_invalid(domain, "last IP does not match domain subnet"); }
+		return _invalid(domain, "last IP does not match domain subnet"); }
 
 	if (interface.address.is_in_range(_ip_first, _ip_last)) {
-		_invalid(domain, "IP range contains IP address of domain"); }
+		return _invalid(domain, "IP range contains IP address of domain"); }
+
+	return true;
 }
 
 
@@ -181,23 +205,6 @@ void Dhcp_server::free_ip(Domain       const &domain,
 {
 	if (!_ip_alloc.free(ip.to_uint32_little_endian() - _ip_first_raw))
 		error("[", domain, "] DHCP server: failed to free IP");
-}
-
-
-Domain *Dhcp_server::_init_dns_config_from(Genode::Xml_node const node, Domain_dict &domains)
-{
-	if (!_dns_servers.empty() ||
-	    _dns_domain_name.valid()) {
-
-		return nullptr;
-	}
-	Domain_name dns_config_from =
-		node.attribute_value("dns_config_from", Domain_name());
-
-	if (dns_config_from == Domain_name()) {
-		return nullptr;
-	}
-	return &domains.deprecated_find_by_name<Invalid>(dns_config_from);
 }
 
 

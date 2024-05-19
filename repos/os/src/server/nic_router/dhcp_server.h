@@ -51,14 +51,15 @@ class Net::Dhcp_server_base
 		Dns_server_list    _dns_servers     { };
 		Dns_domain_name    _dns_domain_name { _alloc };
 
-		void _invalid(Domain const &domain,
-		              char   const *reason);
+		[[nodiscard]] bool _invalid(Domain const &domain,
+		                            char   const *reason);
 
 	public:
 
-		Dhcp_server_base(Genode::Xml_node const &node,
-		                 Domain           const &domain,
-		                 Genode::Allocator      &alloc);
+		Dhcp_server_base(Genode::Allocator &alloc);
+
+		[[nodiscard]] bool finish_construction(Genode::Xml_node const &node,
+		                                       Domain           const &domain);
 
 		~Dhcp_server_base();
 };
@@ -69,7 +70,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 {
 	private:
 
-		Domain              *const    _dns_config_from_ptr;
+		Domain                       *_dns_config_from_ptr { };
 		Genode::Microseconds const    _ip_lease_time;
 		Ipv4_address         const    _ip_first;
 		Ipv4_address         const    _ip_last;
@@ -78,8 +79,6 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 		Genode::Bit_allocator_dynamic _ip_alloc;
 
 		Genode::Microseconds _init_ip_lease_time(Genode::Xml_node const node);
-
-		Domain *_init_dns_config_from(Genode::Xml_node const node, Domain_dict &domains);
 
 		Ipv4_config const &_resolve_dns_config_from() const;
 
@@ -95,11 +94,13 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		struct Invalid : Genode::Exception { };
 
-		Dhcp_server(Genode::Xml_node    const  node,
-		            Domain                    &domain,
-		            Genode::Allocator         &alloc,
-		            Ipv4_address_prefix const &interface,
-		            Domain_dict               &domains);
+		Dhcp_server(Genode::Xml_node const  node,
+		            Genode::Allocator      &alloc);
+
+		[[nodiscard]] bool finish_construction(Genode::Xml_node    const  node,
+		                                       Domain_dict               &domains,
+		                                       Domain                    &domain,
+		                                       Ipv4_address_prefix const &interface);
 
 		[[nodiscard]] bool alloc_any_ip(Ipv4_address &ip);
 

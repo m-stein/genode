@@ -75,27 +75,6 @@ class Net::Domain_dict : public Dictionary<Domain, Domain_name>
 {
 	public:
 
-		template <typename NO_MATCH_EXCEPTION>
-		Domain &deprecated_find_by_name(Domain_name const &domain_name)
-		{
-			Domain *dom_ptr { nullptr };
-			with_element(
-				domain_name,
-				[&] /* match_fn */ (Domain &dom) { dom_ptr = &dom; },
-				[&] /* no_match_fn */ () { throw NO_MATCH_EXCEPTION { }; }
-			);
-			return *dom_ptr;
-		}
-
-		template <typename NO_MATCH_EXCEPTION>
-		Domain &deprecated_find_by_domain_attr(Genode::Xml_node const &node)
-		{
-			Domain_name const domain_name {
-				node.attribute_value("domain", Domain_name { }) };
-
-			return deprecated_find_by_name<NO_MATCH_EXCEPTION>(domain_name);
-		}
-
 		void find_by_domain_attr(Genode::Xml_node const &node, auto const &ok_fn, auto const &failed_fn)
 		{
 			node.with_attribute("domain",
