@@ -287,21 +287,19 @@ void Domain::init(Domain_dict &domains)
 {
 	/* read DHCP server configuration */
 	_node.with_optional_sub_node("dhcp-server", [&] (Xml_node const &dhcp_server_node) {
-		try {
-			if (_ip_config_dynamic) {
-				_invalid("DHCP server and client at once"); }
+		if (_ip_config_dynamic) {
+			_invalid("DHCP server and client at once"); }
 
-			Dhcp_server &dhcp_server = *new (_alloc)
-				Dhcp_server(dhcp_server_node, *this, _alloc, ip_config().interface(), domains);
+		Dhcp_server &dhcp_server = *new (_alloc) Dhcp_server(dhcp_server_node, _alloc);
+		if (!dhcp_server.finish_construction(dhcp_server_node, domains, *this, ip_config().interface()))
+			_invalid("invalid DHCP server");
 
-			dhcp_server.with_dns_config_from([&] (Domain &domain) {
-				domain.ip_config_dependents().insert(this); });
+		dhcp_server.with_dns_config_from([&] (Domain &domain) {
+			domain.ip_config_dependents().insert(this); });
 
-			_dhcp_server_ptr = &dhcp_server;
-			if (_config.verbose()) {
-				log("[", *this, "] DHCP server: ", dhcp_server); }
-		}
-		catch (Dhcp_server::Invalid) { _invalid("invalid DHCP server"); }
+		_dhcp_server_ptr = &dhcp_server;
+		if (_config.verbose()) {
+			log("[", *this, "] DHCP server: ", dhcp_server); }
 	});
 	/* read forward rules */
 	_read_forward_rules(tcp_name(), domains, _node, "tcp-forward",
