@@ -165,21 +165,27 @@ void Domain::try_reuse_ip_config(Domain const &domain)
 }
 
 
-void Domain::_read_forward_rules(Cstring  const    &protocol,
+bool Domain::_read_forward_rules(Cstring  const    &protocol,
                                  Domain_dict       &domains,
                                  Xml_node const     node,
                                  char     const    *type,
                                  Forward_rule_tree &rules)
 {
+	bool result = true;
 	node.for_each_sub_node(type, [&] (Xml_node const node) {
+		if (!result)
+			return;
+
 		Port port = node.attribute_value("port", Port(0));
-		if (port == Port(0) || dynamic_port(port))
-			_invalid("invalid forward rule");
-
+		if (port == Port(0) || dynamic_port(port)) {
+			result = _invalid("invalid forward rule");
+			return;
+		}
 		Ipv4_address to_ip = node.attribute_value("to", Ipv4_address());
-		if (!to_ip.valid())
-			_invalid("invalid forward rule");
-
+		if (!to_ip.valid()) {
+			result = _invalid("invalid forward rule");
+			return;
+		}
 		domains.find_by_domain_attr(node,
 			[&] (Domain &domain) {
 				Forward_rule &rule = *new (_alloc)
@@ -187,35 +193,41 @@ void Domain::_read_forward_rules(Cstring  const    &protocol,
 				rules.insert(&rule);
 				if (_config.verbose())
 					log("[", *this, "] ", protocol, " forward rule: ", rule); },
-			[&] { _invalid("invalid forward rule"); });
+			[&] { result = _invalid("invalid forward rule"); });
 	});
+	return result;
 }
 
 
-void Domain::_invalid(char const *reason) const
+bool Domain::_invalid(char const *reason) const
 {
 	if (_config.verbose()) {
 		log("[", *this, "] invalid domain (", reason, ")"); }
-	throw Invalid();
+	return false;
 }
 
 
-void Domain::_read_transport_rules(Cstring  const      &protocol,
+bool Domain::_read_transport_rules(Cstring  const      &protocol,
                                    Domain_dict         &domains,
                                    Xml_node const       node,
                                    char     const      *type,
                                    Transport_rule_list &rules)
 {
-
+	bool result = true;
 	node.for_each_sub_node(type, [&] (Xml_node const node) {
-		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
-		if (!dst.valid())
-			_invalid("invalid transport rule");
+		if (!result)
+			return;
 
+		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
+		if (!dst.valid()) {
+			result = _invalid("invalid transport rule");
+			return;
+		}
 		Transport_rule &rule = *new (_alloc) Transport_rule(dst, _alloc);
 		if (!rule.construct_permit_rules(domains, node, protocol, _config, *this)) {
 			destroy(_alloc, &rule);
-			_invalid("invalid permit or permit-any rule");
+			result = _invalid("invalid permit or permit-any rule");
+			return;
 		}
 		if (rule.valid()) {
 			rules.insert(rule);
@@ -223,9 +235,11 @@ void Domain::_read_transport_rules(Cstring  const      &protocol,
 				log("[", *this, "] ", protocol, " rule: ", rule);
 		} else {
 			destroy(_alloc, &rule);
-			_invalid("invalid transport rule");
+			result = _invalid("invalid transport rule");
+			return;
 		}
 	});
+	return result;
 }
 
 
@@ -262,12 +276,18 @@ Domain::Domain(Configuration     &config,
 	                                            String<160>()).string() }
 {
 	_log_ip_config();
+}
 
-	if (Domain::name() == Domain_name()) {
-		_invalid("missing name attribute"); }
+
+bool Domain::finish_construction() const
+{
+	if (Domain::name() == Domain_name())
+		return _invalid("missing name attribute");
 
 	if (_config.verbose_domain_state()) {
 		log("[", *this, "] NIC sessions: ", _interface_cnt); }
+
+	return true;
 }
 
 
@@ -288,17 +308,20 @@ Domain::~Domain()
 }
 
 
-void Domain::init(Domain_dict &domains)
+bool Domain::init(Domain_dict &domains)
 {
 	/* read DHCP server configuration */
+	bool result = true;
 	_node.with_optional_sub_node("dhcp-server", [&] (Xml_node const &dhcp_server_node) {
 		if (_ip_config_dynamic) {
-			_invalid("DHCP server and client at once"); }
-
+			result = _invalid("DHCP server and client at once");
+			return;
+		}
 		Dhcp_server &dhcp_server = *new (_alloc) Dhcp_server(dhcp_server_node, _alloc);
-		if (!dhcp_server.finish_construction(dhcp_server_node, domains, *this, ip_config().interface()))
-			_invalid("invalid DHCP server");
-
+		if (!dhcp_server.finish_construction(dhcp_server_node, domains, *this, ip_config().interface())) {
+			result = _invalid("invalid DHCP server");
+			return;
+		}
 		dhcp_server.with_dns_config_from([&] (Domain &domain) {
 			domain.ip_config_dependents().insert(this); });
 
@@ -306,18 +329,21 @@ void Domain::init(Domain_dict &domains)
 		if (_config.verbose()) {
 			log("[", *this, "] DHCP server: ", dhcp_server); }
 	});
-	/* read forward rules */
-	_read_forward_rules(tcp_name(), domains, _node, "tcp-forward",
-	                    _tcp_forward_rules);
-	_read_forward_rules(udp_name(), domains, _node, "udp-forward",
-	                    _udp_forward_rules);
+	if (!result)
+		return result;
 
-	/* read UDP and TCP rules */
-	_read_transport_rules(tcp_name(),  domains, _node, "tcp",  _tcp_rules);
-	_read_transport_rules(udp_name(),  domains, _node, "udp",  _udp_rules);
+	/* read forward and transport rules */
+	if (!_read_forward_rules(tcp_name(), domains, _node, "tcp-forward", _tcp_forward_rules) ||
+	    !_read_forward_rules(udp_name(), domains, _node, "udp-forward", _udp_forward_rules) ||
+	    !_read_transport_rules(tcp_name(),  domains, _node, "tcp",  _tcp_rules) ||
+	    !_read_transport_rules(udp_name(),  domains, _node, "udp",  _udp_rules))
+		return false;
 
 	/* read NAT rules */
 	_node.for_each_sub_node("nat", [&] (Xml_node const node) {
+		if (!result)
+			return;
+
 		domains.find_by_domain_attr(node,
 			[&] (Domain &domain) {
 				Nat_rule &rule = *new (_alloc)
@@ -326,28 +352,40 @@ void Domain::init(Domain_dict &domains)
 				_nat_rules.insert(&rule);
 				if (_config.verbose())
 					log("[", *this, "] NAT rule: ", rule); },
-			[&] { _invalid("invalid NAT rule"); });
+			[&] { result = _invalid("invalid NAT rule"); });
 	});
+	if (!result)
+		return result;
+
 	/* read ICMP rules */
 	_node.for_each_sub_node("icmp", [&] (Xml_node const node) {
-		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
-		if (!dst.valid())
-			_invalid("invalid ICMP rule");
+		if (!result)
+			return;
 
+		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
+		if (!dst.valid()) {
+			result = _invalid("invalid ICMP rule");
+			return;
+		}
 		domains.find_by_domain_attr(node,
 			[&] (Domain &domain) { _icmp_rules.insert(*new (_alloc) Ip_rule(dst, domain)); },
-			[&] { _invalid("invalid ICMP rule"); });
+			[&] { result = _invalid("invalid ICMP rule"); });
 	});
 	/* read IP rules */
 	_node.for_each_sub_node("ip", [&] (Xml_node const node) {
-		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
-		if (!dst.valid())
-			_invalid("invalid IP rule");
+		if (!result)
+			return;
 
+		Ipv4_address_prefix dst = node.attribute_value("dst", Ipv4_address_prefix());
+		if (!dst.valid()) {
+			result = _invalid("invalid IP rule");
+			return;
+		}
 		domains.find_by_domain_attr(node,
 			[&] (Domain &domain) { _ip_rules.insert(*new (_alloc) Ip_rule(dst, domain)); },
-			[&] { _invalid("invalid IP rule"); });
+			[&] { result = _invalid("invalid IP rule"); });
 	});
+	return result;
 }
 
 
