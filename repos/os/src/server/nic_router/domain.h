@@ -133,19 +133,19 @@ class Net::Domain : public List<Domain>::Element,
 		Domain_object_stats                   _dhcp_stats           { };
 		unsigned long                         _dropped_fragm_ipv4   { 0 };
 
-		void _read_forward_rules(Genode::Cstring  const &protocol,
-		                         Domain_dict            &domains,
-		                         Genode::Xml_node const  node,
-		                         char             const *type,
-		                         Forward_rule_tree      &rules);
+		[[nodiscard]] bool _read_forward_rules(Genode::Cstring  const &protocol,
+		                                       Domain_dict            &domains,
+		                                       Genode::Xml_node const  node,
+		                                       char             const *type,
+		                                       Forward_rule_tree      &rules);
 
-		void _read_transport_rules(Genode::Cstring  const &protocol,
-		                           Domain_dict            &domains,
-		                           Genode::Xml_node const  node,
-		                           char             const *type,
-		                           Transport_rule_list    &rules);
+		[[nodiscard]] bool _read_transport_rules(Genode::Cstring  const &protocol,
+		                                         Domain_dict            &domains,
+		                                         Genode::Xml_node const  node,
+		                                         char             const *type,
+		                                         Transport_rule_list    &rules);
 
-		void _invalid(char const *reason) const;
+		[[nodiscard]] bool _invalid(char const *reason) const;
 
 		void _log_ip_config() const;
 
@@ -181,7 +181,9 @@ class Net::Domain : public List<Domain>::Element,
 
 		~Domain();
 
-		void init(Domain_dict &domains);
+		[[nodiscard]] bool finish_construction() const;
+
+		[[nodiscard]] bool init(Domain_dict &domains);
 
 		void deinit();
 

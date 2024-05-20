@@ -114,32 +114,30 @@ Configuration::Configuration(Env                             &env,
 {
 	/* do parts of domain initialization that do not lookup other domains */
 	node.for_each_sub_node("domain", [&] (Xml_node const node) {
-		try {
-			Domain_name const name {
-				node.attribute_value("name", Domain_name { }) };
+		Domain_name const name {
+			node.attribute_value("name", Domain_name { }) };
 
-			_domains.with_element(
-				name,
-				[&] /* match_fn */ (Domain &other_domain)
-				{
-					if (_verbose) {
+		_domains.with_element(
+			name,
+			[&] /* match_fn */ (Domain &other_domain)
+			{
+				if (_verbose) {
 
-						log("[", name,
-						    "] invalid domain (name not unique) ");
+					log("[", name,
+					    "] invalid domain (name not unique) ");
 
-						log("[", other_domain,
-						    "] invalid domain (name not unique) ");
-					}
-					destroy(_alloc, &other_domain);
-				},
-				[&] /* no_match_fn */ ()
-				{
-					new (_alloc) Domain {
-						*this, node, name, _alloc, _domains };
+					log("[", other_domain,
+					    "] invalid domain (name not unique) ");
 				}
-			);
-		}
-		catch (Domain::Invalid) { }
+				destroy(_alloc, &other_domain);
+			},
+			[&] /* no_match_fn */ ()
+			{
+				Domain &domain = *new (_alloc) Domain { *this, node, name, _alloc, _domains };
+				if (!domain.finish_construction())
+					destroy(_alloc, &domain);
+			}
+		);
 	});
 	/* do parts of domain initialization that may lookup other domains */
 	while (true) {
@@ -147,8 +145,11 @@ Configuration::Configuration(Env                             &env,
 		_domains.for_each([&] (Domain &domain) {
 			if (invalid_domain_ptr)
 				return;
-			try { domain.init(_domains); }
-			catch (Domain::Invalid) { invalid_domain_ptr = &domain; }
+
+			if (!domain.init(_domains)) {
+				invalid_domain_ptr = &domain;
+				return;
+			}
 			if (_verbose) {
 				log("[", domain, "] initiated domain"); }
 		});
