@@ -763,13 +763,11 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
                                              Dhcp_server    &dhcp_srv,
                                              Domain         &local_domain)
 {
-	Ipv4_address ip;
-	if (!dhcp_srv.alloc_any_ip(ip))
-		return Packet_error("failed to allocate IP for DHCP client");
-
-	try {
+	Packet_state result = Packet_ok();
+	auto with_ip_fn = [&] (Ipv4_address const &ip) {
 		Dhcp_allocation &allocation = *new (_alloc)
-			Dhcp_allocation { *this, ip, dhcp.client_mac(), _timer, _config().dhcp_offer_timeout() };
+			Dhcp_allocation { *this, ip, dhcp.client_mac(),
+			                  _timer, _config().dhcp_offer_timeout() };
 
 		_dhcp_allocations.insert(allocation);
 		if (_config().verbose()) {
@@ -780,10 +778,12 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 Dhcp_packet::Message_type::OFFER,
 		                 dhcp.xid(),
 		                 local_domain.ip_config().interface());
-	}
-	catch (Out_of_ram)  { return Packet_error("out of RAM while creating DHCP allocation"); }
-	catch (Out_of_caps) { return Packet_error("out of CAPs while creating DHCP allocation"); }
-	return Packet_ok();
+	};
+	auto without_ip_fn = [&] { result = Packet_error("failed to allocate IP for DHCP client"); };
+	try { dhcp_srv.alloc_ip(with_ip_fn, without_ip_fn); }
+	catch (Out_of_ram)  { result = Packet_error("out of RAM while creating DHCP allocation"); }
+	catch (Out_of_caps) { result = Packet_error("out of CAPs while creating DHCP allocation"); }
+	return result;
 }
 
 
@@ -2048,7 +2048,7 @@ void Interface::_update_dhcp_allocations(Domain &old_domain,
 			throw Pointer<Dhcp_server>::Invalid();
 		}
 		_dhcp_allocations.for_each([&] (Dhcp_allocation &allocation) {
-			if (!new_dhcp_srv.alloc_given_ip(allocation.ip())) {
+			if (!new_dhcp_srv.alloc_ip(allocation.ip())) {
 				if (_config().verbose())
 					log("[", new_domain, "] dismiss DHCP allocation: ", allocation, " (no IP)");
 

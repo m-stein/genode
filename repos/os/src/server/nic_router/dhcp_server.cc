@@ -161,24 +161,14 @@ Ipv4_config const &Dhcp_server::_resolve_dns_config_from() const
 }
 
 
-bool Dhcp_server::alloc_any_ip(Ipv4_address &ip)
-{
-	try {
-		ip = Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() + _ip_first_raw);
-		return true;
-	}
-	catch (...) { }
-	return false;
-}
-
-
-bool Dhcp_server::alloc_given_ip(Ipv4_address const &ip)
+bool Dhcp_server::alloc_ip(Ipv4_address const &ip)
 {
 	try {
 		_ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw);
 		return true;
 	}
-	catch (...) {  }
+	catch (Bit_allocator_dynamic::Range_conflict)   { }
+	catch (Bit_array_dynamic::Invalid_index_access) { }
 	return false;
 }
 
