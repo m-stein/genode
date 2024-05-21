@@ -505,11 +505,11 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 		}
 		catch (Out_of_ram)  {
 			_tcp_stats.refused_for_ram++;
-			result = Packet_error("out of RAM while creating TCP link");
+			result = Packet_error::drop("out of RAM while creating TCP link");
 		}
 		catch (Out_of_caps) {
 			_tcp_stats.refused_for_ram++;
-			result = Packet_error("out of CAPs while creating TCP link");
+			result = Packet_error::drop("out of CAPs while creating TCP link");
 		}
 		break;
 	case L3_protocol::UDP:
@@ -520,11 +520,11 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 		}
 		catch (Out_of_ram) {
 			_udp_stats.refused_for_ram++;
-			result = Packet_error("out of RAM while creating UDP link");
+			result = Packet_error::drop("out of RAM while creating UDP link");
 		}
 		catch (Out_of_caps) {
 			_udp_stats.refused_for_ram++;
-			result = Packet_error("out of CAPs while creating UDP link");
+			result = Packet_error::drop("out of CAPs while creating UDP link");
 		}
 		break;
 	case L3_protocol::ICMP:
@@ -535,11 +535,11 @@ Packet_state Interface::_new_link(L3_protocol             const  protocol,
 		}
 		catch (Out_of_ram) {
 			_icmp_stats.refused_for_ram++;
-			result = Packet_error("out of RAM while creating ICMP link");
+			result = Packet_error::drop("out of RAM while creating ICMP link");
 		}
 		catch (Out_of_caps) {
 			_icmp_stats.refused_for_ram++;
-			result = Packet_error("out of CAPs while creating ICMP link");
+			result = Packet_error::drop("out of CAPs while creating ICMP link");
 		}
 		break;
 	default: throw Bad_transport_protocol(); }
@@ -582,7 +582,7 @@ Packet_state Interface::_adapt_eth(Ethernet_frame          &eth,
 	Packet_state result = Packet_ok();
 	Ipv4_config const &remote_ip_cfg = remote_domain.ip_config();
 	if (!remote_ip_cfg.valid()) {
-		result = Packet_error("target domain has yet no IP config");
+		result = Packet_error::drop("target domain has yet no IP config");
 	}
 	if (!remote_domain.use_arp())
 		return result;
@@ -603,14 +603,14 @@ Packet_state Interface::_adapt_eth(Ethernet_frame          &eth,
 				});
 				try {
 					new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt };
-					throw Packet_postponed();
+					result = Packet_error::postpone();
 				}
-				catch (Out_of_ram)  { result = Packet_error("out of RAM while creating ARP waiter"); }
-				catch (Out_of_caps) { result = Packet_error("out of CAPs while creating ARP waiter"); }
+				catch (Out_of_ram)  { result = Packet_error::drop("out of RAM while creating ARP waiter"); }
+				catch (Out_of_caps) { result = Packet_error::drop("out of CAPs while creating ARP waiter"); }
 			}
 		);
 	};
-	auto without_next_hop = [&] { result = Packet_error("cannot find next hop"); };
+	auto without_next_hop = [&] { result = Packet_error::drop("cannot find next hop"); };
 	remote_domain.with_next_hop(dst_ip, with_next_hop, without_next_hop);
 	return result;
 }
@@ -643,7 +643,7 @@ Packet_state Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 					ip.src(remote_domain.ip_config().interface().address, ip_icd);
 					remote_port_alloc = nat.port_alloc(prot); },
 				[&] (auto) {
-					result = Packet_error("no available NAT ports");
+					result = Packet_error::drop("no available NAT ports");
 					switch (prot) {
 					case L3_protocol::TCP: _tcp_stats.refused_for_ports++; break;
 					case L3_protocol::UDP: _udp_stats.refused_for_ports++; break;
@@ -784,9 +784,9 @@ Packet_state Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 dhcp.xid(),
 		                 local_domain.ip_config().interface());
 	};
-	try { dhcp_srv.alloc_ip().with_result(ok_fn, [&] (auto) { result = Packet_error("failed to allocate IP for DHCP client"); }); }
-	catch (Out_of_ram)  { result = Packet_error("out of RAM while creating DHCP allocation"); }
-	catch (Out_of_caps) { result = Packet_error("out of CAPs while creating DHCP allocation"); }
+	try { dhcp_srv.alloc_ip().with_result(ok_fn, [&] (auto) { result = Packet_error::drop("failed to allocate IP for DHCP client"); }); }
+	catch (Out_of_ram)  { result = Packet_error::drop("out of RAM while creating DHCP allocation"); }
+	catch (Out_of_caps) { result = Packet_error::drop("out of CAPs while creating DHCP allocation"); }
 	return result;
 }
 
@@ -876,10 +876,10 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 				_destroy_dhcp_allocation(allocation, local_domain);
 				return Packet_ok();
 
-			case Dhcp_packet::Message_type::NAK:   return Packet_error("DHCP NAK from client");
-			case Dhcp_packet::Message_type::OFFER: return Packet_error("DHCP OFFER from client");
-			case Dhcp_packet::Message_type::ACK:   return Packet_error("DHCP ACK from client");
-			default:                               return Packet_error("DHCP request with broken message type");
+			case Dhcp_packet::Message_type::NAK:   return Packet_error::drop("DHCP NAK from client");
+			case Dhcp_packet::Message_type::OFFER: return Packet_error::drop("DHCP OFFER from client");
+			case Dhcp_packet::Message_type::ACK:   return Packet_error::drop("DHCP ACK from client");
+			default:                               return Packet_error::drop("DHCP request with broken message type");
 			}
 		}
 		catch (Dhcp_allocation_tree::No_match) {
@@ -897,17 +897,17 @@ Packet_state Interface::_handle_dhcp_request(Ethernet_frame            &eth,
 				                 dhcp.xid(), local_intf);
 				return Packet_ok();
 
-			case Dhcp_packet::Message_type::DECLINE: return Packet_error("DHCP DECLINE from client without offered/acked IP");
-			case Dhcp_packet::Message_type::RELEASE: return Packet_error("DHCP RELEASE from client without offered/acked IP");
-			case Dhcp_packet::Message_type::NAK:     return Packet_error("DHCP NAK from client");
-			case Dhcp_packet::Message_type::OFFER:   return Packet_error("DHCP OFFER from client");
-			case Dhcp_packet::Message_type::ACK:     return Packet_error("DHCP ACK from client");
-			default:                                 return Packet_error("DHCP request with broken message type");
+			case Dhcp_packet::Message_type::DECLINE: return Packet_error::drop("DHCP DECLINE from client without offered/acked IP");
+			case Dhcp_packet::Message_type::RELEASE: return Packet_error::drop("DHCP RELEASE from client without offered/acked IP");
+			case Dhcp_packet::Message_type::NAK:     return Packet_error::drop("DHCP NAK from client");
+			case Dhcp_packet::Message_type::OFFER:   return Packet_error::drop("DHCP OFFER from client");
+			case Dhcp_packet::Message_type::ACK:     return Packet_error::drop("DHCP ACK from client");
+			default:                                 return Packet_error::drop("DHCP request with broken message type");
 			}
 		}
 	}
 	catch (Dhcp_packet::Option_not_found exception) {
-		return Packet_error("DHCP request misses required option"); }
+		return Packet_error::drop("DHCP request misses required option"); }
 
 	return Packet_ok();
 }
@@ -1125,7 +1125,7 @@ Packet_state Interface::_handle_icmp_error(Ethernet_frame          &eth,
 
 	/* drop packet if embedded IP checksum invalid */
 	if (embed_ip.checksum_error()) {
-		return Packet_error("bad checksum in IP packet embedded in ICMP error");
+		return Packet_error::drop("bad checksum in IP packet embedded in ICMP error");
 	}
 	/* get link identity of the embeddeded transport packet */
 	L3_protocol  const embed_prot      = embed_ip.protocol();
@@ -1178,7 +1178,7 @@ Packet_state Interface::_handle_icmp_error(Ethernet_frame          &eth,
 		},
 		[&] /* handle_no_match */ ()
 		{
-			result = Packet_error("no link that matches packet embedded in ICMP error");
+			result = Packet_error::drop("no link that matches packet embedded in ICMP error");
 		}
 	);
 	return result;
@@ -1200,7 +1200,7 @@ Packet_state Interface::_handle_icmp(Ethernet_frame            &eth,
 	Packet_state result = Packet_ok();
 	Icmp_packet &icmp = *reinterpret_cast<Icmp_packet *>(prot_base);
 	if (icmp.checksum_error(size_guard.unconsumed())) {
-		return Packet_error("bad ICMP checksum"); }
+		return Packet_error::drop("bad ICMP checksum"); }
 
 	/* try to act as ICMP Echo server */
 	if (icmp.type() == Icmp_packet::Type::ECHO_REQUEST &&
@@ -1218,7 +1218,7 @@ Packet_state Interface::_handle_icmp(Ethernet_frame            &eth,
 	case Icmp_packet::Type::ECHO_REPLY:
 	case Icmp_packet::Type::ECHO_REQUEST: result = _handle_icmp_query(eth, size_guard, ip, ip_icd, pkt, prot, prot_base, prot_size, local_domain); break;
 	case Icmp_packet::Type::DST_UNREACHABLE: result = _handle_icmp_error(eth, size_guard, ip, ip_icd, pkt, local_domain, icmp, prot_size); break;
-	default: result = Packet_error("unhandled type in ICMP"); }
+	default: result = Packet_error::drop("unhandled type in ICMP"); }
 	return result;
 }
 
@@ -1242,7 +1242,7 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 			_send_icmp_dst_unreachable(
 				local_intf, eth, ip, _config().icmp_type_3_code_on_fragm_ipv4());
 		}
-		return Packet_error("fragmented IPv4 not supported");
+		return Packet_error::drop("fragmented IPv4 not supported");
 	}
 	/* try handling subnet-local IP packets */
 	if (local_intf.prefix_matches(ip.dst()) &&
@@ -1276,24 +1276,24 @@ Packet_state Interface::_handle_ip(Ethernet_frame          &eth,
 
 					try { return _handle_dhcp_request(eth, dhcp, local_domain, local_intf); }
 					catch (Pointer<Dhcp_server>::Invalid) {
-						return Packet_error("DHCP request while DHCP server inactive"); }
+						return Packet_error::drop("DHCP request while DHCP server inactive"); }
 
 				case Dhcp_packet::REPLY:
 
 					if (eth.dst() != router_mac() &&
 					    eth.dst() != Mac_address(0xff))
 					{
-						return Packet_error("Ethernet of DHCP reply doesn't target router"); }
+						return Packet_error::drop("Ethernet of DHCP reply doesn't target router"); }
 
 					if (dhcp.client_mac() != router_mac()) {
-						return Packet_error("DHCP reply doesn't target router"); }
+						return Packet_error::drop("DHCP reply doesn't target router"); }
 
 					if (!_dhcp_client.constructed()) {
-						return Packet_error("DHCP reply while DHCP client inactive"); }
+						return Packet_error::drop("DHCP reply while DHCP client inactive"); }
 
 					return _dhcp_client->handle_dhcp_reply(dhcp);
 
-				default: return Packet_error("Bad DHCP opcode");
+				default: return Packet_error::drop("Bad DHCP opcode");
 				}
 			}
 		}
@@ -1496,7 +1496,7 @@ void Interface::_handle_arp_reply(Ethernet_frame &eth,
 				Arp_waiter &waiter = *waiter_le->object();
 				waiter_le = waiter_le->next();
 				if (ip != waiter.ip()) { continue; }
-				waiter.src()._continue_handle_eth(local_domain, waiter.packet());
+				waiter.src()._continue_handle_eth(waiter.packet());
 				destroy(waiter.src()._alloc, &waiter);
 			}
 		}
@@ -1558,7 +1558,7 @@ Packet_state Interface::_handle_arp_request(Ethernet_frame &eth,
 		if (arp.src_ip() == arp.dst_ip()) {
 
 			/* gratuitous ARP requests are not really necessary */
-			return Packet_error("gratuitous ARP request");
+			return Packet_error::drop("gratuitous ARP request");
 
 		} else if (arp.dst_ip() == local_intf.address) {
 
@@ -1583,7 +1583,7 @@ Packet_state Interface::_handle_arp_request(Ethernet_frame &eth,
 		if (local_ip_cfg.gateway_valid()) {
 
 			/* leave request up to the gateway of the domain */
-			return Packet_error("leave ARP request up to gateway");
+			return Packet_error::drop("leave ARP request up to gateway");
 
 		} else {
 
@@ -1605,26 +1605,42 @@ Packet_state Interface::_handle_arp(Ethernet_frame &eth,
 	/* ignore ARP regarding protocols other than IPv4 via ethernet */
 	Arp_packet &arp = eth.data<Arp_packet>(size_guard);
 	if (!arp.ethernet_ipv4()) {
-		return Packet_error("ARP for unknown protocol"); }
+		return Packet_error::drop("ARP for unknown protocol"); }
 
 	switch (arp.opcode()) {
 	case Arp_packet::REPLY: _handle_arp_reply(eth, size_guard, arp, local_domain); break;
 	case Arp_packet::REQUEST: return _handle_arp_request(eth, size_guard, arp, local_domain);
-	default: return Packet_error("unknown ARP operation"); }
+	default: return Packet_error::drop("unknown ARP operation"); }
 	return Packet_ok();
+}
+
+
+void Interface::_drop_packet(Packet_descriptor const &pkt, char const *reason)
+{
+	if (_domain.valid() && _domain().verbose_packet_drop())
+		log("[", _domain(), "] drop packet (", reason, ")");
+	else if (_config().verbose())
+		log("[?] drop packet (", reason, ")");
+
+	_ack_packet(pkt);
 }
 
 
 void Interface::_handle_pkt()
 {
 	Packet_descriptor const pkt = _sink.get_packet();
-	Size_guard size_guard(pkt.size());
-	try {
-		_handle_eth(_sink.packet_content(pkt), size_guard, pkt);
-		_ack_packet(pkt);
+	if (!_sink.packet_valid(pkt) || pkt.size() < sizeof(Packet_stream_sink::Content_type)) {
+		_drop_packet(pkt, "invalid Nic packet");
+		return;
 	}
-	catch (Packet_postponed) { }
-	catch (Genode::Packet_descriptor::Invalid_packet) { }
+	Size_guard size_guard(pkt.size());
+	_handle_eth(_sink.packet_content(pkt), size_guard, pkt).with_result(
+		[&] (Packet_ok) { _ack_packet(pkt); },
+		[&] (Packet_error error) {
+			switch (error.type) {
+			case Packet_error::DROP: _drop_packet(pkt, error.drop_reason); break;
+			case Packet_error::POSTPONE: break; }
+		});
 }
 
 
@@ -1687,21 +1703,21 @@ void Interface::_handle_pkt_stream_signal()
 }
 
 
-void Interface::_continue_handle_eth(Domain            const &domain,
-                                     Packet_descriptor const &pkt)
+void Interface::_continue_handle_eth(Packet_descriptor const &pkt)
 {
+	if (!_sink.packet_valid(pkt) || pkt.size() < sizeof(Packet_stream_sink::Content_type)) {
+		_drop_packet(pkt, "invalid Nic packet");
+		return;
+	}
 	Size_guard size_guard(pkt.size());
-	try { _handle_eth(_sink.packet_content(pkt), size_guard, pkt); }
-	catch (Packet_postponed) {
-		if (domain.verbose_packet_drop()) {
-			log("[", domain, "] drop packet (handling postponed twice)"); }
-	}
-	catch (Genode::Packet_descriptor::Invalid_packet) {
-		if (domain.verbose_packet_drop()) {
-			log("[", domain, "] invalid Nic packet received");
-		}
-	}
-	_ack_packet(pkt);
+	_handle_eth(_sink.packet_content(pkt), size_guard, pkt).with_result(
+		[&] (Packet_ok) { _ack_packet(pkt); },
+		[&] (Packet_error const &error) {
+			switch (error.type) {
+			case Packet_error::DROP: _drop_packet(pkt, error.drop_reason); break;
+			case Packet_error::POSTPONE: _drop_packet(pkt, "postponed twice"); break;
+			}
+		});
 }
 
 
@@ -1733,7 +1749,7 @@ Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
 		switch (eth.type()) {
 		case Ethernet_frame::Type::ARP: return _handle_arp(eth, size_guard, local_domain);
 		case Ethernet_frame::Type::IPV4: return _handle_ip(eth, size_guard, pkt, local_domain);
-		default: return Packet_error("unknown network layer protocol"); }
+		default: return Packet_error::drop("unknown network layer protocol"); }
 
 	} else {
 
@@ -1743,96 +1759,76 @@ Packet_state Interface::_handle_eth(Ethernet_frame           &eth,
 			if (eth.dst() != router_mac() &&
 			    eth.dst() != Mac_address(0xff))
 			{
-				return Packet_error("Expecting Ethernet targeting the router"); }
+				return Packet_error::drop("Expecting Ethernet targeting the router"); }
 
 			Ipv4_packet &ip = eth.data<Ipv4_packet>(size_guard);
 			if (ip.protocol() != Ipv4_packet::Protocol::UDP) {
-				return Packet_error("Expecting UDP packet"); }
+				return Packet_error::drop("Expecting UDP packet"); }
 
 			Udp_packet &udp = ip.data<Udp_packet>(size_guard);
 			if (!Dhcp_packet::is_dhcp(&udp)) {
-				return Packet_error("Expecting DHCP packet"); }
+				return Packet_error::drop("Expecting DHCP packet"); }
 
 			Dhcp_packet &dhcp = udp.data<Dhcp_packet>(size_guard);
 			switch (dhcp.op()) {
 			case Dhcp_packet::REPLY:
 
 				if (dhcp.client_mac() != router_mac()) {
-					return Packet_error("Expecting DHCP targeting the router"); }
+					return Packet_error::drop("Expecting DHCP targeting the router"); }
 
 				if (!_dhcp_client.constructed()) {
-					return Packet_error("Expecting DHCP client to be active"); }
+					return Packet_error::drop("Expecting DHCP client to be active"); }
 
 				return _dhcp_client->handle_dhcp_reply(dhcp);
 
 			default:
 
-				return Packet_error("Expecting DHCP reply");
+				return Packet_error::drop("Expecting DHCP reply");
 			}
 			break;
 		}
 		case Ethernet_frame::Type::ARP: {
-				return Packet_error("Ignore ARP request on unconfigured interface");
+				return Packet_error::drop("Ignore ARP request on unconfigured interface");
 		}
-		default: return Packet_error("unknown network layer protocol");
+		default: return Packet_error::drop("unknown network layer protocol");
 		}
 	}
 	return Packet_ok();
 }
 
 
-void Interface::_handle_eth(void              *const  eth_base,
-                            Size_guard               &size_guard,
-                            Packet_descriptor  const &pkt)
+Packet_state Interface::_handle_eth(void              *const  eth_base,
+                                    Size_guard               &size_guard,
+                                    Packet_descriptor  const &pkt)
 {
 	try {
+		Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
+		if (!_domain.valid()) {
+			if (_config().verbose_packets())
+				log("[?] rcv ", eth);
+			return Packet_error::drop("no domain");
+		}
 		Domain &local_domain = _domain();
 		local_domain.raise_rx_bytes(size_guard.total_size());
-		Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
-		try {
-			/* do garbage collection over transport-layer links and DHCP allocations */
-			_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
-			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links,   _alloc);
-			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links,   _alloc);
-			_destroy_released_dhcp_allocations(local_domain);
 
-			/* log received packet if desired */
-			if (local_domain.verbose_packets()) {
-				log("[", local_domain, "] rcv ", eth); }
+		/* do garbage collection over transport-layer links and DHCP allocations */
+		_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+		_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
+		_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
+		_destroy_released_dhcp_allocations(local_domain);
 
-			if (local_domain.trace_packets())
-				Genode::Trace::Ethernet_packet(local_domain.name().string(),
-				                               Genode::Trace::Ethernet_packet::Direction::RECV,
-				                               eth_base,
-				                               size_guard.total_size());
+		/* log received packet if desired */
+		if (local_domain.verbose_packets()) {
+			log("[", local_domain, "] rcv ", eth); }
 
-			/* try to handle ethernet frame */
-			_handle_eth(eth, size_guard, pkt, local_domain).with_result(
-				[&] (Packet_ok) { },
-				[&] (Packet_error error) {
-					if (local_domain.verbose_packet_drop())
-						log("[", local_domain, "] drop packet (", error.string, ")"); });
-		}
-		catch (Size_guard::Exceeded) {
-			if (_config().verbose()) {
-				log("[", local_domain, "] drop packet: packet size-guard "
-				    "exceeded");
-			}
-		}
+		if (local_domain.trace_packets())
+			Genode::Trace::Ethernet_packet(
+				local_domain.name().string(), Genode::Trace::Ethernet_packet::Direction::RECV,
+			        eth_base, size_guard.total_size());
+
+		return _handle_eth(eth, size_guard, pkt, local_domain);
 	}
-	catch (Pointer<Domain>::Invalid) {
-		try {
-			Ethernet_frame &eth = Ethernet_frame::cast_from(eth_base, size_guard);
-			if (_config().verbose_packets()) {
-				log("[?] rcv ", eth); }
-		}
-		catch (Size_guard::Exceeded) {
-			if (_config().verbose_packets()) {
-				log("[?] rcv ?"); }
-		}
-		if (_config().verbose()) {
-			log("[?] drop packet: no domain"); }
-	}
+	catch (Size_guard::Exceeded) { return Packet_error::drop("packet size-guard exceeded"); }
 }
 
 
