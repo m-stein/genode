@@ -1,0 +1,1851 @@
+
+
+              ===============================================
+              Release notes for the Genode OS Framework 24.05
+              ===============================================
+
+                               Genode Labs
+
+
+
+; intro
+; @nfeske
+
+
+First version of Sculpt OS based on Genode's custom kernel
+##########################################################
+
+; present long-time vision that reaches years back -> @nfeske
+; - motivation behind the kernel
+; - initial focus on ARM
+; long-time showstoppers -> @atopia @jschlatow
+; - IOMMU
+; - Virtualization
+; kernel scheduling
+; steps for trying it out -> @jschlatow
+; planned areas of improvement -> @jschlatow
+
+As envisioned in our road map, the current release offers a first PC variant
+of Sculpt OS based on our custom microkernel, which we specifically designed
+for Genode. In contrast to 3rd-party kernels like NOVA or seL4, which are
+self-sufficient programs, our custom kernel is melted with Genode's core
+component. This alleviates redundant data structures between kernel and user
+space and makes Genode's resource management directly applicable to kernel
+objects. The outcome is a much simpler trusted computing base of Sculpt OS.
+
+Virtualization of commodity operating systems is a common use case for Sculpt
+installations, ours at Genode Labs included. Therefore, adding support for
+Intel's Virtual Machine Extensions (VMX) was an important missing piece of the
+puzzle. Under the hood, we refactored and generalized the kernel's x86
+hypervisor support to allow for runtime selection of the available
+virtualization technology and consolidated code for page-table handling.
+Even though we still have some way to go before the kernel is ready to replace
+the time-tested NOVA hypervisor as the default kernel for Sculpt OS, this
+release is a milestone in that direction.
+
+The Sculpt OS variant using our custom kernel is now available as a
+ready-to-use system image and includes a demo launcher that will download and
+start a Linux VM with a Firefox browser in a VirtualBox window.
+
+
+commit 75c12b48c33a14c3aa0fa8878e8593fbd8d7c5e3
+Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
+Date:   Wed Feb 7 11:26:14 2024 +0100
+
+    hw: prepare SVM implementation for generic virtualization support
+    
+    The SVM implementation did not lend itself to a runtime selection of the
+    x86 virtualization technology.
+    
+    Encapsulate functionality in the VMCB class to facilitate adding support
+    for Intel's VMX.
+    
+    Issue #5113
+
+commit 28a7a96bdc3e823f6357437a63ced6b4f3c1eabc
+Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
+Date:   Thu Feb 15 13:27:48 2024 +0100
+
+    hw: generic interface for x86 virtualization
+    
+    Create a generic interface for x86 virtualization.
+    Split the VMCB data structure in `Vmcb_buf` to represent the physical
+    VMCB page and `VMCB` as a control interface.
+    
+    Issue #5113
+
+commit 915cef2fa9cef5a7a9eb6a5c56ae31de2a4c0165
+Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
+Date:   Wed May 8 10:29:55 2024 +0200
+
+    hw: add support for VMX
+    
+    Add support for Intel's Virtual Machine Extensions with nested paging.
+    
+    Fixes #5128
+
+commit 28f9eb14392f7c823d9d3e7087c80211b7fe45e5
+Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
+Date:   Thu May 16 17:50:47 2024 +0200
+
+    hw: abstract nested paging on x86
+    
+    The initial SVM implementation (correctly) just used another standard
+    x86_64 page table for nested paging. The EPT implementation is for Intel
+    VMX only. Since we don't know the underlying virtualization technology
+    at compile time, we need to pick the correct page table implementation
+    at runtime.
+    
+    Add add a AMD-compatible HPT page table implementation using the same
+    base implementation and (more importantly) allocator as the EPT
+    implementation. Add a Vm_page_table implementation that determines the
+    used virtualization technology at runtime and internally defers insert
+    and remove operations to the correct page table implementation.
+    
+    Issue #5218
+
+
+Fine-grained and dynamic assignment of USB devices/interfaces
+#############################################################
+
+; @skalk @chelmuth
+
+commit 7ec08af6d912759548d6285ab5254eeb0cddf87f
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Thu Sep 14 10:55:11 2023 +0200
+
+    usb: session renewal & new client API
+    
+    Replace the USB session API by one that provides a devices ROM only,
+    which contains information about all USB devices available for this client,
+    as well as methods to acquire and release a single device.
+    
+    The acquisition of an USB device returns the capability to a device session
+    that includes a packet stream buffer to communicate control transfers
+    in between the client and the USB host controller driver. Moreover,
+    additional methods to acquire and release an USB interface can be used.
+    
+    The acquisition of an USB interface returns the capability to an interface
+    session that includes a packet stream buffer to communicate either
+    bulk, interrupt, or isochronous transfers in between the client and the
+    USB host controller driver.
+    
+    This commit implements the API changes in behalf of the Genode C API's
+    USB server and client side. Addtionally, it provides Usb::Device,
+    Usb::Interface, and Usb::Endpoint utilities that can be used by native
+    C++ clients to use the new API and hide the sophisticated packet stream API.
+    
+    The adaptations necessary target the following areas:
+    
+    * lx_emul layer for USB host and client side
+    * Linux USB host controller driver port for PC
+    * Linux USB client ports: usb_hid_drv and usb_net_drv, additionally
+      reduce the Linux tasks used inside these drivers
+    * Native usb_block_drv
+    * black_hole component
+    * Port of libusb, including smartcard and usb_webcam driver depending on it
+    * Port of Qemu XHCI model library, including vbox5 & vbox6 depending on it
+    * Adapt all run-scripts and drivers_interactive recipes to work
+      with the new policy rules of the USB host controller driver
+    
+    Fix genodelabs/genode#5021
+
+commit 0a5e174d7816adf56dad33ec5ce996475a5627a7
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Apr 18 10:33:05 2024 +0200
+
+    sculpt/usb/default: add device-assignment example
+    
+    Issue #5174
+
+
+On-target debugging using the GNU debugger (GDB)
+################################################
+
+; @cproc @chelmuth
+
+commit 90239c0787956739f7f3ea55c750ae35ee197fb7
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 09:50:11 2024 +0100
+
+    ports: add 'gdb_support'
+    
+    Fixes #5163
+
+commit 7248c5cc23064645c41d73c15fdcd036da8fd226
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 08:33:08 2024 +0100
+
+    sculpt: add terminal to index
+    
+    Issue #5076
+
+commit a187f15d8c347964fb0e62defeba6f6a5515d424
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 08:33:12 2024 +0100
+
+    sculpt: add gdb_x86 to distribution and index
+    
+    Issue #5076
+commit 90239c0787956739f7f3ea55c750ae35ee197fb7
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 09:50:11 2024 +0100
+
+    ports: add 'gdb_support'
+    
+    Fixes #5163
+
+commit 7248c5cc23064645c41d73c15fdcd036da8fd226
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 08:33:08 2024 +0100
+
+    sculpt: add terminal to index
+    
+    Issue #5076
+
+commit a187f15d8c347964fb0e62defeba6f6a5515d424
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 08:33:12 2024 +0100
+
+    sculpt: add gdb_x86 to distribution and index
+    
+    Issue #5076
+
+commit c551b4dfb3cd9142c09330297df350b7d28637a9
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Thu Feb 15 05:44:15 2024 +0100
+
+    qt5: build qmake projects with debug infos
+    
+    Fixes #5181
+
+
+Base framework and OS-level infrastructure
+##########################################
+
+Updated "Genode Foundations" book
+=================================
+
+: <div class="visualClear"><!-- --></div>
+: <p>
+:  <div style="clear: both; float: left; margin-right:20px;">
+:   <a class="internal-link" href="https://genode.org/documentation/genode-foundations-24-05.pdf">
+:    <img class="image-inline" src="https://genode.org/documentation/genode-foundations-title.png">
+:   </a>
+:  </div>
+: </p>
+
+The "Genode Foundations" book covers Genode's architecture, developer work
+flows, and reference material. In tandem with the current release, the
+document received its annual update.
+
+; @nfeske  noteworthy changes
+
+: <div class="visualClear"><!-- --></div>
+
+
+Transition to the new audio interfaces introduced in 24.02
+==========================================================
+
+; @cnuke
+
+commit c9d70552a422db3fdd1d2e36139501a050411d03
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Mar 28 11:51:18 2024 +0100
+
+    Rename vfs_oss to vfs_legacy_oss
+    
+    Rename the old VFS OSS plugin using Audio_out and Audio_in sessions
+    and adapt users accordingly.
+    
+    Issue genodelabs/genode#5167.
+
+commit e61b804252f2469c1bede776139e5808ed258446
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Mar 11 17:42:16 2024 +0100
+
+    libports: add test/oss recipes
+    
+    Add recipes that allow for using the OSS-based test component
+    on Sculpt.
+    
+    Issue genodelabs/genode#5167.
+
+commit 5f8856226313ed3fc369cb017418fe83fea6a359
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Feb 27 08:49:35 2024 +0100
+
+    gems: VFS OSS plugin for Record/Play session
+    
+    The new VFS OSS plugin utilizes the Record and Play session. For the
+    time being it is a drop-in replacement for the old plugin and shares
+    its limitations.
+    
+    In contrast to the old plugin it is possible to force a client to
+    use a configured fragment size. Some clients work best with larger
+    fragments, e.g. VBox, where raising the minimal fragment size is
+    beneficial.
+    
+    Please look at the README file for more information.
+    
+    Issue genodelabs/genode#5167.
+
+commit bda86b8f15d7e29a615b84730abd90114e84571f
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Mar 28 13:55:10 2024 +0100
+
+    vbox6: switch pkgs to new VFS OSS plugin
+    
+    Issue genodelabs/genode#5167.
+
+commit b2a68211a458eb7c2fc33af57bcb46a2910dbe47
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Apr 2 14:28:28 2024 +0200
+
+    black_hole: add Play and Record session
+    
+    This commit introduces support for the Play and Record session to
+    the black hole component in the most minimal way possible.
+    
+    Fixes #5157.
+
+commit e27fad7c9a41956e2c6264f28f99a665b94fd734
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Apr 11 15:39:10 2024 +0200
+
+    sculpt_distribution: replace mixer pkg
+    
+    The pkg is superseded by the 'record_play_mixer'.
+    
+    Issue #5167.
+
+commit 798087c5ad45728f63697369833e4ec7e729e881
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Apr 11 13:58:18 2024 +0200
+
+    dde_bsd: use 'mic_' prefix for Play sessions
+    
+    This commit prefixes the Play sessions of the audio driver so that
+    these can be matched differently in the 'record_play_mixer' config.
+    
+    The same could be archived with re-labling but naming the sessions
+    differently at the source prevents accidental mis-configuration.
+    
+    Issue #5167.
+
+commit 4a9e6a001fe0205e5cf0f3d953e12aacf83accc7
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Apr 10 15:02:47 2024 +0200
+
+    sculpt: add audio and mixer launcher
+    
+    The audio launcher configures the 'bsd_audio_drv' component for normal
+    use where the micrphone selection should work on most Thinkpads.
+    
+    The mixer launcher configures the 'record_play_mixer' component for
+    use with the 'audio' launcher and provides also examplary rules for
+    vbox6 launchers.
+
+commit 33735d0af830afa37a2e01c81c87972fcc0d42a0
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Apr 4 13:32:26 2024 +0200
+
+    Add plugin version to VFS OSS plugins
+    
+    To differentiate between the legacy and the current VFS OSS plugin both
+    plugins will feature a 'plugin_version' field in its info file. This
+    is used for enabling features provide by the current version that are
+    not supported in the legacy one.
+    
+    Issue #5167.
+
+commit d0aa8362dbb57c707d584338a030565e53d5823c
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Apr 4 13:21:14 2024 +0200
+
+    vfs/oss: support different sample rates
+    
+    This commit introduces support for different samples rates. For now
+    the range is capped to 8kHz up to 48kHz.
+    
+    Issue #5167.
+
+commit 49548fea0714241f9ffeab8fb66316e1c14cad81
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Apr 4 13:25:07 2024 +0200
+
+    libc: allow sample rate change via SNDCTL
+    
+    Allow the current VFS OSS plugin to requested different sample rates.
+    
+    Issue #5167.
+
+commit e341ddb3e15fd395438c132754d46c22ef5f33b2
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Mar 28 12:58:57 2024 +0100
+
+    Adapt to 'Rename vfs_oss to vfs_legacy_oss'
+    
+    Issue genodelabs/genode#5167.
+
+commit 15cb01fdee77f8f5bd9ae4b8584efd26abeb81d0
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Mar 4 15:10:56 2024 +0100
+
+    cmus: switch to new VFS OSS plugin
+    
+    Since support for different formats and samples rates is
+    on the horizon, bring in more input plugins.
+    
+    As the plugins in need (flac, vorbis, …) do not have
+    HAVE_CONFIG set for now let's export xstrndup from the
+    binary.
+
+commit 33f168a9d5ad5f5d10b7f860df823d1c2dae30f6
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Mar 12 09:14:10 2024 +0100
+
+    sdl2_playmus: add recipes
+
+commit e13b87649a510cc45b6bb20a0bc65e2e8c5f00e6
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Thu Mar 28 13:16:54 2024 +0100
+
+    falkon: use new VFS OSS plugin
+
+commit ca099a15f1cd38ce7e1c8504f8219f1d845f2ab0
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Apr 10 13:34:25 2024 +0200
+
+    morph_browser: use new VFS OSS plugin
+    
+    Issue #362.
+
+commit a6caa4c430016782c48a0670f00952aaf0a9d40f
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Wed Apr 10 13:26:18 2024 +0200
+
+    SDL: use OSS audio backend
+    
+    Instead of using Genode's Audio_out specific backend follow our SDL2
+    port in using an already existing backend, e.g., OSS.
+    
+    So far only the chocolate-doom SDL1 port was tested but the other
+    pkg were adapted as well.
+    
+    Issue #362.
+
+
+Improved timing stability
+=========================
+
+; @nfeske
+
+commit bc0b6be6a95546321953f83f0e22f3cc7e78e74e
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Thu Mar 7 18:50:35 2024 +0100
+
+    nova: new timer implementation
+    
+    Issue #5138
+
+commit a0290f8c5164b0a46e82433fced5ffd3c7cf205a
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Mar 12 13:44:54 2024 +0100
+
+    base-hw: preserve usec accuracy in us_to_ticks
+    
+    The kernel timer used to truncated timeouts to the next lower
+    millisecond, which not only limits the wakeup accuracy but also results
+    in situations where a user-level timeout is triggered earlier than
+    expected. The latter effect results in the observation of a spurious
+    timeouts and the subsequent programming of another timeout.
+    
+    The patch solves the problem by preserving the sub-milliseconds bits
+    in the 'us_to_ticks' implementation(s).
+    
+    Issue #5142
+
+commit f3313b6603831417d46c5c5510d6195aac743500
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Mon Mar 11 17:00:02 2024 +0100
+
+    base-hw: new timer implementation
+    
+    Issue #5138
+
+commit c8e9a4c6350918a77d03c69a7516f1805e6ea12b
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed May 15 12:00:44 2024 +0200
+
+    pit: new timer implementation
+    
+    Issue #5138
+
+
+VFS API enhancements
+====================
+
+commit 2eae70d3cd9a37f0b4949b2b891d53f3f4dc85f4
+Author: Christian Prochaska <christian.prochaska@genode-labs.com>
+Date:   Fri Mar 22 08:32:34 2024 +0100
+
+    os/vfs.h: add support for symlink creation
+    
+    Fixes #5162
+
+
+Device drivers
+##############
+
+Linux-device-driver environment (DDE)
+=====================================
+
+; @chelmuth
+
+commit 68925a6d337fec63e34e5b8ea7b6953f3857a501
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Mar 25 09:41:09 2024 +0100
+
+    pc/lx_emul: enable HIGH_RES_TIMERS
+    
+    Only with high-resolution timers enabled timouts can fire between two
+    jiffies. The option is enabled on all relevant platforms but
+    unfortunately disabled by tinyconfig.
+    
+    This option also permits the use of CONFIG_SND_HRTIMER.
+
+commit 5ff1ef82d1b7928fd011922e6d1add2a8b92122c
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Mar 25 11:58:20 2024 +0100
+
+    lx_kit: preserve priority order in scheduler
+
+commit 66286d6f1782cf0bcdbbd57d694b9f32d8a2642d
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Mar 25 14:11:35 2024 +0100
+
+    dde_linux: remove custom *printf implementation
+    
+    The DDE uses Linux-internal formatted printk for a while now, thus
+    remove the unused code.
+
+commit 38d2b8d46aeca73d5232488539b8aee4d04528ee
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Mon Mar 25 09:50:59 2024 +0100
+
+    lx_emul: function to generate trace messages
+    
+    lx_emul_trace_msg() uses Genode::trace() as message function for
+    lightweight trace points, but also supports Linux format-string
+    attributes by using vsnprintf().
+
+commit e691af4e9774d5422338b14424c083df1dc58369
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Tue Mar 26 16:17:11 2024 +0100
+
+    pc_nic_drv: basic rtnetlink for lock/unlock and netdev_run_todo()
+
+commit c54e8ec3e2ba19cb3d3e694064839a4c22a26b65
+Author: Christian Helmuth <christian.helmuth@genode-labs.com>
+Date:   Tue Mar 26 16:18:55 2024 +0100
+
+    lx_emul: init pci_dev::error_state
+    
+    pci_channel_offline() checks if this member is set to
+    pci_channel_io_normal (which is 1). The former value of 0 is invalid.
+    
+    This change fixes pc_nic_drv link down-up in cases that require an e1000
+    reset.
+
+commit 60807fa67a417e68ba5c81bf8938cac1f8fcd166
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Mon May 13 15:53:29 2024 +0200
+
+    dde_linux: add busybox port
+    
+    Fix genodelabs/genode#5214
+
+commit daeef233636fae99cbefc47b4183c69bbfb73c9b (genodelabs/staging)
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed May 15 16:31:54 2024 +0200
+
+    Add memtool target, integrate into imx_linux.run
+    
+    - Add memtool port from Pengutronix to inspect all kind of memory
+      under Linux (via /dev/mem)
+    - Integrate the memtool under /bin of the initramfs in the
+      imx_linux run-script
+
+commit b761f2d48dd3b791d6f592ff0da16b67a77eae9c
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed May 15 15:16:22 2024 +0200
+
+    fixup "Add imx8mp_iot_gate as imx_linux.run target" (enable second nic)
+
+commit 6cb6490766662bac2ebfe22db68098e22b7df39d
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed May 15 11:20:47 2024 +0200
+
+    Add imx8mp_iot_gate as imx_linux.run target
+    
+    Add Compulab IOTG-IMX8PLUS board support to the Linux kernel
+    build target and run infrastructure.
+
+commit 6e16351ace49a975f0eea676a18e74ffd8b8d37e
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Mon May 13 16:19:30 2024 +0200
+
+    Extend imx_linux.run script to include busybox
+    
+    - Rename linux-imx.run to imx_linux.run to stay consistently
+    - Remove Linux-specifics from the board subdirectory,
+      and move that informations to the run-script itself
+    - Add all relevant information including the kernel commandline
+      into this run-script
+
+commit 2e5a5e5cb767cca1434523ed8f5d425f0218bcc2
+Author: Alice Domage <alice.domage@gapfruit.com>
+Date:   Thu Apr 11 15:56:13 2024 +0200
+
+    add linux-imx.run
+    
+    This runscript introduces the possibility to run the minimal Linux
+    directly from Genode. The integration with the run tool allow rapid
+    experimentation with Linux in the context of porting drivers.
+    
+    At the moment only FIT images are supported.
+
+
+IOMMU interrupt remapping in user space
+=======================================
+
+; @jschlatow
+
+commit 9971f41f8c4c05e3ba2dec08d9f3b171b5ef6e8d
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Tue Mar 26 10:14:48 2024 +0100
+
+    platform/pc: fix IOMMU fault reporting
+    
+    When the kernel does interrupt remapping, we cannot get a non-remapped MSI
+    for fault event interrupts. We therefore let the kernel do the fault
+    reporting in this case.
+    
+    genodelabs/genode#5066
+
+
+Intel framebuffer driver
+========================
+
+; @jschlatow
+
+commit b67df08c9d0d28567f872219719b40c8ffc1ffbb
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Fri Mar 15 17:22:29 2024 +0100
+
+    intel_fb: add dummy for ZimaBlade support
+    
+    When booting Sculpt OS on the ZimaBlade, `i915_vm_free_pt_stash` is
+    called. Providing an empty dummy implementation fixes the issue.
+    
+    Fixes #5145
+
+commit 8b43554a27a4d8c0d770432af3d08cfa77446f19
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Thu Apr 11 13:01:52 2024 +0200
+
+    gpu/intel: do not clflush on MMIO but on ppgtt
+    
+    Executing a clflush operation on MMIO memory freezes embedded
+    platforms such as the Celeron N3450 used on the ZimaBlade. Looking into
+    the current linux code confirms that clflush is only used for ppgtt
+    entries and not on MMIO memory.
+    
+    Fixes #5176
+
+commit 76176a196d52676c120db6cfe2a2d62498889564
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Fri Mar 15 17:24:12 2024 +0100
+
+    Enable Intel HD Graphics 500 (found in ZimaBlade)
+    
+    The IHD500 is almost a gen9 (skylake) GPU with subtle differences. Linux
+    maintains a separate feature set `GEN9_LP_FEATURES` for this GPU.
+    However, foisting the GPU as skylake on the GPU drivers seems to work
+    quite fine.
+    
+    genodelabs/genode#5177
+
+commit 5dce61563eaeb26a28c478cf0eb49f724a0a7c07
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Apr 12 14:21:56 2024 +0200
+
+    pc_intel_fb: configure max framebuffer memory
+    
+    This commit introduces the means to configure the framebuffer memory
+    used by the driver for sizing its buffers.
+    
+    Originally the avail memory was derived from the avail ram in the PD
+    session, which roughly corresponds to configured RAM quota.
+    However, since it is only used in a virtual capacity, we can decouple
+    it from the actual memory and set to a value that accommodates larger
+    framebuffer resolutions like 3840x2160. If the configured RAM quota
+    is not enough to satisfy an allocation request the client will issue
+    a resource request.
+    
+    Issue #5174.
+
+commit d858a600f7fd8396dd0df41fc6b88857ad8e20ca
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Apr 12 14:33:48 2024 +0200
+
+    sculpt: raise max supported display resolution
+    
+    This commit raise various quota to accommodate using a display
+    resolution of up to '3840x2160' in the static parts, e.g. the
+    leitzentrale, of Sculpt.
+    
+    Issue #5174.
+
+commit 4bda9d9136d69fd24aca594ee6d579d093485ec5
+Author: Alice Domage <alice.domage@gapfruit.com>
+Date:   Sat May 4 23:27:29 2024 +0200
+
+    pc_intel_fb_drv: enforce operation on Intel's devices
+    
+    This commit enforces the driver to only wait for devices with Intel's
+    vendors ID to be ready.
+    
+    genodelabs/genode#5207
+
+
+Suspend/resume infrastructure
+=============================
+
+; @alex-ab
+
+commit 94b3e30f900ac05dd24fbbf18591205b2db5f76c
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Apr 12 15:52:16 2024 +0200
+
+    acpica: report last completed action
+    
+    triggered by the "system" ROM change. With this information the consumers
+    of the sleep_states report can determine, when the operation is finished.
+    
+    Issue #5180
+
+commit 4c79f948ab831d9d3db4b56732c1c0abb09274b5
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Apr 12 15:11:29 2024 +0200
+
+    platform/pc: support to suspend via system_control
+    
+    When the "system" ROM state turns to "suspend",
+    the S3 state information of the sleep_states ROM are determined and
+    are used to invoke the privileged Pd::system_control call.
+    
+    Issue #5180
+
+commit 7441aba6d5b2d375d5f4b9729852e90713f096c2
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Wed Apr 17 14:06:56 2024 +0200
+
+    platform: add suspend/resume interface to Io_mmu
+    
+    genodelabs/genode#5180
+
+commit 29e21bff7f056406f0c21507cb67fb55830e9353
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Wed Apr 17 14:19:24 2024 +0200
+
+    platform/pc: implement IOMMU suspend/resume
+    
+    genodelabs/genode#5180
+
+commit f34bf0d19e2116e592ebae86a25fe3395b43c467
+Author: Norman Feske <norman.feske@genode-labs.com>
+Date:   Tue Apr 16 17:25:01 2024 +0200
+
+    sculpt: power options (suspend, reset, power off)
+    
+    This patch enhances the sculpt manager to drive the system state
+    and manage the lifecycle of driver components during suspend-
+    resume cycles.
+    
+    The new Power options can be found in the System menu. The suspend
+    and power-off controls are presented only when the acpi-support
+    option is activated.
+    
+    Note that the USB controller is hard restarted when resuming from
+    suspend. Hence, all components that depend on USB are restarted
+    implicitely.
+    
+    Issue #5180
+    Issue #5174
+
+commit 2a4502b0deb055e69879f6d5d16d9d24f6a20d78
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Apr 19 15:30:43 2024 +0200
+
+    intel/display: support system state evaluation
+    
+    When the system state "blanking" is determined, all connectors are switched
+    off and a parent exit is invoked.
+    
+    Issue #5180
+
+commit 9337c178c13eee9865f9e954418f49a809b77183
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Apr 19 15:32:15 2024 +0200
+
+    intel/gpu: support blanking system ROM state
+    
+    Keep device resources alive, for "" and "blanking" state, so that
+    intel/display driver can try to switch off the connectors.
+    
+    Issue #5180
+
+commit 274a733e1a0395948ec73eb82e279add8b6637dc
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Mon Apr 22 16:39:01 2024 +0200
+
+    sculpt: support blanking system state
+    
+    The blanking state is evaluated by the intel_fb driver, which will switch
+    off all connectors. When done, the intel_fb driver will exit and the
+    sculpt_manager will continue with the next step, stopping all drivers.
+    
+    Issue #5180
+
+commit bfddf08f756ed1531162d1160f0e32038bc88268
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Apr 30 08:47:01 2024 +0200
+
+    ahci: make robuster during resume
+    
+    During resume the waiting for Cmd::St takes ~2s on a T460p with Intel
+    AHCI SSD attached. According to the Serial ATA AHCI Spec. wakeup can take
+    seconds, e.g. chapter 8.2 Power State Mappings of the Serial ATA AHCI spec
+    (1.3.1).
+    
+    Issue #5203
+
+
+Mesa updated to version 24.0.1
+==============================
+
+; @ssumpf
+
+commit 59ddb533291636888e36aa5d498a2912594e03e8
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Wed Feb 28 10:24:41 2024 +0100
+
+    mesa: update to version 24.0.1
+    
+    Supported Gallium drivers are iris (Intel), lima (PinePhone), etnaviv
+    (i.MX8).
+    
+    issue #5224
+
+commit 9fe2e8a9a748a58b1ec6be149951a93b27beb30f
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Sat Apr 13 21:10:14 2024 +0200
+
+    libdrm: update to version 2.4.120
+    
+    Prerequisites for Mesa 24.0.1
+    
+    * generic:
+      * add patch to retrieve PCI/Platform information from Genode side of the DRM
+        interface (in drmGetDevice2)
+      * add generated 'fourcc' file
+    
+    * iris:
+      * report back-end (currently 'i915', 'xe' is unsupported)
+      * add various I915_CONTEXT_PARAM* and I915_PARAM*
+      * allocate 'Buffer's starting with ID 1 (0 is invalid)
+      * enforce 48-bit-address limit on unmap also
+      * disable I915_EXEC_FENCE_ARRAY array check, because we do not support
+        sync objects right now and rendering in synchronous
+    
+    * etnaviv:
+      * create 'Fenceobj' only *once* for each GPU context
+    
+    issue #5224
+
+
+Libraries and applications
+##########################
+
+Consolidation of the Tresor block encryptor and file vault
+==========================================================
+
+; @m-stein
+
+commit b49f0520516adbcd6c643f13a37c632aeeb7b3d5
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Jul 27 14:43:47 2023 +0200
+
+    tresor: improve verbosity modes
+    
+    * make array classes printable
+    * pba filter for block io verbosity
+    * streamline read/write/rekey verbosity
+    
+    Ref #4971
+
+commit 9605a60eac00ec296d91af4cfe3c56baddb74336
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Jul 27 14:56:25 2023 +0200
+
+    tresor: no local copy of snapshots in vbd module
+    
+    The Virtual Block Device module used to create a local copy of the Snapshots
+    array respectively Snapshot root it received with an incoming request. After
+    finishing the VBD operation on the copy, the source module of the request
+    used to back-copy the resulting Snapshot array resp. Snapshot root. This is
+    not only less efficient than referencing but also allowed a bug to sneak into
+    the new C++ implementation.
+    
+    In contrast to the old Ada/SPARK implementation (CBE), the new design doesn't
+    allow for global objects that can be accessed by any module without receiving a
+    reference in a module request. Therefore, the Free Tree module has to receive a
+    reference to a Snapshots array with each request in order to be able to use it.
+    In our case, these requests are allocations for a "Write" operation from the
+    VBD. However, the VBD itself receives only the one Snapshot required for
+    writing and therefore causes the Free Tree to make bad decisions on whether or
+    not a block can be re-allocated or not.
+    
+    With this commit, the VBD always receive a reference to the whole Snapshots
+    array and also propagates it this way to the Free Tree.
+    
+    Ref #4971
+
+commit 3eb5302ab0acf302bd32faa87af0d2d569b3146e
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Jul 27 15:09:34 2023 +0200
+
+    tresor: no local impl. of snap garbage collection
+    
+    Move the implementation of the snapshots garbage collection to the Snapshots
+    class and remove module-local duplicates.
+    
+    Ref #4971
+
+commit b44ffc9361d4e3b7ff83bda2fdebd512386115af
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Jul 27 15:14:01 2023 +0200
+
+    tresor: snap garbage collection on each request
+    
+    The Superblock Control module now issues a snapshot garbage collection on each
+    incoming request. In return for that, the commit removes all calls to the
+    garbage collection from other modules.
+    
+    Ref #4971
+
+commit f8332ce587230b157ea62ef93e3fb73514ed15fd
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Jul 31 16:10:27 2023 +0200
+
+    tresor: fix <initialize> config constraints
+    
+    Until now, it was possible to use bad Free-Tree/VBD configurations with the
+    <initialize/> command. The tresor tester didn't complaining about it but the
+    tresor lib crashed or, worse, corrupted the tresor container. Now, the tresor
+    tester checks things, like for instance, that "nr_of_children" must be a power
+    of 2.
+    
+    Ref #4971
+
+commit 417fb4e10817e0448b9ea119302ca2f2d3e9cd17
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Aug 1 13:55:43 2023 +0200
+
+    tresor: fix bad hash update during rekeying in vbd
+    
+    The re-keying state machine in the VBD module would use block data of the wrong
+    block for the hash update of an inner node in a certain circumstance.
+    
+    On re-keying, the VBD iterates for a given VBA over all snapshots, beginning
+    with the newest and re-keys the VBA in each of the snapshots. At each snapshot
+    it therefore loads the branch of the VBA top-down, and then updates the branch
+    bottom-up. However, if loading a certain level of the branch of a certain
+    snapshot runs into the same physical block as with the last snapshot on this
+    level, the algorithm turns around and updates the branch from this point
+    upwards instead of going further down the whole way to the leaf. This is
+    because everything below this point has already been re-keyed in the course of
+    a newer snapshot.
+    
+    The case where this turning around is not right above the leaf (i.e., the first
+    shared physical block is a metadata block) that's were the bug was located. In
+    this situation, we have to re-encode the highest shared metadata block into a
+    buffer again before starting to update. The update code acts as if the
+    mentioned block was just written back (which is true when going down all the
+    way to the leaf before updating) and consequently is present in the encoded
+    buffer.
+    
+    Ref #4971
+
+commit 801a779a8843100c125f35f013485f47fab679b4
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Jul 17 21:33:52 2023 +0200
+
+    tresor: support and test snapshot management
+    
+    * Implement requests "create snapshot" and "discard snapshot" in tresor lib.
+    * Adapt tresor tester in order to test the new feature.
+      * Remove temporary code from tresor tester that skipped such requests with
+        the hint that they were not supported yet.
+      * Add mandatory "id" attribute to <request op="create_snapshot"/> and
+        <request op="discard_snapshot"/> tag. A "discard snapshot" command always
+        refers to the snapshot created by the "create snapshot" command with the
+        same "id" value.
+      * Clean-up command pool a bit.
+    
+    Fix #4971
+
+commit 82388f43898e37ffa9350fe39a2e08a4ed42eb53
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Aug 2 17:02:47 2023 +0200
+
+    tresor_tester.run: fix free tree exhaustion
+    
+    The order of execution inside the Tresor lib slightly changed compared to the
+    previous CBE lib. AFAICT, this is nothing to worry about and related to the
+    now cleaner structuring. However, it can produce higher peak requirements
+    regarding the allocation pool in the Free Tree. Therefor, this commit extends
+    the dimensions of the Free Tree used in the test.
+    
+    Ref #4971
+
+commit d8a71e5978ede0ee0ca035804f3ce8178eb11601
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Aug 4 05:36:05 2023 +0200
+
+    tresor: improved module framework and clean-up
+    
+    * Make command pool a proper module
+      * The command pool used to be kind of a module but it was driven via custom
+        tresor-tester specific code. Now, it becomes a proper module that
+        is driven by the module framework instead.
+      * Move the code for creating and handling the module-execution progress flag
+        into Module_composition::execute_modules as the function is always used with
+        this code surrounding it.
+    
+    * Reorganize files, remove deprecated files
+    
+    * A new class Module_channel is introduced in the module framework and all
+      channel classes inherit from it. With that class in place, the formerly
+      module-specific implementations of the following methods are replaced by
+      new generic implementations in the Module framework:
+    
+      * ready_to_submit_request
+      * submit_request
+      * _peek_completed_request
+      * _drop_completed_request
+      * _peek_generated_request
+      * _drop_generated_request
+      * generated_request_complete
+    
+    * Module requests are now held for the duration of their lifetime at the
+      module they originate from and not, like before, at their target module. As
+      a result, modules can generate new requests inline (without having to wait
+      for the target module), making code much simpler to read, reducing the amount
+      of channel state, and allowing for non-copyable request types.
+    
+    * Introduce a sub-state-machine for securing a superblock in the
+      superblock_control module in order to reduce redundancy.
+    
+    * Some modules, like free_tree, were completely re-designed in order to make
+      them more readable.
+    
+    * Replace all conditional exceptions by using the macros in
+      tresor/assertion.h .
+    
+    * Move methods that are used in multiple modules but that were implemented
+      redundantly in each module to tresor/types.h.
+    
+    * Remove verbosity node and all that was related to it from tresor tester
+      config as the targeted verbosity can be achieved with the
+      VERBOSE_MODULE_COMMUNICATION flag in tresor/verbosity.h .
+    
+    * Extract the aspect of translating the byte-granular I/O-requests to
+      tresor-block requests from the tresor VFS-plugin and move it to a new module
+      called splitter.
+    
+    * Rename the files and interface of the hashing back-end to not reflect the used
+      hashing algorithm/config anymore, while at the same time making the hashing
+      interface strict regarding the used types.
+    
+    * Introduce the NONCOPYABLE macro that makes marking a class noncopyable short
+      and clear.
+    
+    * Replace the former tresor/vfs_utilities.h/.cc with a new tresor/file.h
+      that contains the classes Read_write_file and Write_only_file. These classes
+      significantly simplify the modules crypto, block_io, and trust_anchor by
+      moving the details of file access to a sub-state machine.
+    
+    * The former, rather trivial block allocator module is replaced by a normal
+      object of type Pba_allocator that must be provided by the client of the
+      Sb_initializer (reference in the Sb_initializer_request).
+    
+    Ref #5062
+    
+    tresor: read uninitialized vbas as all zeroes
+    
+    Virtual addresses in a Tresor container that were not yet written by the user
+    should always return a data block that is all-zeroes. This was the concept
+    right from the beginning of the project. However, somehow this aspect either
+    never got implement or got lost along the way.
+    
+    Some context for understanding the commit: The Tresor doesn't initialize the
+    payload data blocks of a container when creating a new container as this would
+    be rather expensive. Instead, it marks the leaf metadata nodes of the
+    virtual-block-device tree (those that reference the payload data blocks in
+    physical address space) with generation 0.
+    
+    Now, this commit ensures that, whenever the virtual-block-device module reads
+    such a generation-0 leaf, instead of asking the block_io and crypto to deliver
+    data from disc, it directly provides the user with 4K of zeroes.
+    
+    Ref #5062
+
+commit bcd82b7e7539a3d1a59b0733e2c99db813b8be8e
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Nov 23 06:02:55 2023 +0100
+
+    tresor: revive and test app/tresor_check
+    
+    The tresor_check tool became outdated back when the Tresor project was created
+    by re-writing its predecessor, the CBE, in C++. At this time, the check tool
+    was merely renamed but not updated. As there was also no autopilot test for the
+    tool, the tool remained outdated.
+    
+    This commit rewrites the tool for the most recent Tresor version and adds an
+    autopilot test.
+    
+    Ref #5062
+
+commit cf72499919356a788b3b684a9ccadd0fc4bf9728
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Nov 27 19:03:52 2023 +0100
+
+    tresor: unused args at "R/W client data" at blk IO
+    
+    The request classes Block_io::Read_client_data and Block_io::Write_client_data
+    used to receive a block reference for no reason. This commit removes these
+    args.
+    
+    Ref #5062
+
+commit fb2d153c928e3184955e19e90789883efb2151ff
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Nov 30 18:29:17 2023 +0100
+
+    tresor: check hash of all read vba data
+    
+    During one of the many re-factorization steps that were applied to the Tresor
+    library and its predecessor, the CBE library, one of the main features of the
+    project, the integrity check, accidentally received a grave regression. The
+    most recent version of the Tresor still used to check all hashes of meta-data
+    blocks but ignored the hashes of the actual data blocks.
+    
+    With this commit, the hashes of all but yet uninitialized data blocks get
+    checked. The reason for ignoring uninitialized blocks is that they are not
+    actually read from disc but simply generated as an all-zeros block in the
+    driver in order to prevent having to initialize them all to zero in
+    Tresor-Init. That said, the integrity of these blocks cannot be compomised.
+    The according hashes in the meta data remain unset until the data block gets
+    written for the first time.
+    
+    Ref #5062
+
+commit 02ef158748df49f0601547e0432e54bfd15e9c05
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Dec 1 04:21:46 2023 +0100
+
+    gems: add autopilot test 'file_vault_client'
+    
+    The script tests the use of an encrypted file system that is created and
+    provided via the File Vault.
+    
+    Furthermore the script can be used for test-driving existing File-Vault
+    containers (created with potentially older File-Vault versions) under the
+    current File-Vault version. This is done via the "LX_FS_DIR_TEMPLATE"
+    env variable.
+    
+    Ref #5062
+
+commit ef0c3f9d2c12618ace98ca44a47dc86f8ac97ee1
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Dec 7 12:17:25 2023 +0100
+
+    tresor_tester.run: fix asynchronous rekeying test
+    
+    The virtual block device module used to hand over the wrong VBA as
+    parameter "rekeying VBA" to the Free Tree when allocating PBAs for data
+    access during rekeying. In certain constellations, this caused the Free
+    Tree to alloc PBAs that were still in use. The Free Tree PBA selection
+    algorithm, however, is just fine. When fixing the call parameter, it works
+    as desired. This re-enables the async rekeying test.
+    
+    Ref #5075
+
+commit 14f4aa6e053213c89ffe61d7b6045843826bc213
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Dec 7 18:48:59 2023 +0100
+
+    tresor_utils.run: use [build_artifacts]
+    
+    Ref #5148
+
+commit b4c468173322dbb61be86dfbf739a5a5215ab0c4
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Dec 14 13:54:57 2023 +0100
+
+    tresor: streamline design further
+    
+    * differentiates request types that where merged formerly per module;
+      e.g. instead of type Superblock_control::Request, there are now types
+      * Superblock_control::Read_vbas
+      * Superblock_control::Write_vbas
+      * Superblock_control::Rekey
+      * Superblock_control::Initialize
+      * ...
+      each holding only the state and functionality that is required for exactly
+      that request
+    
+    * removes all classes of the Tresor module framework and adapts all
+      Tresor- and File-Vault- related libs, apps, and tests accordingly
+      * the former "channel" state is merged into the new request types, meaning, a
+        request manages no longer only the "call" to a functionality but
+        also the execution of that functionality; every request has a lifetime
+        equal to the "call" and an execute method to be driven forward
+      * state that is used by a request but has a longer lifetime (e.g. VFS file
+        handles in Tresor::Crypto) is managed by the top level
+        of the user and handed over via the execute arguments; however, the
+        synchronization of multiple requests on this state is done by the module
+        (e.g. Tresor::Crypto)
+      * requests are now driven explicitly as first argument of the (overloaded)
+        execute method of their module; the module can, however, stall a request
+        by returning false without doing anything (used for synchronization on
+        resources)
+    
+    * introduces Request_helper, Generated_request and Generatable_request in the
+      Tresor namespace in order to avoid the redundancy of sub-request generation
+      and execution
+    
+    * moves access to Client-Data pointers up to Tresor::Virtual_block_device in
+      order to simplify Tresor::Block_io and Tresor::Crypto
+    
+    * removes Tresor::Client_data and introduces pure interface
+      Client_data_interface in order to remove  Tresor::Client_data and
+      move management of Client Data to the top level of a Tresor user
+    
+    * introduces pure interface Crypto_files_interface in order to move management
+      of Crypto files to the top level of a Tresor user
+    
+    * moves management of Block-IO and Trust-Anchor files to the top level of a
+      Tresor user
+    
+    * adapts all execute methods, so, that they return the progress state
+      instead of modifying a reference argument
+    
+    * removes Tresor::Request_and Tresor:Request and instead implements
+      scheduling at the top level of the Tresor user
+      * the Tresor Tester uses a list as schedule that holds Command objects; this
+        list ensures, that commands are started in the order of configuration
+        the Command type is a merge of the state of all possible commands that can
+        be configured at the Tresor Tester; the actual Tresor requests (if any) are
+        then allocated on-demand only
+      * the Tresor VFS plugin does not use a dynamic data structure for scheduling;
+        the plugin has 5 members that each reflect a distinct type of operation:
+        * initialize operation
+        * deinitialize operation
+        * data operation
+        * extend operation
+        * rekey operation
+        consequently, of each type, there can be only one operation in-flight at a
+        time; at the user front-end each operation (except "initialize") can be
+        controlled through a dedicated VFS file; for each of these files, the VFS
+        expects only one handle to be open at a time and only one file operation
+        (read, write, sync) active at a time; once an operation gets started it is
+        finished without preemtion (except of the interleaving at rekey and
+        extend); when multiple operations are waiting to be started the plugin
+        follows a static priority scheme:
+    
+          init op > deinit op > data op > extend op > rekey op
+    
+        there are some operation-specific details
+        * the initialize operation is started only by the plugin itself on startup
+          and will be driven as side effect by subsequent user calls to file
+          operations
+        * the data file is the only contiguous file in the front end and the file
+          operations work as on usual data files
+        * the other 3 files are transactional files and the user is expected to
+          follow this scheme when operating on them
+          1) stat (to determine file size)
+          2) seek to offset 0
+          3) read entire file once (this will be queued until there is no operation
+             of this type pending anymore and return the last result:
+             "none" | "failed" | "succeeded"; used primarily for synchronization)
+          4) write operation parameters (this returns immediately and marks the
+             operation as "requested")
+          5) read entire file once (the same as above but this time in order to
+             determine the operation result)
+        * the rekey op and deinitialize op are requested by writing "true"
+        * the extend op is requested by writing "tree=[TREE], blocks=[BLOCKS]"
+          where TREE is either "vbd" or "ft" and BLOCKS is the number of physical
+          4K blocks by which the physical range of the tresor container expands
+          (the physical range always starts at block address 0 and is always
+          expanded upwards)
+    
+    * replaces the former <trust-anchor op="initialize"> command at the Tresor
+      Tester with <initialize-trust-achor> as there are no other trust anchor
+      operations that can be requested through the Tester config anyway
+    
+    * removes the "sync" attribute from all commands at the Tresor Tester except
+      from <request op="rekey">, <request "extend_ft">, <request op="extend_vbd">;
+      as the Tester controls scheduling now, requests are generally synchronous;
+      at the rekeying and extension commands, the "sync" attribute determines
+      wether subsequent commands are interleaved with the execution of these
+      commands (if possible)
+    
+    * removes "debug" config attribute from Tresor VFS plugin and reworks "verbose"
+      attribute to generate more sensible output
+    
+    * removes NONCOPYABLE macro and instead uses Genode::Noncopyable and in-place
+      Constructors deletion
+    
+    * introduces types Attr and Execute_attr where a constructor or execute method
+      have many arguments in order to raise readability
+    
+    * renames the "hashsum" file that is provided by the Tresor Trust-Anchor VFS
+      plugin to "hash" in order to become conformant with the wording in the Tresor
+      lib
+    
+    * makes the VFS Tresor test an automated test by merging in the functionality
+      of vfs_tresor_init.run and removing the interactive front end; removes
+      vfs_tresor_init.run as it is not needed anymore; adds consideration for
+      autopilot file structure in the Test and adds it to autopilot.list
+    
+    * removes all snapshot controls and the progress files for rekeying and
+      extending from the Tresor VFS plugin; both functionalities were tested
+      only rudimentary by the VFS Tresor test and are not supported with the only
+      real user, the File Vault
+    
+    * use /* .. */ instead of // ..
+    * use (..) instead of { .. } in init lists
+    
+    Ref #5148
+
+commit d2af024349737b78524405e2c36303ab695cc257
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Mar 19 12:07:16 2024 +0100
+
+    tresor: don't halt on extension beyond limits
+    
+    The request of extending a tree used to halt when it found that
+    it could not add more levels to the tree because the maximum level index was
+    reached. Now, the library simply marks the request as failed, leaving it to
+    the user to handle the error condition.
+    
+    Ref #5077
+
+commit 016a7696054f6e6b357cd773389f6adb2e172073
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Mar 19 13:49:24 2024 +0100
+
+    tresor: check only the last secured superblock
+    
+    Instead of iterating over all superblocks and checking each valid one,
+    check only the one whose hash matches the hash stored in the trust anchor.
+    I.e., the last one that was secured to the trust anchor. We must assume that
+    the other superblocks were corrupted in the meantime by operating the Tresor
+    container and, anyway, these Superblocks are not used anymore.
+    
+    Ref #5077
+
+commit 518c32e1afe5473f209ec67879ad543dddea8bdb
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Mar 19 13:55:25 2024 +0100
+
+    tresor: don't decode superblock before hash check
+    
+    Superblock_control::Initialize used to decode a read superblock before checking
+    its hash. This is not necessary but may cause the operation to end up in a
+    decoding error on a superblock that is not the desired one anyway.
+    
+    Ref #5077
+
+commit 4a68f6bf75dd1301cf692917650328a96dab4c8b
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Mar 19 14:30:59 2024 +0100
+
+    tresor: discard snapshots only when writing the sb
+    
+    Snapshots must only be removed when securing the superblock. Otherwise, the
+    last secured superblock might get corrupted. The Free Tree allocation algorithm
+    would not consider the deleted snapshots anymore although they are still active
+    in the secured superblock and re-use their blocks. This would render the tresor
+    container unusable if the superblock with the deleted snapshots is not secured
+    in the end (driver crash, power down, ...).
+    
+    Ref #5077
+
+commit 81b17ba1e4a991a96e93677eb5183561bf1f14b4
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Dec 15 11:41:04 2023 +0100
+
+    tresor_tester: check uninitialized vba data
+    
+    Adds a new command attribute "uninitialized_data" to the Tresor Tester
+    configuration. If a <request op="read"> command has this attribute set to "yes"
+    it assumes the read blocks to be uninitialized and therefore contain only 0's.
+    Note, that a command that has "uninitialized_data" set to "yes" cannot have the
+    attribute "salt".
+    
+    Ref #5077
+
+commit 067a8a35cdeb39ad876bea45ce9925745312de5f
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Mar 20 05:38:50 2024 +0100
+
+    tresor: fix faults on failed free-tree requests
+    
+    * fixes two places, where the free tree module used to continue to process a
+      request after actually having determined that the request fails
+    * moves the functionality of checking the hash of a read block and decoding it
+      to a dedicated method in order to improve readability
+    
+    Ref #5077
+
+commit b903ddeea70874a946e7163419d85bcb5647c3da
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Mar 19 06:36:41 2024 +0100
+
+    tresor: fix and test handling of minimal trees
+    
+    * add testing of trees with minimal and maximal dimensions to tresor_tester.run
+    * replace tresor_init-local configuration type with simpler and more conformant
+      configuration type in tresor/types.h that does also XML-parsing and
+      XML-generation of configurations
+    * raise min degree to 2 because a degree of 1 is not practical und would
+      require additional logic
+    * fix overflow with num_blocks=0 in Superblock_control::Read|Write_vbas
+    * fix off-by-one bug regarding the number of levels in Vbd_initializer
+    * improve sanity checks in Tree_configuration constructors
+    * document level indices in tresor_init/README
+    * fix size of some arrays in order to be able to handle the maximum number of
+      tree levels
+    
+    Ref #5077
+
+commit b7049b53213ba9c4f7e4a3318d00d5c6ffcc3f4b
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Apr 4 09:07:25 2024 +0200
+
+    tresor_tester.run: slim down tests
+    
+    This substantially slims down the test in order to reduce the number nightly
+    tests that fail due to timeouts. Now, the extended test steps (maximum trees
+    and benchmarks) are only run on Linux. The synchronous access, snapshot
+    management, rekeying, and resizing tests were removed.
+    
+    Ref #5148
+
+commit 047f130005458e873b1d5fa31dfde4452548a466
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Thu Apr 4 12:29:16 2024 +0200
+
+    tresor_tester.run: clean up
+    
+    Ref #5148
+
+commit 483fe18c4d5442950f54a38824373b62e784ff0a
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Fri Apr 19 07:05:38 2024 +0200
+
+    file_vault_gui: dialog-based file_vault front end
+    
+    * adds rekeying and resizing controls to config+report api of file vault
+    * moves common types of file vault to file_vault/include/file_vault/types.h
+      to be included by other components
+    * fixes wrong type of nr_of_clients fields in file_vault
+    * introduces the file_vault_gui component that is a minimal graphical front end
+      for the file vault based on the dialog lib and that uses the
+      config+report api of the file vault as back end
+    
+    Ref #5190
+
+commit a7ef2319f65eb42c562483f914555c3fe5b55b30
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Apr 16 19:26:10 2024 +0200
+
+    file_vault: remove need for state file
+    
+    The state file is a legacy from the early days of the file vault and not really
+    needed anymore.
+    
+    Ref #5190
+
+commit 969469edefb5d8846be6e363a71b4f6da05177b9
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Wed Apr 17 01:17:21 2024 +0200
+
+    file_vault: clean up
+    
+    Ref #5190
+
+commit 2bcc85b5f5c4265027052c4425879c70bea2fad3
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Apr 22 09:13:14 2024 +0200
+
+    file_vault: fix locking issue
+    
+    The File Vault used to sporadically fail to complete Extend or Rekey operations
+    when it was locked during the operation. The cause was an insufficient state
+    model that has been fixed with this commit.
+    
+    Ref #5190
+
+commit d5e3f738847a32f0bbbb9e21fb878d900be2a5c7
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Mon Apr 22 11:45:05 2024 +0200
+
+    file_vault: do not consider ui_config version
+    
+    The version in ui_report and ui_config were merely used for making test output
+    more readable. However, there are other ways to achieve this goal.
+    
+    Ref #5190
+
+commit 50fc5c6d42f341b58703b2107cb6376dccb00e95
+Author: Martin Stein <martin.stein@genode-labs.com>
+Date:   Tue Apr 23 09:37:45 2024 +0200
+
+    file_vault: further reduce typical quota needs
+    
+    Ref #5190
+
+
+VirtualBox network-throughput improvements
+==========================================
+
+; @alex-ab
+
+commit e1e87657c7df0176b0d32aa0ad0604363da13ae6
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Jan 31 15:33:51 2024 +0100
+
+    vbox: batch network packets
+    
+    Fixes #5146
+
+commit 23078154cd8baf36824869bd177749192be5dc88
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Jan 31 17:31:23 2024 +0100
+
+    vbox: avoid blocking nic_ep thread
+    
+    during receive the nic_ep may block as long as the guest does not provide
+    another receive network descriptor. In the meantime, all Genode signals
+    regarding the network interface, e.g. tx, will be postponed, which may
+    effect the throughput.
+    
+    Instead use the nic_ep for rx packets unblocking. Add an notification mechanism
+    to the e1000 vbox network model, to notify us as soon as the guest added new
+    receive descriptors in the model.
+    
+    Issue #5146
+
+commit d0d9cb6a73dcb149f2c1f2360456c14c5eeb33ba
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Wed Feb 7 09:20:47 2024 +0100
+
+    uplink: support batching in client base header
+    
+    Add support for Uplink drivers to batch requests.
+    
+    Fixes #5149
+
+
+Seoul virtual machine monitor
+=============================
+
+; @alex-ab
+
+commit 90b67ce6651e6432023cfffc3fa4c02e6fe3192d
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Sat Feb 24 12:43:06 2024 +0100
+
+    seoul: support nvme usage in run scripts
+    
+    and use nvme as default, ahci may be selected explicitly if still required
+    (see vm stress run script hardware)
+
+commit 5e778be3d63c412876862837aafe2201e13f3de2
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Sat Mar 9 21:40:21 2024 +0100
+
+    seoul: support network link state change
+
+commit 74f03f8b51e0cd8782daa2422ccf8dac300a1e66
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Sun Mar 10 14:25:06 2024 +0100
+
+    seoul: distinguish network packet direction
+    
+    explicitly instead of checking for packets pointer to avoid endless loops
+
+commit 9ba619ddf56f893b920389121af8b514e8982104
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Tue Mar 12 11:45:04 2024 +0100
+
+    seoul: enable i/o port string handling
+    
+    to avoid hang/reset of VM. Linux device driver rtl8029 may use ins/outs,
+    which causes w/o this commit trouble(hang).
+
+commit b710ee1ad2656ed8a3c8d86bb3868c8f365aac87
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri Mar 15 16:36:30 2024 +0100
+
+    seoul: improve cpu utilization
+    
+    by replacing the global mutex (sync motherboard) with fine grained
+    locking in the models and in the Seoul app for Genode.
+    
+    The commit improves the parallel build on all vCPUs appreciable.
+    
+    Before this commit, the vCPU utilization did not exceed ~70%. With this
+    change the vCPU utilization is above 98%. The test case, of building vbox
+    for Genode inside the VM with 4 vCPUs, succeed 40s earlier on a T460p notebook
+    running Sculpt 23.10.
+
+commit 216a19ab60b220c6bf10ad68145b44647c2df6da
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu Mar 28 23:16:05 2024 +0100
+
+    seoul: enable acpi model
+
+commit fe7a7f9aa1c42d5be4d66831aac8a94e6337b0f5
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Sun Feb 25 20:26:44 2024 +0100
+
+    seoul: switch to new audio play session
+
+
+SDL2 improvements
+=================
+
+; @cnuke
+
+commit 9866c7bd5297c54748826332e2bbd777ccb957de
+Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
+Date:   Fri Oct 1 11:12:34 2021 +0200
+
+    sdl2: enable base iconv, timer, joystick support
+
+commit 7e2a431195388aa49de7df2988b12c7574b930d3
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Tue Sep 19 17:53:11 2023 +0200
+
+    SDL2: fix haptic dummy compilation
+    
+    Make sure the symbols are part of the library.
+
+commit fd5ee55d202c837487900b489baddbb66f330063
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Mar 1 10:59:47 2024 +0100
+
+    sdl2_mixer: add playmus example
+
+commit 0cd60806f4a0a0934c37cdc1d3f28cbe2757c605
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Mar 1 14:12:20 2024 +0100
+
+    sdl2_mixer: remove opus related libs
+    
+    OPUS support is not enabled.
+
+commit 56b6586ef4565937f47804f05cf86169a65b6294
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Fri Mar 1 14:12:42 2024 +0100
+
+    sdl2_mixer: use DRMP3 for MP3 support
+
+commit 745d4ae78be5ee2eb4cdf9a375e21b9a59abdd00
+Author: Josef Söntgen <jws@sysret.de>
+Date:   Thu Sep 29 19:56:27 2022 +0000
+
+    SDL2: preliminary window resizing support
+    
+    This commit introduces preliminary support for resizing a window.
+    How and if it works depends to some degree on the program using
+    the SDL2 library itself. It works well for the currently tested
+    ports like chocolate-doom and yquake2 (software renderer).
+    On the other hand program using an OpenGL context via SDL2 still
+    have issues resizing the window (EGL errors).
+    
+    As an additional feature the commit adds support for setting the
+    initial window geometry via the '<initial>' node, e.g.:
+    
+    ! <initial width="800" height="600"/>
+    
+    This prevents overly large windows because the actual screen size
+    is propagated by nitpicker.
+    
+    Fixes #368.
+
+commit 1757cda346bdefe34e666dae7b84da8b220efac4
+Author: Josef Söntgen <jws@sysret.de>
+Date:   Thu Sep 29 21:10:29 2022 +0000
+
+    SDL2: preliminary handling SDL_TEXTINPUT
+    
+    This commit introduces preliminary support for using the SDL2's
+    textinput API.
+    
+    So far it only has been tested with dhewm3's console where it
+    performs adequately.
+    
+    Issue #368.
+
+commit 3efc50075d7133d7d397af3e30e1a2993ccaf051
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Thu May 16 10:15:39 2024 +0200
+
+    fixup! SDL2: preliminary handling SDL_TEXTINPUT
+    
+    Make SDL2's textinput API more robust. We always send keyboard events if
+    textinput has not been enabled by the application. Moreover, we only
+    send key presses as text if the codepoint is valid and if it's not a known
+    non-printable. Keyboard events are omitted if key presses are sent as
+    text.
+    
+    This has been tested with sdl_vnc.
+    
+    genodelabs/genode-world#368
+
+
+Curl updated to version 8.7.1
+=============================
+
+; @cnuke
+
+commit 344831ec06668089f85b9d495ef3d4e8644b737a
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Apr 15 15:43:30 2024 +0200
+
+    curl: update to version 8.7.1
+    
+    This commits updates the contrib sources to version 8.7.1.
+    
+    This version requires more random entropy as it queries OpenSSL
+    about the current random state and will bail if it is not sufficient.
+    Doubling the content of the '<inline>' VFS plugin as used in static
+    configurations seems satisfactory.
+    
+    Furthermore DNS resolving needs a configured '<pipe>' plugin to work
+    properly.
+    
+    Fixes #5184.
+
+commit 2be57e41569de4ef6a4a489ea8d2f23dc56cb446
+Author: Josef Söntgen <josef.soentgen@genode-labs.com>
+Date:   Mon Apr 15 15:45:40 2024 +0200
+
+    fetchurl: add 'verbose' config option
+    
+    This commit introduces a config option to enable verbose operations.
+    This can be used to ease debugging.
+    
+    Issue #5184.
+
+
+Platforms
+#########
+
+Base-HW microkernel
+===================
+
+; @skalk
+
+commit aefbc47c56424c5aad4d982aba2c0b09e134ad18
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Tue Apr 16 11:40:54 2024 +0200
+
+    hw: preserve slack time, favor activated jobs
+    
+    In the scheduler's implementation preserve the consumed slack-time
+    over periods of activation/deactivation, but instead of appending
+    activated jobs to the end of the slack queue, insert it as new head.
+    Thereby, the extreme discrimination of threads with short execution
+    times and frequent blocking behaviour against long running computations
+    gets avoided.
+    
+    Fix genodelabs/genode#4796
+
+commit d9420c618c0dee9aca9e965e7c10e4380c92f6f8
+Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
+Date:   Wed Apr 24 17:29:09 2024 +0200
+
+    hw: take over ACPI hardware from SMI
+    
+    Fix #5196
+
+
+NOVA microhypervisor
+====================
+
+; @alex-ab
+
+commit ebe2780ceaaf30b98f65fa12f4a1e10cd5923bfd
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Thu May 2 11:26:25 2024 +0200
+
+    nova: adjust to cmdline changes of kernel
+    
+    - no need to explicitly switch off vga anymore
+    - use vPID for VMs which improves TLB usage if multiple vCPUs on same
+      pCPU is used, which happens to happen on Sculpt.
+    - support for mwait by nova kernel, which is off by default
+    
+    Issue #5206
+
+commit ce2e27a26d47c9070be22ea68f337a571eabe94f
+Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
+Date:   Fri May 3 11:13:09 2024 +0200
+
+    nova: support iommu enabling per intel/amd
+    
+    separately.  The "iommu" option is now split up into "iommu_intel" and
+    "iommu_amd" and thereby can be disabled easily if required for one of the CPU
+    vendors.
+    
+    Fixes #5206
+
+
+Build system and tools
+######################
+
+Goa SDK
+=======
+
+; @jschlatow
+; update for targeting Sculpt 24.04 by default now
+; re-advertise Goa testbed with out-of-the-box support with Sculpt 24.04
+
+
+commit 6bde465994b7ea4748af411c7577aa889092bf20
+Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
+Date:   Tue Apr 23 09:06:36 2024 +0200
+
+    run: support for Play and Record sessions
+    
+    Fixes #84
+
