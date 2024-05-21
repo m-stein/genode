@@ -17,6 +17,7 @@
 
 /* Genode includes */
 #include <net/port.h>
+#include <util/attempt.h>
 
 /* local includes */
 #include <util/bit_allocator.h>
@@ -43,9 +44,12 @@ class Net::Port_allocator
 
 	public:
 
-		[[nodiscard]] bool alloc_any_port(Port &);
+		struct Alloc_error { };
+		using Alloc_result = Genode::Attempt<Port, Alloc_error>;
 
-		[[nodiscard]] bool alloc_given_port(Port);
+		[[nodiscard]] Alloc_result alloc();
+
+		[[nodiscard]] bool alloc(Port const port);
 
 		void free(Port const port);
 };
@@ -61,9 +65,12 @@ class Net::Port_allocator_guard
 
 	public:
 
-		[[nodiscard]] bool alloc_any_port(Port &);
+		using Alloc_error = Port_allocator::Alloc_error;
+		using Alloc_result = Port_allocator::Alloc_result;
 
-		[[nodiscard]] bool alloc_given_port(Port);
+		[[nodiscard]] Alloc_result alloc();
+
+		[[nodiscard]] bool alloc(Port const port);
 
 		void free(Port const port);
 

@@ -31,7 +31,7 @@ bool Net::dynamic_port(Port const port)
  ** Port_allocator **
  ********************/
 
-bool Net::Port_allocator::alloc_any_port(Port &port)
+Net::Port_allocator::Alloc_result Net::Port_allocator::alloc()
 {
 	for (unsigned nr_of_trials { 0 };
 	     nr_of_trials < NR_OF_PORTS;
@@ -41,16 +41,15 @@ bool Net::Port_allocator::alloc_any_port(Port &port)
 		_next_port_offset = (_next_port_offset + 1) % NR_OF_PORTS;
 		try {
 			_bit_allocator.alloc_addr(port_offset);
-			port = Port((uint16_t)(port_offset + FIRST_PORT));
-			return true;
+			return Port { (uint16_t)(port_offset + FIRST_PORT) };
 		}
 		catch (Bit_allocator<NR_OF_PORTS>::Range_conflict) { }
 	}
-	return false;
+	return Alloc_error();
 }
 
 
-bool Net::Port_allocator::alloc_given_port(Port port)
+bool Net::Port_allocator::alloc(Port const port)
 {
 	try {
 		_bit_allocator.alloc_addr(port.value - FIRST_PORT);
@@ -71,25 +70,26 @@ void Port_allocator::free(Port const port)
  ** Port_allocator_guard **
  **************************/
 
-bool Port_allocator_guard::alloc_any_port(Port &port)
+Port_allocator_guard::Alloc_result Port_allocator_guard::alloc()
 {
-	if (_used_nr_of_ports == _max_nr_of_ports)
-		return false;
-
-	if (!_port_alloc.alloc_any_port(port))
-		return false;
+	if (_used_nr_of_ports == _max_nr_of_ports) {
+		return Alloc_error();
+	}
+	Alloc_result const result = _port_alloc.alloc();
+	if (result.failed())
+		return result;
 
 	_used_nr_of_ports++;
-	return true;
+	return result;
 }
 
 
-bool Port_allocator_guard::alloc_given_port(Port port)
+bool Port_allocator_guard::alloc(Port const port)
 {
 	if (_used_nr_of_ports == _max_nr_of_ports)
 		return false;
 
-	if (!_port_alloc.alloc_given_port(port))
+	if (!_port_alloc.alloc(port))
 		return false;
 
 	_used_nr_of_ports++;

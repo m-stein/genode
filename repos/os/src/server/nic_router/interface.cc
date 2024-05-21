@@ -635,21 +635,24 @@ Packet_state Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 				log("[", local_domain, "] using NAT rule: ", nat); }
 
 			Port src_port(0);
-			if (!nat.port_alloc(prot).alloc_any_port(src_port)) {
-				result = Packet_error("no available NAT ports");
-				switch (prot) {
-				case L3_protocol::TCP: _tcp_stats.refused_for_ports++; break;
-				case L3_protocol::UDP: _udp_stats.refused_for_ports++; break;
-				case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
-				default: throw Bad_transport_protocol(); }
-				return;
-			}
-			_src_port(prot, prot_base, src_port);
-			ip.src(remote_domain.ip_config().interface().address, ip_icd);
-			remote_port_alloc = nat.port_alloc(prot);
+			nat.port_alloc(prot).alloc().with_result(
+				[&] (Port src_port) {
+					_src_port(prot, prot_base, src_port);
+					ip.src(remote_domain.ip_config().interface().address, ip_icd);
+					remote_port_alloc = nat.port_alloc(prot); },
+				[&] (auto) {
+					result = Packet_error("no available NAT ports");
+					switch (prot) {
+					case L3_protocol::TCP: _tcp_stats.refused_for_ports++; break;
+					case L3_protocol::UDP: _udp_stats.refused_for_ports++; break;
+					case L3_protocol::ICMP: _icmp_stats.refused_for_ports++; break;
+					default: throw Bad_transport_protocol(); } });
 		},
 		[&] /* no_match */ () { }
 	);
+	if (result.failed())
+		return result;
+
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
 	result = _new_link(prot, local_id, remote_port_alloc, remote_domain, remote_id);
@@ -1939,7 +1942,7 @@ bool Interface::_try_update_link(Link        &link,
 		[&] /* handle_match */ (Nat_rule &nat)
 		{
 			Port_allocator_guard &remote_port_alloc { nat.port_alloc(prot) };
-			if (!remote_port_alloc.alloc_given_port(link.server().dst_port()))
+			if (!remote_port_alloc.alloc(link.server().dst_port()))
 				return;
 
 			link.handle_config(
