@@ -298,14 +298,15 @@ class Net::Interface : private Interface_list::Element
 
 		void _handle_pkt();
 
-		void _continue_handle_eth(Domain            const &domain,
-		                          Packet_descriptor const &pkt);
+		void _continue_handle_eth(Packet_descriptor const &pkt);
 
 		Ipv4_address const &_router_ip() const;
 
-		void _handle_eth(void              *const  eth_base,
-		                 Size_guard               &size_guard,
-		                 Packet_descriptor  const &pkt);
+		void _drop_packet(Packet_descriptor const &pkt, char const *reason);
+
+		[[nodiscard]] Packet_state _handle_eth(void              *const  eth_base,
+		                                       Size_guard               &size_guard,
+		                                       Packet_descriptor  const &pkt);
 
 		[[nodiscard]] Packet_state _handle_eth(Ethernet_frame           &eth,
 		                                       Size_guard               &size_guard,
@@ -368,7 +369,6 @@ class Net::Interface : private Interface_list::Element
 
 		struct Bad_send_dhcp_args : Genode::Exception { };
 		struct Bad_transport_protocol : Genode::Exception { };
-		struct Packet_postponed : Genode::Exception { };
 
 		Interface(Genode::Entrypoint     &ep,
 		          Cached_timer           &timer,
