@@ -163,44 +163,23 @@ Ipv4_config const &Dhcp_server::_resolve_dns_config_from() const
 
 Dhcp_server::Alloc_ip_result Dhcp_server::alloc_ip()
 {
-	try { return Alloc_ip_result(Ipv4_address::from_uint32_little_endian(_ip_alloc.alloc() + _ip_first_raw)); }
-	catch (...) { return Alloc_ip_error(); }
+	Alloc_ip_result result = Alloc_ip_error();
+	_ip_alloc.alloc().with_result(
+		[&] (addr_t ip_raw) { result = Alloc_ip_result(Ipv4_address::from_uint32_little_endian(ip_raw + _ip_first_raw)); },
+		[&] (auto) { });
+	return result;
 }
 
 
 bool Dhcp_server::alloc_ip(Ipv4_address const &ip)
 {
-	try {
-		_ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw);
-		return true;
-	}
-	catch (Bit_allocator_dynamic::Range_conflict)   { }
-	catch (Bit_array_dynamic::Invalid_index_access) { }
-	return false;
+	return _ip_alloc.alloc_addr(ip.to_uint32_little_endian() - _ip_first_raw);
 }
 
 
-void Dhcp_server::free_ip(Domain       const &domain,
-                          Ipv4_address const &ip)
+void Dhcp_server::free_ip(Ipv4_address const &ip)
 {
-	/*
-	 * The messages in the catch directives are printed as errors and
-	 * independent from the routers verbosity configuration because the
-	 * exceptions they indicate should never be thrown.
-	 */
-	try {
-		_ip_alloc.free(ip.to_uint32_little_endian() - _ip_first_raw);
-	}
-	catch (Bit_allocator_dynamic::Out_of_indices) {
-
-		error("[", domain, "] DHCP server: out of indices while freeing IP ",
-		      ip, " (IP range: first ", _ip_first, " last ", _ip_last, ")");
-	}
-	catch (Bit_array_dynamic::Invalid_index_access) {
-
-		error("[", domain, "] DHCP server: invalid index while freeing IP ",
-		      ip, " (IP range: first ", _ip_first, " last ", _ip_last, ")");
-	}
+	ASSERT(_ip_alloc.free(ip.to_uint32_little_endian() - _ip_first_raw));
 }
 
 

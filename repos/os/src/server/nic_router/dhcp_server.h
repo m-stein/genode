@@ -104,8 +104,7 @@ class Net::Dhcp_server : private Genode::Noncopyable,
 
 		[[nodiscard]] bool alloc_ip(Ipv4_address const &ip);
 
-		void free_ip(Domain       const &domain,
-		             Ipv4_address const &ip);
+		void free_ip(Ipv4_address const &ip);
 
 		bool has_invalid_remote_dns_cfg() const;
 
