@@ -23,7 +23,15 @@
 namespace Net {
 
 	struct Packet_ok { };
-	struct Packet_error { char const *string; };
+	struct Packet_error
+	{
+		enum Type { DROP, POSTPONE } type;
+		char const *drop_reason;
+
+		static Packet_error drop(char const *reason) { return { DROP, reason }; }
+
+		static Packet_error postpone() { return { POSTPONE, "" }; }
+	};
 
 	using Packet_state = Genode::Attempt<Packet_ok, Packet_error>;
 
