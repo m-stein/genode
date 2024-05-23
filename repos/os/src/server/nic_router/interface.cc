@@ -508,14 +508,8 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 				Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats };
 		}
-		catch (Out_of_ram)  {
-			_tcp_stats.refused_for_ram++;
-			result = packet_drop("out of RAM while creating TCP link");
-		}
-		catch (Out_of_caps) {
-			_tcp_stats.refused_for_ram++;
-			result = packet_drop("out of CAPs while creating TCP link");
-		}
+		catch (Out_of_ram) { result = { Packet_result::TCP_LINK_OUT_OF_QUOTA, "out of RAM while creating TCP link" }; }
+		catch (Out_of_caps) { result = { Packet_result::TCP_LINK_OUT_OF_QUOTA, "out of CAPS while creating TCP link" }; }
 		break;
 	case L3_protocol::UDP:
 		try {
@@ -523,14 +517,8 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 				Udp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _udp_stats };
 		}
-		catch (Out_of_ram) {
-			_udp_stats.refused_for_ram++;
-			result = packet_drop("out of RAM while creating UDP link");
-		}
-		catch (Out_of_caps) {
-			_udp_stats.refused_for_ram++;
-			result = packet_drop("out of CAPs while creating UDP link");
-		}
+		catch (Out_of_ram) { result = { Packet_result::UDP_LINK_OUT_OF_QUOTA, "out of RAM while creating UDP link" }; }
+		catch (Out_of_caps) { result = { Packet_result::UDP_LINK_OUT_OF_QUOTA, "out of CAPS while creating UDP link" }; }
 		break;
 	case L3_protocol::ICMP:
 		try {
@@ -538,14 +526,8 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 				Icmp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				            remote, _timer, _config(), protocol, _icmp_stats };
 		}
-		catch (Out_of_ram) {
-			_icmp_stats.refused_for_ram++;
-			result = packet_drop("out of RAM while creating ICMP link");
-		}
-		catch (Out_of_caps) {
-			_icmp_stats.refused_for_ram++;
-			result = packet_drop("out of CAPs while creating ICMP link");
-		}
+		catch (Out_of_ram) { result = { Packet_result::ICMP_LINK_OUT_OF_QUOTA, "out of RAM while creating ICMP link" }; }
+		catch (Out_of_caps) { result = { Packet_result::ICMP_LINK_OUT_OF_QUOTA, "out of CAPS while creating ICMP link" }; }
 		break;
 	default: ASSERT_NEVER_REACHED; }
 	return result;
@@ -607,8 +589,8 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
 						remote_ip_cfg.interface().address, hop_ip);
 				});
 				try { new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt }; }
-				catch (Out_of_ram)  { result = packet_drop("out of RAM while creating ARP waiter"); }
-				catch (Out_of_caps) { result = packet_drop("out of CAPs while creating ARP waiter"); }
+				catch (Out_of_ram)  { result = packet_out_of_quota("out of RAM while creating ARP waiter"); }
+				catch (Out_of_caps) { result = packet_out_of_quota("out of CAPS while creating ARP waiter"); }
 				result = packet_postponed();
 			}
 		);
@@ -788,8 +770,8 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 local_domain.ip_config().interface());
 	};
 	try { dhcp_srv.alloc_ip().with_result(ok_fn, [&] (auto) { result = packet_drop("failed to allocate IP for DHCP client"); }); }
-	catch (Out_of_ram)  { result = packet_drop("out of RAM while creating DHCP allocation"); }
-	catch (Out_of_caps) { result = packet_drop("out of CAPs while creating DHCP allocation"); }
+	catch (Out_of_ram)  { result = packet_out_of_quota("out of RAM while creating DHCP allocation"); }
+	catch (Out_of_caps) { result = packet_out_of_quota("out of CAPS while creating DHCP allocation"); }
 	return result;
 }
 
@@ -1616,12 +1598,34 @@ void Interface::_handle_pkt()
 		_drop_packet(pkt, "invalid Nic packet");
 		return;
 	}
-	Size_guard size_guard(pkt.size());
-	Packet_result result = _handle_eth(_sink.packet_content(pkt), size_guard, pkt);
+	Size_guard size_guard_1(pkt.size());
+	Packet_result result = _handle_eth(_sink.packet_content(pkt), size_guard_1, pkt);
 	switch (result.type) {
 	case Packet_result::HANDLED: _ack_packet(pkt); break;
 	case Packet_result::POSTPONED: break;
-	case Packet_result::DROP: _drop_packet(pkt, result.drop_reason); break;
+	case Packet_result::DROP: _drop_packet(pkt, result.message); break;
+	case Packet_result::OUT_OF_QUOTA:
+	case Packet_result::TCP_LINK_OUT_OF_QUOTA:
+	case Packet_result::UDP_LINK_OUT_OF_QUOTA:
+	case Packet_result::ICMP_LINK_OUT_OF_QUOTA:
+	{
+		unsigned long max = 100;
+		_destroy_some_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, max);
+		_destroy_some_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, max);
+		_destroy_some_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, max);
+		Size_guard size_guard_2(pkt.size());
+		result = _handle_eth(_sink.packet_content(pkt), size_guard_2, pkt);
+		switch (result.type) {
+		case Packet_result::HANDLED: _ack_packet(pkt); break;
+		case Packet_result::POSTPONED: break;
+		case Packet_result::DROP: _drop_packet(pkt, result.message); break;
+		case Packet_result::OUT_OF_QUOTA:
+		case Packet_result::TCP_LINK_OUT_OF_QUOTA:
+		case Packet_result::UDP_LINK_OUT_OF_QUOTA:
+		case Packet_result::ICMP_LINK_OUT_OF_QUOTA: _drop_packet(pkt, result.message); break;
+		case Packet_result::INVALID: ASSERT_NEVER_REACHED; }
+		break;
+	}
 	case Packet_result::INVALID: ASSERT_NEVER_REACHED; }
 }
 
@@ -1696,7 +1700,11 @@ void Interface::_continue_handle_eth(Packet_descriptor const &pkt)
 	switch (result.type) {
 	case Packet_result::HANDLED: _ack_packet(pkt); break;
 	case Packet_result::POSTPONED: _drop_packet(pkt, "postponed twice"); break;
-	case Packet_result::DROP: _drop_packet(pkt, result.drop_reason); break;
+	case Packet_result::DROP: _drop_packet(pkt, result.message); break;
+	case Packet_result::OUT_OF_QUOTA:
+	case Packet_result::TCP_LINK_OUT_OF_QUOTA:
+	case Packet_result::UDP_LINK_OUT_OF_QUOTA:
+	case Packet_result::ICMP_LINK_OUT_OF_QUOTA: _drop_packet(pkt, result.message); break;
 	case Packet_result::INVALID: ASSERT_NEVER_REACHED; }
 }
 
@@ -1812,7 +1820,6 @@ Packet_result Interface::_handle_eth(void              *const  eth_base,
 						eth_base, size_guard.total_size());
 
 			result = _handle_eth(eth, size_guard, pkt, domain);
-if (result.type == Packet_result::INVALID) log(__func__,__LINE__);
 		};
 		auto no_domain_fn = [&] /* no_domain_fn */ {
 			if (_config().verbose_packets())
