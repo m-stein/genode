@@ -1816,7 +1816,6 @@ Packet_result Interface::_handle_eth(void              *const  eth_base,
 						eth_base, size_guard.total_size());
 
 			result = _handle_eth(eth, size_guard, pkt, domain);
-if (result.type == Packet_result::INVALID) log(__func__,__LINE__);
 		};
 		auto no_domain_fn = [&] /* no_domain_fn */ {
 			if (_config().verbose_packets())
