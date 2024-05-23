@@ -18,18 +18,13 @@ namespace Net {
 
 	struct Packet_result
 	{
-		enum Type {
-			INVALID, DROP, POSTPONED, HANDLED, OUT_OF_QUOTA, ICMP_LINK_OUT_OF_QUOTA,
-			UDP_LINK_OUT_OF_QUOTA, TCP_LINK_OUT_OF_QUOTA } type { INVALID };
-
-		char const *message { "" };
+		enum Type { INVALID, DROP, POSTPONED, HANDLED } type { INVALID };
+		char const *drop_reason { "" };
 
 		bool valid() const { return type != INVALID; }
 	};
 
-	inline Packet_result packet_drop(char const *message) { return { Packet_result::DROP, message }; }
-
-	inline Packet_result packet_out_of_quota(char const *message) { return { Packet_result::OUT_OF_QUOTA, message }; }
+	inline Packet_result packet_drop(char const *reason) { return { Packet_result::DROP, reason }; }
 
 	inline Packet_result packet_postponed() { return { Packet_result::POSTPONED, "" }; }
 

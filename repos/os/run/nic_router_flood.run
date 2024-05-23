@@ -150,7 +150,6 @@ install_config {
 								<service name="Timer"/>
 							</parent-provides>
 
-<!--
 							<start name="tcp_flood" caps="100">
 								<binary name="test-net_flood"/>
 								<resource name="RAM" quantum="8M"/>
@@ -178,7 +177,7 @@ install_config {
 									<service name="CPU"> <parent/> </service>
 								</route>
 							</start>
--->
+
 							<start name="icmp_flood" caps="100">
 								<binary name="test-net_flood"/>
 								<resource name="RAM" quantum="8M"/>
@@ -192,7 +191,7 @@ install_config {
 									<service name="CPU"> <parent/> </service>
 								</route>
 							</start>
-<!--
+
 							<start name="ping" caps="100">
 								<resource name="RAM" quantum="8M"/>
 								<config dst_ip="} [good_dst_ip] {" period_sec="2" count="999"/>
@@ -205,7 +204,6 @@ install_config {
 									<service name="CPU"> <parent/> </service>
 								</route>
 							</start>
--->
 
 						</config>
 
