@@ -771,7 +771,7 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
                                               Dhcp_server    &dhcp_srv,
                                               Domain         &local_domain)
 {
-	Packet_result result = packet_handled();
+	Packet_result result { };
 	auto ok_fn = [&] (Ipv4_address const &ip) {
 		Dhcp_allocation &allocation = *new (_alloc)
 			Dhcp_allocation { *this, ip, dhcp.client_mac(),
@@ -786,6 +786,8 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 		                 Dhcp_packet::Message_type::OFFER,
 		                 dhcp.xid(),
 		                 local_domain.ip_config().interface());
+
+		result = packet_handled();
 	};
 	try { dhcp_srv.alloc_ip().with_result(ok_fn, [&] (auto) { result = packet_drop("failed to allocate IP for DHCP client"); }); }
 	catch (Out_of_ram)  { result = packet_drop("out of RAM while creating DHCP allocation"); }
