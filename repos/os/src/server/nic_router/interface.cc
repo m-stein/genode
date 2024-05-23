@@ -606,10 +606,12 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
 					interface._broadcast_arp_request(
 						remote_ip_cfg.interface().address, hop_ip);
 				});
-				try { new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt }; }
+				try {
+					new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt };
+					result = packet_postponed();
+				}
 				catch (Out_of_ram)  { result = packet_drop("out of RAM while creating ARP waiter"); }
 				catch (Out_of_caps) { result = packet_drop("out of CAPs while creating ARP waiter"); }
-				result = packet_postponed();
 			}
 		);
 	};
