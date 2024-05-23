@@ -195,6 +195,7 @@ class Net::Link : public Link_list::Element
 		bool                           _opening { true };
 		Interface_link_stats          &_stats;
 		Reference<Genode::size_t>      _stats_curr;
+		bool                           _disposable { true };
 
 		void _handle_dissolve_timeout(Genode::Duration);
 
