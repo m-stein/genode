@@ -193,6 +193,8 @@ class Net::Interface : private Interface_list::Element
 		void _release_dhcp_allocation(Dhcp_allocation &allocation,
 		                              Domain          &local_domain);
 
+		void _try_free_quota();
+
 		[[nodiscard]] Packet_result _new_dhcp_allocation(Ethernet_frame &eth,
 		                                                Dhcp_packet    &dhcp,
 		                                                Dhcp_server    &dhcp_srv,
