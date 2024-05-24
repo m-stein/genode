@@ -439,48 +439,37 @@ Date:   Wed Apr 10 13:26:18 2024 +0200
 Improved timing stability
 =========================
 
-; @nfeske
+Our recent work on real-time audio processing moved the timing characteristics
+of the framework into focus. Low latency cannot be attained in the presence of
+high jitter. But in a component-based system carrying general-purpose work
+loads, jitter can be induced for many reasons including kernel scheduling,
+spontaneous high-priority events, or the interference between clients of
+shared services.
+The timer driver in particular is such a shared service. While analyzing the
+timer's behaviour under stress, we indeed observed unwelcome interference
+between timer clients. E.g., the stability of a waveform generated at a period
+of 5 milliseconds would be effected by otherwise unrelated spontaneous USB-HID
+events. Those observations motivated the following improvements.
 
-commit bc0b6be6a95546321953f83f0e22f3cc7e78e74e
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Mar 7 18:50:35 2024 +0100
+First, we simplified the timer implementation to make it dead-simple to
+understand and straight-forward to trace its behavior. The timer no longer
+relies on TSC-interpolated measurements but only on ground-truth values
+obtained from the timing device (or from the underlying kernel).
+Second, to improve accuracy at the client side, the timer no longer
+limits the time resolution when the current time is queried.
+The deliberate limiting of the time resolution is applied only to the
+triggering of timeouts in order to cap the timer's CPU load induced by its
+clients. Third, to limit the rate of inter-component communication, the timer
+batches the wake-up of clients that have timeouts closely clustered together.
+Combined, those measures reduced the cross-client interferences between
+timer clients comfortably below the level relevant for our synthetic
+test setup using audio periods of 5 ms. Note that such small periods are
+not generally usable in practice because real-world audio applications are
+subjected to additional sources of jitter.
 
-    nova: new timer implementation
-    
-    Issue #5138
-
-commit a0290f8c5164b0a46e82433fced5ffd3c7cf205a
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Mar 12 13:44:54 2024 +0100
-
-    base-hw: preserve usec accuracy in us_to_ticks
-    
-    The kernel timer used to truncated timeouts to the next lower
-    millisecond, which not only limits the wakeup accuracy but also results
-    in situations where a user-level timeout is triggered earlier than
-    expected. The latter effect results in the observation of a spurious
-    timeouts and the subsequent programming of another timeout.
-    
-    The patch solves the problem by preserving the sub-milliseconds bits
-    in the 'us_to_ticks' implementation(s).
-    
-    Issue #5142
-
-commit f3313b6603831417d46c5c5510d6195aac743500
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Mon Mar 11 17:00:02 2024 +0100
-
-    base-hw: new timer implementation
-    
-    Issue #5138
-
-commit c8e9a4c6350918a77d03c69a7516f1805e6ea12b
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed May 15 12:00:44 2024 +0200
-
-    pit: new timer implementation
-    
-    Issue #5138
+The improvements are in effect for the timers used on NOVA, the base-hw
+kernel, and the PIT-based timer as used on seL4, OKL4, and Pistachio.
+Linux, Fiasco.OC, and L4/Fiasco are not covered.
 
 
 VFS API enhancements
