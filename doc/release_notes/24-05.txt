@@ -237,9 +237,9 @@ Updated "Genode Foundations" book
 
 The "Genode Foundations" book covers Genode's architecture, developer work
 flows, and reference material. In tandem with the current release, the
-document received its annual update.
-
-; @nfeske  noteworthy changes
+document received its annual update, which includes not only adjustments
+to the most recent version but also new material about accessing GPIO pins,
+audio, debugging, and prominent APIs like the list model.
 
 : <div class="visualClear"><!-- --></div>
 
