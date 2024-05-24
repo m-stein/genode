@@ -865,6 +865,22 @@ Date:   Sat Apr 13 21:10:14 2024 +0200
     issue #5224
 
 
+Removed obsolete loader component and session interface
+=======================================================
+
+The loader was originally introduced in version
+[https://genode.org/documentation/release-notes/10.11#Qt4 10.11] as part of an
+early [https://genode.org/news/genode-live-demonstration-2010-11 - live CD].
+It later served the purpose of dynamically starting and
+stopping preconfigured subsystems. As of today, the latter use case has long
+been covered by the dynamically reconfigurable init component. The only
+substantial client of the loader remained to be the qpluginwidget in
+combination with the Arora web browser. But as the blending of plugins with
+websites never moved beyond a fancy tech demo and Arora has later been
+replaced by Falkon, the current release removes the now obsolete loader
+infrastructure.
+
+
 Libraries and applications
 ##########################
 
