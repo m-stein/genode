@@ -99,24 +99,26 @@ static void _destroy_links(Link_list   &links,
 
 
 template <typename LINK_TYPE>
-static void _destroy_some_links(Link_list     &links,
-                                Link_list     &dissolved_links,
-                                Deallocator   &dealloc,
-                                unsigned long &max)
+static void _destroy_some_links(Link_list   &links,
+                                Link_list   &dissolved_links,
+                                Deallocator &dealloc,
+                                size_t      &max_num_bytes)
 {
-	if (!max) {
+	if (!max_num_bytes) {
 		return; }
 
 	while (Link *link = dissolved_links.first()) {
 		dissolved_links.remove(link);
 		destroy(dealloc, static_cast<LINK_TYPE *>(link));
-		if (!--max) {
-			return; }
+		max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+		if (!max_num_bytes)
+			return;
 	}
 	while (Link *link = links.first()) {
 		_destroy_link<LINK_TYPE>(*link, links, dealloc);
-		if (!--max) {
-			return; }
+		max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+		if (!max_num_bytes)
+			return;
 	}
 }
 
@@ -494,12 +496,11 @@ void Interface::_detach_from_domain()
 }
 
 
-void Interface::_try_free_quota()
+void Interface::_try_free_quota(size_t alloc_size)
 {
-	unsigned long max = 10;
-	_destroy_some_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, max);
-	_destroy_some_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, max);
-	_destroy_some_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, max);
+	_destroy_some_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, alloc_size);
+	_destroy_some_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, alloc_size);
+	_destroy_some_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, alloc_size);
 }
 
 
@@ -518,7 +519,7 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 				new (_alloc)
 				Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 				           remote, _timer, _config(), protocol, _tcp_stats }; },
-			[&] { _try_free_quota(); },
+			[&] { _try_free_quota(sizeof(Tcp_link)); },
 			[&] {
 				_tcp_stats.refused_for_ram++;
 				result = packet_drop("out of quota while creating TCP link"); });
@@ -529,7 +530,7 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 				new (_alloc)
 					Udp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 					           remote, _timer, _config(), protocol, _udp_stats }; },
-			[&] { _try_free_quota(); },
+			[&] { _try_free_quota(sizeof(Udp_link)); },
 			[&] {
 				_udp_stats.refused_for_ram++;
 				result = packet_drop("out of quota while creating UDP link"); });
@@ -540,7 +541,7 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 				new (_alloc)
 					Icmp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 					            remote, _timer, _config(), protocol, _icmp_stats }; },
-			[&] { _try_free_quota(); },
+			[&] { _try_free_quota(sizeof(Icmp_link)); },
 			[&] {
 				_icmp_stats.refused_for_ram++;
 				result = packet_drop("out of quota while creating ICMP link"); });
@@ -609,7 +610,7 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
 						new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt };
 						result = packet_postponed();
 					},
-					[&] { _try_free_quota(); },
+					[&] { _try_free_quota(sizeof(Arp_waiter)); },
 					[&] { result = packet_drop("out of quota while creating ARP waiter"); });
 			}
 		);
@@ -793,7 +794,7 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 
 					result = packet_handled();
 				},
-				[&] { _try_free_quota(); },
+				[&] { _try_free_quota(sizeof(Dhcp_allocation)); },
 				[&] { result = packet_drop("out of quota while creating DHCP allocation"); });
 		},
 		[&] (auto) { result = packet_drop("failed to allocate IP for DHCP client"); });
