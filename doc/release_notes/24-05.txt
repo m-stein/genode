@@ -712,115 +712,31 @@ Date:   Sat May 4 23:27:29 2024 +0200
 Suspend/resume infrastructure
 =============================
 
-; @alex-ab
+As planned according to our [https://genode.org/about/road-map - road map],
+we integrated the current state of x86 suspend/resume feature to
+Sculpt OS. The sculpt manager got enhanced to drive the system state
+and manage the lifecycle of driver components during suspend-resume cycles.
+The UI power options can be found in the System menu. The suspend
+and power-off controls are presented only when the acpi-support
+option is activated.
 
-commit 94b3e30f900ac05dd24fbbf18591205b2db5f76c
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Apr 12 15:52:16 2024 +0200
+Drivers which are non-stateful, will be removed from the runtime before
+suspend and restarted during resume, e.g. network drivers. Stateful drivers,
+like nvme, ahci and GPU drivers participate cooperatively in the system states
+by stopping their processing and signal their fulfillment. Currently, the
+USB host driver needs to be restarted forcefully on resume. To avoid loosing
+of data, the power suspend feature will not be offered if a USB block device
+is in use.
 
-    acpica: report last completed action
-    
-    triggered by the "system" ROM change. With this information the consumers
-    of the sleep_states report can determine, when the operation is finished.
-    
-    Issue #5180
-
-commit 4c79f948ab831d9d3db4b56732c1c0abb09274b5
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Apr 12 15:11:29 2024 +0200
-
-    platform/pc: support to suspend via system_control
-    
-    When the "system" ROM state turns to "suspend",
-    the S3 state information of the sleep_states ROM are determined and
-    are used to invoke the privileged Pd::system_control call.
-    
-    Issue #5180
-
-commit 7441aba6d5b2d375d5f4b9729852e90713f096c2
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Wed Apr 17 14:06:56 2024 +0200
-
-    platform: add suspend/resume interface to Io_mmu
-    
-    genodelabs/genode#5180
-
-commit 29e21bff7f056406f0c21507cb67fb55830e9353
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Wed Apr 17 14:19:24 2024 +0200
-
-    platform/pc: implement IOMMU suspend/resume
-    
-    genodelabs/genode#5180
-
-commit f34bf0d19e2116e592ebae86a25fe3395b43c467
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Tue Apr 16 17:25:01 2024 +0200
-
-    sculpt: power options (suspend, reset, power off)
-    
-    This patch enhances the sculpt manager to drive the system state
-    and manage the lifecycle of driver components during suspend-
-    resume cycles.
-    
-    The new Power options can be found in the System menu. The suspend
-    and power-off controls are presented only when the acpi-support
-    option is activated.
-    
-    Note that the USB controller is hard restarted when resuming from
-    suspend. Hence, all components that depend on USB are restarted
-    implicitely.
-    
-    Issue #5180
-    Issue #5174
-
-commit 2a4502b0deb055e69879f6d5d16d9d24f6a20d78
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Apr 19 15:30:43 2024 +0200
-
-    intel/display: support system state evaluation
-    
-    When the system state "blanking" is determined, all connectors are switched
-    off and a parent exit is invoked.
-    
-    Issue #5180
-
-commit 9337c178c13eee9865f9e954418f49a809b77183
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Apr 19 15:32:15 2024 +0200
-
-    intel/gpu: support blanking system ROM state
-    
-    Keep device resources alive, for "" and "blanking" state, so that
-    intel/display driver can try to switch off the connectors.
-    
-    Issue #5180
-
-commit 274a733e1a0395948ec73eb82e279add8b6637dc
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Mon Apr 22 16:39:01 2024 +0200
-
-    sculpt: support blanking system state
-    
-    The blanking state is evaluated by the intel_fb driver, which will switch
-    off all connectors. When done, the intel_fb driver will exit and the
-    sculpt_manager will continue with the next step, stopping all drivers.
-    
-    Issue #5180
-
-commit bfddf08f756ed1531162d1160f0e32038bc88268
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Apr 30 08:47:01 2024 +0200
-
-    ahci: make robuster during resume
-    
-    During resume the waiting for Cmd::St takes ~2s on a T460p with Intel
-    AHCI SSD attached. According to the Serial ATA AHCI Spec. wakeup can take
-    seconds, e.g. chapter 8.2 Power State Mappings of the Serial ATA AHCI spec
-    (1.3.1).
-    
-    Issue #5203
-
+Additionally, during the integration into Sculpt, several drivers got
+enhanced. The acpica application now reflects the completion of the
+last action, which the sculpt manager monitors and integrates into the system
+state machine. The pc platform driver saves and restores the IOMMU
+configurations before and after suspend. Additionally, the platform driver
+gained the ability to trigger the final suspend RPC to Genode's roottask core.
+Furthermore, the intel/display driver now participates in the system state
+changes by switching off all connectors before suspend in order to reduce
+the graphical jitter on displays.
 
 Mesa updated to version 24.0.1
 ==============================
@@ -964,109 +880,42 @@ old one in order to make the transition as smooth as possible.
 VirtualBox network-throughput improvements
 ==========================================
 
-; @alex-ab
-
-commit e1e87657c7df0176b0d32aa0ad0604363da13ae6
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jan 31 15:33:51 2024 +0100
-
-    vbox: batch network packets
-    
-    Fixes #5146
-
-commit 23078154cd8baf36824869bd177749192be5dc88
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Jan 31 17:31:23 2024 +0100
-
-    vbox: avoid blocking nic_ep thread
-    
-    during receive the nic_ep may block as long as the guest does not provide
-    another receive network descriptor. In the meantime, all Genode signals
-    regarding the network interface, e.g. tx, will be postponed, which may
-    effect the throughput.
-    
-    Instead use the nic_ep for rx packets unblocking. Add an notification mechanism
-    to the e1000 vbox network model, to notify us as soon as the guest added new
-    receive descriptors in the model.
-    
-    Issue #5146
-
-commit d0d9cb6a73dcb149f2c1f2360456c14c5eeb33ba
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Wed Feb 7 09:20:47 2024 +0100
-
-    uplink: support batching in client base header
-    
-    Add support for Uplink drivers to batch requests.
-    
-    Fixes #5149
-
+The network interfaces uplink_session and nic_session provide means
+to batch several network packets before informing the other side to process
+the packets. The feature is substantial to achieve good network throughput and
+also to keep the CPU overhead per packet at a moderate level. Up to now our
+ports of Virtualbox did not leverage this feature, which became noticeable on
+systems which are under high CPU load. By adding the batching of network
+packets to our Virtualbox ports, we were able to reduce the CPU load and
+achieve stable throughput measurements, which otherwise fluctuate more
+depending on other factors like scheduling.
 
 Seoul virtual machine monitor
 =============================
 
-; @alex-ab
+Since the last Genode release, the VMM received several improvements.
 
-commit 90b67ce6651e6432023cfffc3fa4c02e6fe3192d
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sat Feb 24 12:43:06 2024 +0100
+Notably, the former global lock in form of the synchronized Motherboard got
+replaced by fine-grained locking within each device model where appropriate.
+Thanks to the better CPU utilization, long running work, e.g. compilation, now
+finishes earlier.
 
-    seoul: support nvme usage in run scripts
-    
-    and use nvme as default, ahci may be selected explicitly if still required
-    (see vm stress run script hardware)
+The network binding got reworked, which now reflects network
+link state changes from the Genode interface into the guest VMs.
 
-commit 5e778be3d63c412876862837aafe2201e13f3de2
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sat Mar 9 21:40:21 2024 +0100
+The former Genode audio_out binding got replaced with new Genode audio play
+interface.
 
-    seoul: support network link state change
+The by now unused ACPI model of the Seoul sources, got enabled and adjusted
+to support so called fixed ACPI events, e.g. power button press event. On
+GUI window close, the event is now triggered and forwarded to the guest VM.
+Depending on the configuration of the guest, the VM may power down
+automatically, similar as used with our Virtualbox ports.
 
-commit 74f03f8b51e0cd8782daa2422ccf8dac300a1e66
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sun Mar 10 14:25:06 2024 +0100
-
-    seoul: distinguish network packet direction
-    
-    explicitly instead of checking for packets pointer to avoid endless loops
-
-commit 9ba619ddf56f893b920389121af8b514e8982104
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Tue Mar 12 11:45:04 2024 +0100
-
-    seoul: enable i/o port string handling
-    
-    to avoid hang/reset of VM. Linux device driver rtl8029 may use ins/outs,
-    which causes w/o this commit trouble(hang).
-
-commit b710ee1ad2656ed8a3c8d86bb3868c8f365aac87
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri Mar 15 16:36:30 2024 +0100
-
-    seoul: improve cpu utilization
-    
-    by replacing the global mutex (sync motherboard) with fine grained
-    locking in the models and in the Seoul app for Genode.
-    
-    The commit improves the parallel build on all vCPUs appreciable.
-    
-    Before this commit, the vCPU utilization did not exceed ~70%. With this
-    change the vCPU utilization is above 98%. The test case, of building vbox
-    for Genode inside the VM with 4 vCPUs, succeed 40s earlier on a T460p notebook
-    running Sculpt 23.10.
-
-commit 216a19ab60b220c6bf10ad68145b44647c2df6da
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu Mar 28 23:16:05 2024 +0100
-
-    seoul: enable acpi model
-
-commit fe7a7f9aa1c42d5be4d66831aac8a94e6337b0f5
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Sun Feb 25 20:26:44 2024 +0100
-
-    seoul: switch to new audio play session
-
+Finally, a USB XHCI model powered by our qemu-usb library got added to
+Seoul, which got developed during the last Hack'n'Hike. With this new model,
+USB devices can be passed through to the guest. It has been successfully
+used by now with several USB storage, keyboard and audio devices.
 
 SDL2 improvements
 =================
@@ -1231,33 +1080,15 @@ Date:   Wed Apr 24 17:29:09 2024 +0200
 NOVA microhypervisor
 ====================
 
-; @alex-ab
+Some of the commandline options changed. The 'iommu' option is now split up
+into 'iommu_amd' and 'iommu_intel', so that they may be enabled/disabled
+separately. The 'novga' option turned into 'vga', since it is unused nowadays.
+The tagged TLB feature for virtual machines is now enabled by default.
 
-commit ebe2780ceaaf30b98f65fa12f4a1e10cd5923bfd
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Thu May 2 11:26:25 2024 +0200
-
-    nova: adjust to cmdline changes of kernel
-    
-    - no need to explicitly switch off vga anymore
-    - use vPID for VMs which improves TLB usage if multiple vCPUs on same
-      pCPU is used, which happens to happen on Sculpt.
-    - support for mwait by nova kernel, which is off by default
-    
-    Issue #5206
-
-commit ce2e27a26d47c9070be22ea68f337a571eabe94f
-Author: Alexander Boettcher <alexander.boettcher@genode-labs.com>
-Date:   Fri May 3 11:13:09 2024 +0200
-
-    nova: support iommu enabling per intel/amd
-    
-    separately.  The "iommu" option is now split up into "iommu_intel" and
-    "iommu_amd" and thereby can be disabled easily if required for one of the CPU
-    vendors.
-    
-    Fixes #5206
-
+The kernel now supports the 'mwait' instruction beside the 'hlt' instruction,
+which can be used to give hints to the CPU to enter deeper sleep states.
+The feature is off by default and can be utilized via the Pd::system_control
+interface.
 
 Build system and tools
 ######################
