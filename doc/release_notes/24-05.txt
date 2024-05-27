@@ -247,193 +247,40 @@ audio, debugging, and prominent APIs like the list model.
 Transition to the new audio interfaces introduced in 24.02
 ==========================================================
 
-; @cnuke
+In Genode's February release we introduced new audio sessions intended to
+supersede the old ones, namely Audio_in and Audio_out. In the time
+following up to the current release we worked on integrating the new sessions
+into the existing components. In fact they are already exercised in the most
+recent Sculpt release.
 
-commit c9d70552a422db3fdd1d2e36139501a050411d03
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Mar 28 11:51:18 2024 +0100
+As most prominently used by ported software the VFS OSS plugin plays a vital
+role in interfacing with Genode's native audio stack. The already existing
+VFS plugin got renamed to 'legacy_oss' while the new one takes its place and
+is usable as a drop-in replacement. Existing users have to adapt the session
+routes accordingly or change their VFS configuration to make use of the
+'legacy_oss' plugin if using the new sessions is not yet desirable.
 
-    Rename vfs_oss to vfs_legacy_oss
-    
-    Rename the old VFS OSS plugin using Audio_out and Audio_in sessions
-    and adapt users accordingly.
-    
-    Issue genodelabs/genode#5167.
+In contrast to the old plugin it is possible to configure the fragment size a
+client is allowed to use via its configuration. It ranges from 2048 to 8192
+bytes, which equals a period length of around 11.6 to 46.4 ms when using a
+sample rate of 44.1 kHz, to enforce latency requirements for specific clients.
+The plugin also makes use of the ability of the 'report_play_mixer' to support
+different sample rates. However, to constrain the resource requirements of the
+plugin, it is limited to 8 kHz to 48 kHz, which covers a reasonable range.
+Please consult the _repos/gems/src/lib/vfs/oss/README_ file for more
+information.
 
-commit e61b804252f2469c1bede776139e5808ed258446
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Mar 11 17:42:16 2024 +0100
+The 'black_hole' component gained additional support for providing the play
+and record sessions so that it is able to perform its role when using
+the new sessions.
 
-    libports: add test/oss recipes
-    
-    Add recipes that allow for using the OSS-based test component
-    on Sculpt.
-    
-    Issue genodelabs/genode#5167.
+We also removed the custom audio subsystem from our SDL1.2 port in favor of
+using its own OSS back end, which brings it in line with our SDL2 port.
 
-commit 5f8856226313ed3fc369cb017418fe83fea6a359
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Feb 27 08:49:35 2024 +0100
-
-    gems: VFS OSS plugin for Record/Play session
-    
-    The new VFS OSS plugin utilizes the Record and Play session. For the
-    time being it is a drop-in replacement for the old plugin and shares
-    its limitations.
-    
-    In contrast to the old plugin it is possible to force a client to
-    use a configured fragment size. Some clients work best with larger
-    fragments, e.g. VBox, where raising the minimal fragment size is
-    beneficial.
-    
-    Please look at the README file for more information.
-    
-    Issue genodelabs/genode#5167.
-
-commit bda86b8f15d7e29a615b84730abd90114e84571f
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Mar 28 13:55:10 2024 +0100
-
-    vbox6: switch pkgs to new VFS OSS plugin
-    
-    Issue genodelabs/genode#5167.
-
-commit b2a68211a458eb7c2fc33af57bcb46a2910dbe47
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Apr 2 14:28:28 2024 +0200
-
-    black_hole: add Play and Record session
-    
-    This commit introduces support for the Play and Record session to
-    the black hole component in the most minimal way possible.
-    
-    Fixes #5157.
-
-commit e27fad7c9a41956e2c6264f28f99a665b94fd734
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Apr 11 15:39:10 2024 +0200
-
-    sculpt_distribution: replace mixer pkg
-    
-    The pkg is superseded by the 'record_play_mixer'.
-    
-    Issue #5167.
-
-commit 798087c5ad45728f63697369833e4ec7e729e881
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Apr 11 13:58:18 2024 +0200
-
-    dde_bsd: use 'mic_' prefix for Play sessions
-    
-    This commit prefixes the Play sessions of the audio driver so that
-    these can be matched differently in the 'record_play_mixer' config.
-    
-    The same could be archived with re-labling but naming the sessions
-    differently at the source prevents accidental mis-configuration.
-    
-    Issue #5167.
-
-commit 4a9e6a001fe0205e5cf0f3d953e12aacf83accc7
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Apr 10 15:02:47 2024 +0200
-
-    sculpt: add audio and mixer launcher
-    
-    The audio launcher configures the 'bsd_audio_drv' component for normal
-    use where the micrphone selection should work on most Thinkpads.
-    
-    The mixer launcher configures the 'record_play_mixer' component for
-    use with the 'audio' launcher and provides also examplary rules for
-    vbox6 launchers.
-
-commit 33735d0af830afa37a2e01c81c87972fcc0d42a0
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Apr 4 13:32:26 2024 +0200
-
-    Add plugin version to VFS OSS plugins
-    
-    To differentiate between the legacy and the current VFS OSS plugin both
-    plugins will feature a 'plugin_version' field in its info file. This
-    is used for enabling features provide by the current version that are
-    not supported in the legacy one.
-    
-    Issue #5167.
-
-commit d0aa8362dbb57c707d584338a030565e53d5823c
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Apr 4 13:21:14 2024 +0200
-
-    vfs/oss: support different sample rates
-    
-    This commit introduces support for different samples rates. For now
-    the range is capped to 8kHz up to 48kHz.
-    
-    Issue #5167.
-
-commit 49548fea0714241f9ffeab8fb66316e1c14cad81
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Apr 4 13:25:07 2024 +0200
-
-    libc: allow sample rate change via SNDCTL
-    
-    Allow the current VFS OSS plugin to requested different sample rates.
-    
-    Issue #5167.
-
-commit e341ddb3e15fd395438c132754d46c22ef5f33b2
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Mar 28 12:58:57 2024 +0100
-
-    Adapt to 'Rename vfs_oss to vfs_legacy_oss'
-    
-    Issue genodelabs/genode#5167.
-
-commit 15cb01fdee77f8f5bd9ae4b8584efd26abeb81d0
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Mar 4 15:10:56 2024 +0100
-
-    cmus: switch to new VFS OSS plugin
-    
-    Since support for different formats and samples rates is
-    on the horizon, bring in more input plugins.
-    
-    As the plugins in need (flac, vorbis, …) do not have
-    HAVE_CONFIG set for now let's export xstrndup from the
-    binary.
-
-commit 33f168a9d5ad5f5d10b7f860df823d1c2dae30f6
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Mar 12 09:14:10 2024 +0100
-
-    sdl2_playmus: add recipes
-
-commit e13b87649a510cc45b6bb20a0bc65e2e8c5f00e6
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Thu Mar 28 13:16:54 2024 +0100
-
-    falkon: use new VFS OSS plugin
-
-commit ca099a15f1cd38ce7e1c8504f8219f1d845f2ab0
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Apr 10 13:34:25 2024 +0200
-
-    morph_browser: use new VFS OSS plugin
-    
-    Issue #362.
-
-commit a6caa4c430016782c48a0670f00952aaf0a9d40f
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Wed Apr 10 13:26:18 2024 +0200
-
-    SDL: use OSS audio backend
-    
-    Instead of using Genode's Audio_out specific backend follow our SDL2
-    port in using an already existing backend, e.g., OSS.
-    
-    So far only the chocolate-doom SDL1 port was tested but the other
-    pkg were adapted as well.
-    
-    Issue #362.
+As there are no critical components left that exclusively use the old
+sessions directly the way is paved to remove them. For this release, however,
+we still keep the Audio_in and Audio_out sessions around to give users time
+to migrate their components but are going to remove them in a future release.
 
 
 Improved timing stability
@@ -925,129 +772,62 @@ tested with several USB storage, keyboard, and audio devices.
 SDL2 improvements
 =================
 
-; @cnuke
+We enhanced our SDL2 port by enabling more subsystems, improving its window
+handling and adding support for its text-input API.
 
-commit 9866c7bd5297c54748826332e2bbd777ccb957de
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Fri Oct 1 11:12:34 2021 +0200
+This release adds preliminary support for resizing a window that works well
+for some of the currently available ports but still has issue with others
+(especially those using an OpenGL context) as it depends to some degree
+on the component itself using the SDL2 library.
 
-    sdl2: enable base iconv, timer, joystick support
+As an additional feature the commit adds support for setting the
+initial window geometry via the '<initial>' node, e.g.:
 
-commit 7e2a431195388aa49de7df2988b12c7574b930d3
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Tue Sep 19 17:53:11 2023 +0200
+! <initial width="800" height="600"/>
 
-    SDL2: fix haptic dummy compilation
-    
-    Make sure the symbols are part of the library.
+This allows for restricting the initial window size because otherwise the
+actual screen size will be used and that might be too large depending on the
+attached display.
 
-commit fd5ee55d202c837487900b489baddbb66f330063
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Mar 1 10:59:47 2024 +0100
-
-    sdl2_mixer: add playmus example
-
-commit 0cd60806f4a0a0934c37cdc1d3f28cbe2757c605
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Mar 1 14:12:20 2024 +0100
-
-    sdl2_mixer: remove opus related libs
-    
-    OPUS support is not enabled.
-
-commit 56b6586ef4565937f47804f05cf86169a65b6294
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Mar 1 14:12:42 2024 +0100
-
-    sdl2_mixer: use DRMP3 for MP3 support
-
-commit 745d4ae78be5ee2eb4cdf9a375e21b9a59abdd00
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Thu Sep 29 19:56:27 2022 +0000
-
-    SDL2: preliminary window resizing support
-    
-    This commit introduces preliminary support for resizing a window.
-    How and if it works depends to some degree on the program using
-    the SDL2 library itself. It works well for the currently tested
-    ports like chocolate-doom and yquake2 (software renderer).
-    On the other hand program using an OpenGL context via SDL2 still
-    have issues resizing the window (EGL errors).
-    
-    As an additional feature the commit adds support for setting the
-    initial window geometry via the '<initial>' node, e.g.:
-    
-    ! <initial width="800" height="600"/>
-    
-    This prevents overly large windows because the actual screen size
-    is propagated by nitpicker.
-    
-    Fixes #368.
-
-commit 1757cda346bdefe34e666dae7b84da8b220efac4
-Author: Josef Söntgen <jws@sysret.de>
-Date:   Thu Sep 29 21:10:29 2022 +0000
-
-    SDL2: preliminary handling SDL_TEXTINPUT
-    
-    This commit introduces preliminary support for using the SDL2's
-    textinput API.
-    
-    So far it only has been tested with dhewm3's console where it
-    performs adequately.
-    
-    Issue #368.
-
-commit 3efc50075d7133d7d397af3e30e1a2993ccaf051
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Thu May 16 10:15:39 2024 +0200
-
-    fixup! SDL2: preliminary handling SDL_TEXTINPUT
-    
-    Make SDL2's textinput API more robust. We always send keyboard events if
-    textinput has not been enabled by the application. Moreover, we only
-    send key presses as text if the codepoint is valid and if it's not a known
-    non-printable. Keyboard events are omitted if key presses are sent as
-    text.
-    
-    This has been tested with sdl_vnc.
-    
-    genodelabs/genode-world#368
+Support for using the SDL2's text-input API was enabled and to make it robust
+we only send key presses as text if the codepoint is valid and if it's not a
+known non-printable. Keyboard events are omitted if key presses are sent as
+text but in return we always send keyboard events if text-input has not been
+enabled by the application.
 
 
 Curl updated to version 8.7.1
 =============================
 
-; @cnuke
+We updated our cURL port to version 8.7.1.
 
-commit 344831ec06668089f85b9d495ef3d4e8644b737a
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Apr 15 15:43:30 2024 +0200
+In setups where no service is employed to provide entropy it might be necessary
+to increase the amount of statically configured entropy. Doubling the content of
+the '<inline>' VFS plugin as used in static configurations seems satisfactory.
+Furthermore DNS resolving needs a configured '<pipe>' plugin to work properly.
 
-    curl: update to version 8.7.1
-    
-    This commits updates the contrib sources to version 8.7.1.
-    
-    This version requires more random entropy as it queries OpenSSL
-    about the current random state and will bail if it is not sufficient.
-    Doubling the content of the '<inline>' VFS plugin as used in static
-    configurations seems satisfactory.
-    
-    Furthermore DNS resolving needs a configured '<pipe>' plugin to work
-    properly.
-    
-    Fixes #5184.
+The follow snippet shows a properly configured component using cURL:
 
-commit 2be57e41569de4ef6a4a489ea8d2f23dc56cb446
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Mon Apr 15 15:45:40 2024 +0200
+!<start name="fetchurl" caps="500">
+!  <resource name="RAM" quantum="32M"/>
+!  <config>
+!    <report progress="yes"/>
+!    <vfs>
+!      <dir name="dev">
+!        <log/> <null/> <inline name="rtc">2024-05-01 00:00</inline>
+!        <inline name="random">x4D81S47JqeXOOoEv7QB0ARBfn2e2IrznKM1GXZu</inline>
+!      </dir>
+!      <dir name="pipe"> <pipe/> </dir>
+!      <dir name="socket"> <lxip dhcp="yes"/> </dir>
+!    </vfs>
+!    <libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc"
+!          rng="/dev/random" socket="/socket" pipe="/pipe"/>
+!    <fetch url="https://genode.org/about/LICENSE" path="/dev/log" retry="3"/>
+!  </config>
+!</start>
 
-    fetchurl: add 'verbose' config option
-    
-    This commit introduces a config option to enable verbose operations.
-    This can be used to ease debugging.
-    
-    Issue #5184.
+The 'fetchurl' component also gained a 'verbose' config option to enable verbose
+operations as a convenience feature to ease debugging.
 
 
 Platforms
