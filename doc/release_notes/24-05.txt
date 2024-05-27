@@ -888,41 +888,39 @@ Consolidation of the Tresor block encryptor and file vault
 ==========================================================
 
 Genode 23.05 marked a big update of the core logic for block-data security and
-management behind the File Vault. It replaced the former Ada/SPARK-based
+management behind the file vault. It replaced the former Ada/SPARK-based
 implementation, that was called CBE, with a C++-based, modernized library that
-we named Tresor. As a side effect of this endeavor we improved testing and
+we named Tresor. As a side effect of this endeavor, we improved testing and
 fixed many issues of the former approach. However, the Tresor library also
-inherited some bad traits from its predecessor. The CBE approach was shaped in
+inherited some unwelcome traits from its predecessor. The CBE approach was shaped in
 many ways by the semantic restrictions imposed by SPARK and the Tresor library
 had retained some of these at the expense of redundancy. In addition, we had
-adopted the peculiar approach to execution flow that caused a complex,
-error-prone state model and bloated the code base even further.
+adopted a rather peculiar approach to execution flow that led to unforeseen
+implementation complexity down the road.
 
 In order to improve this situation, the Genode 24.05 release comes with a
-comprehensive re-design of the Tresor library, releasing it of all unwanted CBE
-legacy, significantly shrinking the code base, and making it much easier to
+comprehensive re-design of the Tresor library, relieving it from unwanted CBE
+legacies, significantly shrinking the code base, and making it much easier to
 understand.
 
 Once warmed up with the topic, we stepped one level up in the block-encryption
 stack and continued reworking the Tresor VFS plugin because it also suffered
 from over-complexity and redundancy. After finishing that, we noticed that the
-next higher layer, the File Vault app, could also be improved and in two ways:
+next higher layer - the file vault app - could also be improved and in two ways:
+First, the file vault used to combine two unrelated tasks in one app: The logic
+for modeling typical user work-flows on the Tresor VFS and the operation of
+a graphical user interface. We found that these are better assigned to
+separate apps that work together via a narrow and well-defined interface.
+Second, the file vault used to operate directly on the low-level interface of the menu
+view component in order to drive its GUI instead of using the newer and
+far easier dialog API for this purpose.
 
-1. The File Vault actually combined two unrelated tasks in one app: The logic
-   for modeling typical user work-flows on the Tresor VFS and the operation of
-   a graphical user interface. We found that these are better assigned
-   separate apps that work together via a narrow and well-defined interface.
-
-2. The File Vault still operated on the low-level interface towards the menu
-   view component in order to drive it's GUI instead of using the newer and
-   far easier Dialog API for this purpose.
-
-For the app that deals with the logic, we stayed with the name file_vault
-whereas the new front-end for this app is named file_vault_gui.
+For the app that deals with the logic, we stayed with the name "file vault"
+whereas the new front-end for this app is named "file vault gui".
 
 Putting all these changes together, the whole ecosystem around the Tresor block
-encryption and the File Vault becomes far more manageable and it's code base is
-cut in half while providing the same feature set as before:
+encryption and the file vault becomes far more manageable and its code base
+has been cut in half while providing the same feature set as before:
 
    component                    | 23.05 | 24.05 | difference
   -----------------------------------------------------------
@@ -940,25 +938,25 @@ cut in half while providing the same feature set as before:
 But the update is not only about cleaning up. We also consolidated the stack
 by, for instance, fixing and re-enabling asynchronous rekeying, implementing
 robust handling of corner-case configurations, patching several performance
-holes, and further improving the test suite (like with the new tests
-file_vault_client and tresor_utils or the now fully automated vfs_tresor test).
+limitations, and further improving the test suite, like with the new tests
+file_vault_client and tresor_utils or the now fully automated vfs_tresor test.
 
-Last but not least, the File Vault also received two handy enhancements
-regarding usability. First, the new File Vault GUI is fully controllable via
+Last but not least, the file vault also received two handy enhancements
+regarding usability. First, the new file-vault GUI is fully controllable via
 keyboard. The hotkeys are documented in
-repos/gems/src/app/file_vault_gui/README.
+_repos/gems/src/app/file_vault_gui/README_.
 
 Second, as an implication of separating GUI from logic, the text-based
 interface of the file_vault became the only way to steer that component.
 Therefore, that interface had to be extended to the full feature set. A nice
-side effect of that is that integrating the File Vault with different
-front-ends has become possible. For instance, the File Vault could now become
-an integral part of the Mobile Sculpt OS by letting the appliance-side manager
+side effect of that is that integrating the file-vault with different
+front-ends has become possible. For instance, the file vault could now become
+an integral part of the mobile Sculpt OS by letting the appliance-side manager
 write its configuration and parse its reports. The new interface is mostly
 backwards compatible (only the non-functional version attribute disappeared)
-and documented in repos/gems/src/app/file_vault/README.
+and documented in _repos/gems/src/app/file_vault/README_.
 
-Despite the extensive overhaul, File Vault version 24.05 remains compatible
+Despite the extensive overhaul, file vault version 24.05 remains compatible
 with old containers created via the 23.05 version and we also tried to keep the
 structure and appearance of the new graphical front end close to that of the
 old one in order to make the transition as smooth as possible.
