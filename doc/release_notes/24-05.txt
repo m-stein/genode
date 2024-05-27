@@ -887,655 +887,81 @@ Libraries and applications
 Consolidation of the Tresor block encryptor and file vault
 ==========================================================
 
-; @m-stein
+Genode 23.05 marked a big update of the core logic for block-data security and
+management behind the File Vault. It replaced the former Ada/SPARK-based
+implementation, that was called CBE, with a C++-based, modernized library that
+we named Tresor. As a side effect of this endeavor we improved testing and
+fixed many issues of the former approach. However, the Tresor library also
+inherited some bad traits from its predecessor. The CBE approach was shaped in
+many ways by the semantic restrictions imposed by SPARK and the Tresor library
+had retained some of these at the expense of redundancy. In addition, we had
+adopted the peculiar approach to execution flow that caused a complex,
+error-prone state model and bloated the code base even further.
 
-commit b49f0520516adbcd6c643f13a37c632aeeb7b3d5
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Jul 27 14:43:47 2023 +0200
+In order to improve this situation, the Genode 24.05 release comes with a
+comprehensive re-design of the Tresor library, releasing it of all unwanted CBE
+legacy, significantly shrinking the code base, and making it much easier to
+understand.
 
-    tresor: improve verbosity modes
-    
-    * make array classes printable
-    * pba filter for block io verbosity
-    * streamline read/write/rekey verbosity
-    
-    Ref #4971
+Once warmed up with the topic, we stepped one level up in the block-encryption
+stack and continued reworking the Tresor VFS plugin because it also suffered
+from over-complexity and redundancy. After finishing that, we noticed that the
+next higher layer, the File Vault app, could also be improved and in two ways:
 
-commit 9605a60eac00ec296d91af4cfe3c56baddb74336
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Jul 27 14:56:25 2023 +0200
+1. The File Vault actually combined two unrelated tasks in one app: The logic
+   for modeling typical user work-flows on the Tresor VFS and the operation of
+   a graphical user interface. We found that these are better assigned
+   separate apps that work together via a narrow and well-defined interface.
 
-    tresor: no local copy of snapshots in vbd module
-    
-    The Virtual Block Device module used to create a local copy of the Snapshots
-    array respectively Snapshot root it received with an incoming request. After
-    finishing the VBD operation on the copy, the source module of the request
-    used to back-copy the resulting Snapshot array resp. Snapshot root. This is
-    not only less efficient than referencing but also allowed a bug to sneak into
-    the new C++ implementation.
-    
-    In contrast to the old Ada/SPARK implementation (CBE), the new design doesn't
-    allow for global objects that can be accessed by any module without receiving a
-    reference in a module request. Therefore, the Free Tree module has to receive a
-    reference to a Snapshots array with each request in order to be able to use it.
-    In our case, these requests are allocations for a "Write" operation from the
-    VBD. However, the VBD itself receives only the one Snapshot required for
-    writing and therefore causes the Free Tree to make bad decisions on whether or
-    not a block can be re-allocated or not.
-    
-    With this commit, the VBD always receive a reference to the whole Snapshots
-    array and also propagates it this way to the Free Tree.
-    
-    Ref #4971
+2. The File Vault still operated on the low-level interface towards the menu
+   view component in order to drive it's GUI instead of using the newer and
+   far easier Dialog API for this purpose.
 
-commit 3eb5302ab0acf302bd32faa87af0d2d569b3146e
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Jul 27 15:09:34 2023 +0200
+For the app that deals with the logic, we stayed with the name file_vault
+whereas the new front-end for this app is named file_vault_gui.
 
-    tresor: no local impl. of snap garbage collection
-    
-    Move the implementation of the snapshots garbage collection to the Snapshots
-    class and remove module-local duplicates.
-    
-    Ref #4971
+Putting all these changes together, the whole ecosystem around the Tresor block
+encryption and the File Vault becomes far more manageable and it's code base is
+cut in half while providing the same feature set as before:
 
-commit b44ffc9361d4e3b7ff83bda2fdebd512386115af
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Jul 27 15:14:01 2023 +0200
+   component                    | 23.05 | 24.05 | difference
+  -----------------------------------------------------------
+   lib/tresor                   | 14374 |  5212 | -63%
+   lib/vfs/tresor               |  2728 |  1823 | -33%
+   lib/vfs/tresor_crypto        |  1162 |  1213 |
+   lib/vfs/tresor_trust_anchor  |  1800 |  1992 |
+   app/tresor_init              |   159 |    93 |
+   app/tresor_init_trust_anchor |   166 |   163 |
+   app/file_vault               |  5429 |  1256 | -76%
+   app/file_vault_gui           |     - |   617 |
+  -----------------------------------------------------------
+   total                        | 25818 | 12369 | -52%
 
-    tresor: snap garbage collection on each request
-    
-    The Superblock Control module now issues a snapshot garbage collection on each
-    incoming request. In return for that, the commit removes all calls to the
-    garbage collection from other modules.
-    
-    Ref #4971
+But the update is not only about cleaning up. We also consolidated the stack
+by, for instance, fixing and re-enabling asynchronous rekeying, implementing
+robust handling of corner-case configurations, patching several performance
+holes, and further improving the test suite (like with the new tests
+file_vault_client and tresor_utils or the now fully automated vfs_tresor test).
 
-commit f8332ce587230b157ea62ef93e3fb73514ed15fd
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Jul 31 16:10:27 2023 +0200
+Last but not least, the File Vault also received two handy enhancements
+regarding usability. First, the new File Vault GUI is fully controllable via
+keyboard. The hotkeys are documented in
+repos/gems/src/app/file_vault_gui/README.
 
-    tresor: fix <initialize> config constraints
-    
-    Until now, it was possible to use bad Free-Tree/VBD configurations with the
-    <initialize/> command. The tresor tester didn't complaining about it but the
-    tresor lib crashed or, worse, corrupted the tresor container. Now, the tresor
-    tester checks things, like for instance, that "nr_of_children" must be a power
-    of 2.
-    
-    Ref #4971
+Second, as an implication of separating GUI from logic, the text-based
+interface of the file_vault became the only way to steer that component.
+Therefore, that interface had to be extended to the full feature set. A nice
+side effect of that is that integrating the File Vault with different
+front-ends has become possible. For instance, the File Vault could now become
+an integral part of the Mobile Sculpt OS by letting the appliance-side manager
+write its configuration and parse its reports. The new interface is mostly
+backwards compatible (only the non-functional version attribute disappeared)
+and documented in repos/gems/src/app/file_vault/README.
 
-commit 417fb4e10817e0448b9ea119302ca2f2d3e9cd17
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Aug 1 13:55:43 2023 +0200
-
-    tresor: fix bad hash update during rekeying in vbd
-    
-    The re-keying state machine in the VBD module would use block data of the wrong
-    block for the hash update of an inner node in a certain circumstance.
-    
-    On re-keying, the VBD iterates for a given VBA over all snapshots, beginning
-    with the newest and re-keys the VBA in each of the snapshots. At each snapshot
-    it therefore loads the branch of the VBA top-down, and then updates the branch
-    bottom-up. However, if loading a certain level of the branch of a certain
-    snapshot runs into the same physical block as with the last snapshot on this
-    level, the algorithm turns around and updates the branch from this point
-    upwards instead of going further down the whole way to the leaf. This is
-    because everything below this point has already been re-keyed in the course of
-    a newer snapshot.
-    
-    The case where this turning around is not right above the leaf (i.e., the first
-    shared physical block is a metadata block) that's were the bug was located. In
-    this situation, we have to re-encode the highest shared metadata block into a
-    buffer again before starting to update. The update code acts as if the
-    mentioned block was just written back (which is true when going down all the
-    way to the leaf before updating) and consequently is present in the encoded
-    buffer.
-    
-    Ref #4971
-
-commit 801a779a8843100c125f35f013485f47fab679b4
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Jul 17 21:33:52 2023 +0200
-
-    tresor: support and test snapshot management
-    
-    * Implement requests "create snapshot" and "discard snapshot" in tresor lib.
-    * Adapt tresor tester in order to test the new feature.
-      * Remove temporary code from tresor tester that skipped such requests with
-        the hint that they were not supported yet.
-      * Add mandatory "id" attribute to <request op="create_snapshot"/> and
-        <request op="discard_snapshot"/> tag. A "discard snapshot" command always
-        refers to the snapshot created by the "create snapshot" command with the
-        same "id" value.
-      * Clean-up command pool a bit.
-    
-    Fix #4971
-
-commit 82388f43898e37ffa9350fe39a2e08a4ed42eb53
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Aug 2 17:02:47 2023 +0200
-
-    tresor_tester.run: fix free tree exhaustion
-    
-    The order of execution inside the Tresor lib slightly changed compared to the
-    previous CBE lib. AFAICT, this is nothing to worry about and related to the
-    now cleaner structuring. However, it can produce higher peak requirements
-    regarding the allocation pool in the Free Tree. Therefor, this commit extends
-    the dimensions of the Free Tree used in the test.
-    
-    Ref #4971
-
-commit d8a71e5978ede0ee0ca035804f3ce8178eb11601
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Aug 4 05:36:05 2023 +0200
-
-    tresor: improved module framework and clean-up
-    
-    * Make command pool a proper module
-      * The command pool used to be kind of a module but it was driven via custom
-        tresor-tester specific code. Now, it becomes a proper module that
-        is driven by the module framework instead.
-      * Move the code for creating and handling the module-execution progress flag
-        into Module_composition::execute_modules as the function is always used with
-        this code surrounding it.
-    
-    * Reorganize files, remove deprecated files
-    
-    * A new class Module_channel is introduced in the module framework and all
-      channel classes inherit from it. With that class in place, the formerly
-      module-specific implementations of the following methods are replaced by
-      new generic implementations in the Module framework:
-    
-      * ready_to_submit_request
-      * submit_request
-      * _peek_completed_request
-      * _drop_completed_request
-      * _peek_generated_request
-      * _drop_generated_request
-      * generated_request_complete
-    
-    * Module requests are now held for the duration of their lifetime at the
-      module they originate from and not, like before, at their target module. As
-      a result, modules can generate new requests inline (without having to wait
-      for the target module), making code much simpler to read, reducing the amount
-      of channel state, and allowing for non-copyable request types.
-    
-    * Introduce a sub-state-machine for securing a superblock in the
-      superblock_control module in order to reduce redundancy.
-    
-    * Some modules, like free_tree, were completely re-designed in order to make
-      them more readable.
-    
-    * Replace all conditional exceptions by using the macros in
-      tresor/assertion.h .
-    
-    * Move methods that are used in multiple modules but that were implemented
-      redundantly in each module to tresor/types.h.
-    
-    * Remove verbosity node and all that was related to it from tresor tester
-      config as the targeted verbosity can be achieved with the
-      VERBOSE_MODULE_COMMUNICATION flag in tresor/verbosity.h .
-    
-    * Extract the aspect of translating the byte-granular I/O-requests to
-      tresor-block requests from the tresor VFS-plugin and move it to a new module
-      called splitter.
-    
-    * Rename the files and interface of the hashing back-end to not reflect the used
-      hashing algorithm/config anymore, while at the same time making the hashing
-      interface strict regarding the used types.
-    
-    * Introduce the NONCOPYABLE macro that makes marking a class noncopyable short
-      and clear.
-    
-    * Replace the former tresor/vfs_utilities.h/.cc with a new tresor/file.h
-      that contains the classes Read_write_file and Write_only_file. These classes
-      significantly simplify the modules crypto, block_io, and trust_anchor by
-      moving the details of file access to a sub-state machine.
-    
-    * The former, rather trivial block allocator module is replaced by a normal
-      object of type Pba_allocator that must be provided by the client of the
-      Sb_initializer (reference in the Sb_initializer_request).
-    
-    Ref #5062
-    
-    tresor: read uninitialized vbas as all zeroes
-    
-    Virtual addresses in a Tresor container that were not yet written by the user
-    should always return a data block that is all-zeroes. This was the concept
-    right from the beginning of the project. However, somehow this aspect either
-    never got implement or got lost along the way.
-    
-    Some context for understanding the commit: The Tresor doesn't initialize the
-    payload data blocks of a container when creating a new container as this would
-    be rather expensive. Instead, it marks the leaf metadata nodes of the
-    virtual-block-device tree (those that reference the payload data blocks in
-    physical address space) with generation 0.
-    
-    Now, this commit ensures that, whenever the virtual-block-device module reads
-    such a generation-0 leaf, instead of asking the block_io and crypto to deliver
-    data from disc, it directly provides the user with 4K of zeroes.
-    
-    Ref #5062
-
-commit bcd82b7e7539a3d1a59b0733e2c99db813b8be8e
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Nov 23 06:02:55 2023 +0100
-
-    tresor: revive and test app/tresor_check
-    
-    The tresor_check tool became outdated back when the Tresor project was created
-    by re-writing its predecessor, the CBE, in C++. At this time, the check tool
-    was merely renamed but not updated. As there was also no autopilot test for the
-    tool, the tool remained outdated.
-    
-    This commit rewrites the tool for the most recent Tresor version and adds an
-    autopilot test.
-    
-    Ref #5062
-
-commit cf72499919356a788b3b684a9ccadd0fc4bf9728
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Nov 27 19:03:52 2023 +0100
-
-    tresor: unused args at "R/W client data" at blk IO
-    
-    The request classes Block_io::Read_client_data and Block_io::Write_client_data
-    used to receive a block reference for no reason. This commit removes these
-    args.
-    
-    Ref #5062
-
-commit fb2d153c928e3184955e19e90789883efb2151ff
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Nov 30 18:29:17 2023 +0100
-
-    tresor: check hash of all read vba data
-    
-    During one of the many re-factorization steps that were applied to the Tresor
-    library and its predecessor, the CBE library, one of the main features of the
-    project, the integrity check, accidentally received a grave regression. The
-    most recent version of the Tresor still used to check all hashes of meta-data
-    blocks but ignored the hashes of the actual data blocks.
-    
-    With this commit, the hashes of all but yet uninitialized data blocks get
-    checked. The reason for ignoring uninitialized blocks is that they are not
-    actually read from disc but simply generated as an all-zeros block in the
-    driver in order to prevent having to initialize them all to zero in
-    Tresor-Init. That said, the integrity of these blocks cannot be compomised.
-    The according hashes in the meta data remain unset until the data block gets
-    written for the first time.
-    
-    Ref #5062
-
-commit 02ef158748df49f0601547e0432e54bfd15e9c05
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Dec 1 04:21:46 2023 +0100
-
-    gems: add autopilot test 'file_vault_client'
-    
-    The script tests the use of an encrypted file system that is created and
-    provided via the File Vault.
-    
-    Furthermore the script can be used for test-driving existing File-Vault
-    containers (created with potentially older File-Vault versions) under the
-    current File-Vault version. This is done via the "LX_FS_DIR_TEMPLATE"
-    env variable.
-    
-    Ref #5062
-
-commit ef0c3f9d2c12618ace98ca44a47dc86f8ac97ee1
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Dec 7 12:17:25 2023 +0100
-
-    tresor_tester.run: fix asynchronous rekeying test
-    
-    The virtual block device module used to hand over the wrong VBA as
-    parameter "rekeying VBA" to the Free Tree when allocating PBAs for data
-    access during rekeying. In certain constellations, this caused the Free
-    Tree to alloc PBAs that were still in use. The Free Tree PBA selection
-    algorithm, however, is just fine. When fixing the call parameter, it works
-    as desired. This re-enables the async rekeying test.
-    
-    Ref #5075
-
-commit 14f4aa6e053213c89ffe61d7b6045843826bc213
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Dec 7 18:48:59 2023 +0100
-
-    tresor_utils.run: use [build_artifacts]
-    
-    Ref #5148
-
-commit b4c468173322dbb61be86dfbf739a5a5215ab0c4
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Dec 14 13:54:57 2023 +0100
-
-    tresor: streamline design further
-    
-    * differentiates request types that where merged formerly per module;
-      e.g. instead of type Superblock_control::Request, there are now types
-      * Superblock_control::Read_vbas
-      * Superblock_control::Write_vbas
-      * Superblock_control::Rekey
-      * Superblock_control::Initialize
-      * ...
-      each holding only the state and functionality that is required for exactly
-      that request
-    
-    * removes all classes of the Tresor module framework and adapts all
-      Tresor- and File-Vault- related libs, apps, and tests accordingly
-      * the former "channel" state is merged into the new request types, meaning, a
-        request manages no longer only the "call" to a functionality but
-        also the execution of that functionality; every request has a lifetime
-        equal to the "call" and an execute method to be driven forward
-      * state that is used by a request but has a longer lifetime (e.g. VFS file
-        handles in Tresor::Crypto) is managed by the top level
-        of the user and handed over via the execute arguments; however, the
-        synchronization of multiple requests on this state is done by the module
-        (e.g. Tresor::Crypto)
-      * requests are now driven explicitly as first argument of the (overloaded)
-        execute method of their module; the module can, however, stall a request
-        by returning false without doing anything (used for synchronization on
-        resources)
-    
-    * introduces Request_helper, Generated_request and Generatable_request in the
-      Tresor namespace in order to avoid the redundancy of sub-request generation
-      and execution
-    
-    * moves access to Client-Data pointers up to Tresor::Virtual_block_device in
-      order to simplify Tresor::Block_io and Tresor::Crypto
-    
-    * removes Tresor::Client_data and introduces pure interface
-      Client_data_interface in order to remove  Tresor::Client_data and
-      move management of Client Data to the top level of a Tresor user
-    
-    * introduces pure interface Crypto_files_interface in order to move management
-      of Crypto files to the top level of a Tresor user
-    
-    * moves management of Block-IO and Trust-Anchor files to the top level of a
-      Tresor user
-    
-    * adapts all execute methods, so, that they return the progress state
-      instead of modifying a reference argument
-    
-    * removes Tresor::Request_and Tresor:Request and instead implements
-      scheduling at the top level of the Tresor user
-      * the Tresor Tester uses a list as schedule that holds Command objects; this
-        list ensures, that commands are started in the order of configuration
-        the Command type is a merge of the state of all possible commands that can
-        be configured at the Tresor Tester; the actual Tresor requests (if any) are
-        then allocated on-demand only
-      * the Tresor VFS plugin does not use a dynamic data structure for scheduling;
-        the plugin has 5 members that each reflect a distinct type of operation:
-        * initialize operation
-        * deinitialize operation
-        * data operation
-        * extend operation
-        * rekey operation
-        consequently, of each type, there can be only one operation in-flight at a
-        time; at the user front-end each operation (except "initialize") can be
-        controlled through a dedicated VFS file; for each of these files, the VFS
-        expects only one handle to be open at a time and only one file operation
-        (read, write, sync) active at a time; once an operation gets started it is
-        finished without preemtion (except of the interleaving at rekey and
-        extend); when multiple operations are waiting to be started the plugin
-        follows a static priority scheme:
-    
-          init op > deinit op > data op > extend op > rekey op
-    
-        there are some operation-specific details
-        * the initialize operation is started only by the plugin itself on startup
-          and will be driven as side effect by subsequent user calls to file
-          operations
-        * the data file is the only contiguous file in the front end and the file
-          operations work as on usual data files
-        * the other 3 files are transactional files and the user is expected to
-          follow this scheme when operating on them
-          1) stat (to determine file size)
-          2) seek to offset 0
-          3) read entire file once (this will be queued until there is no operation
-             of this type pending anymore and return the last result:
-             "none" | "failed" | "succeeded"; used primarily for synchronization)
-          4) write operation parameters (this returns immediately and marks the
-             operation as "requested")
-          5) read entire file once (the same as above but this time in order to
-             determine the operation result)
-        * the rekey op and deinitialize op are requested by writing "true"
-        * the extend op is requested by writing "tree=[TREE], blocks=[BLOCKS]"
-          where TREE is either "vbd" or "ft" and BLOCKS is the number of physical
-          4K blocks by which the physical range of the tresor container expands
-          (the physical range always starts at block address 0 and is always
-          expanded upwards)
-    
-    * replaces the former <trust-anchor op="initialize"> command at the Tresor
-      Tester with <initialize-trust-achor> as there are no other trust anchor
-      operations that can be requested through the Tester config anyway
-    
-    * removes the "sync" attribute from all commands at the Tresor Tester except
-      from <request op="rekey">, <request "extend_ft">, <request op="extend_vbd">;
-      as the Tester controls scheduling now, requests are generally synchronous;
-      at the rekeying and extension commands, the "sync" attribute determines
-      wether subsequent commands are interleaved with the execution of these
-      commands (if possible)
-    
-    * removes "debug" config attribute from Tresor VFS plugin and reworks "verbose"
-      attribute to generate more sensible output
-    
-    * removes NONCOPYABLE macro and instead uses Genode::Noncopyable and in-place
-      Constructors deletion
-    
-    * introduces types Attr and Execute_attr where a constructor or execute method
-      have many arguments in order to raise readability
-    
-    * renames the "hashsum" file that is provided by the Tresor Trust-Anchor VFS
-      plugin to "hash" in order to become conformant with the wording in the Tresor
-      lib
-    
-    * makes the VFS Tresor test an automated test by merging in the functionality
-      of vfs_tresor_init.run and removing the interactive front end; removes
-      vfs_tresor_init.run as it is not needed anymore; adds consideration for
-      autopilot file structure in the Test and adds it to autopilot.list
-    
-    * removes all snapshot controls and the progress files for rekeying and
-      extending from the Tresor VFS plugin; both functionalities were tested
-      only rudimentary by the VFS Tresor test and are not supported with the only
-      real user, the File Vault
-    
-    * use /* .. */ instead of // ..
-    * use (..) instead of { .. } in init lists
-    
-    Ref #5148
-
-commit d2af024349737b78524405e2c36303ab695cc257
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Mar 19 12:07:16 2024 +0100
-
-    tresor: don't halt on extension beyond limits
-    
-    The request of extending a tree used to halt when it found that
-    it could not add more levels to the tree because the maximum level index was
-    reached. Now, the library simply marks the request as failed, leaving it to
-    the user to handle the error condition.
-    
-    Ref #5077
-
-commit 016a7696054f6e6b357cd773389f6adb2e172073
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Mar 19 13:49:24 2024 +0100
-
-    tresor: check only the last secured superblock
-    
-    Instead of iterating over all superblocks and checking each valid one,
-    check only the one whose hash matches the hash stored in the trust anchor.
-    I.e., the last one that was secured to the trust anchor. We must assume that
-    the other superblocks were corrupted in the meantime by operating the Tresor
-    container and, anyway, these Superblocks are not used anymore.
-    
-    Ref #5077
-
-commit 518c32e1afe5473f209ec67879ad543dddea8bdb
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Mar 19 13:55:25 2024 +0100
-
-    tresor: don't decode superblock before hash check
-    
-    Superblock_control::Initialize used to decode a read superblock before checking
-    its hash. This is not necessary but may cause the operation to end up in a
-    decoding error on a superblock that is not the desired one anyway.
-    
-    Ref #5077
-
-commit 4a68f6bf75dd1301cf692917650328a96dab4c8b
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Mar 19 14:30:59 2024 +0100
-
-    tresor: discard snapshots only when writing the sb
-    
-    Snapshots must only be removed when securing the superblock. Otherwise, the
-    last secured superblock might get corrupted. The Free Tree allocation algorithm
-    would not consider the deleted snapshots anymore although they are still active
-    in the secured superblock and re-use their blocks. This would render the tresor
-    container unusable if the superblock with the deleted snapshots is not secured
-    in the end (driver crash, power down, ...).
-    
-    Ref #5077
-
-commit 81b17ba1e4a991a96e93677eb5183561bf1f14b4
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Dec 15 11:41:04 2023 +0100
-
-    tresor_tester: check uninitialized vba data
-    
-    Adds a new command attribute "uninitialized_data" to the Tresor Tester
-    configuration. If a <request op="read"> command has this attribute set to "yes"
-    it assumes the read blocks to be uninitialized and therefore contain only 0's.
-    Note, that a command that has "uninitialized_data" set to "yes" cannot have the
-    attribute "salt".
-    
-    Ref #5077
-
-commit 067a8a35cdeb39ad876bea45ce9925745312de5f
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Mar 20 05:38:50 2024 +0100
-
-    tresor: fix faults on failed free-tree requests
-    
-    * fixes two places, where the free tree module used to continue to process a
-      request after actually having determined that the request fails
-    * moves the functionality of checking the hash of a read block and decoding it
-      to a dedicated method in order to improve readability
-    
-    Ref #5077
-
-commit b903ddeea70874a946e7163419d85bcb5647c3da
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Mar 19 06:36:41 2024 +0100
-
-    tresor: fix and test handling of minimal trees
-    
-    * add testing of trees with minimal and maximal dimensions to tresor_tester.run
-    * replace tresor_init-local configuration type with simpler and more conformant
-      configuration type in tresor/types.h that does also XML-parsing and
-      XML-generation of configurations
-    * raise min degree to 2 because a degree of 1 is not practical und would
-      require additional logic
-    * fix overflow with num_blocks=0 in Superblock_control::Read|Write_vbas
-    * fix off-by-one bug regarding the number of levels in Vbd_initializer
-    * improve sanity checks in Tree_configuration constructors
-    * document level indices in tresor_init/README
-    * fix size of some arrays in order to be able to handle the maximum number of
-      tree levels
-    
-    Ref #5077
-
-commit b7049b53213ba9c4f7e4a3318d00d5c6ffcc3f4b
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Apr 4 09:07:25 2024 +0200
-
-    tresor_tester.run: slim down tests
-    
-    This substantially slims down the test in order to reduce the number nightly
-    tests that fail due to timeouts. Now, the extended test steps (maximum trees
-    and benchmarks) are only run on Linux. The synchronous access, snapshot
-    management, rekeying, and resizing tests were removed.
-    
-    Ref #5148
-
-commit 047f130005458e873b1d5fa31dfde4452548a466
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Thu Apr 4 12:29:16 2024 +0200
-
-    tresor_tester.run: clean up
-    
-    Ref #5148
-
-commit 483fe18c4d5442950f54a38824373b62e784ff0a
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Fri Apr 19 07:05:38 2024 +0200
-
-    file_vault_gui: dialog-based file_vault front end
-    
-    * adds rekeying and resizing controls to config+report api of file vault
-    * moves common types of file vault to file_vault/include/file_vault/types.h
-      to be included by other components
-    * fixes wrong type of nr_of_clients fields in file_vault
-    * introduces the file_vault_gui component that is a minimal graphical front end
-      for the file vault based on the dialog lib and that uses the
-      config+report api of the file vault as back end
-    
-    Ref #5190
-
-commit a7ef2319f65eb42c562483f914555c3fe5b55b30
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Apr 16 19:26:10 2024 +0200
-
-    file_vault: remove need for state file
-    
-    The state file is a legacy from the early days of the file vault and not really
-    needed anymore.
-    
-    Ref #5190
-
-commit 969469edefb5d8846be6e363a71b4f6da05177b9
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Wed Apr 17 01:17:21 2024 +0200
-
-    file_vault: clean up
-    
-    Ref #5190
-
-commit 2bcc85b5f5c4265027052c4425879c70bea2fad3
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Apr 22 09:13:14 2024 +0200
-
-    file_vault: fix locking issue
-    
-    The File Vault used to sporadically fail to complete Extend or Rekey operations
-    when it was locked during the operation. The cause was an insufficient state
-    model that has been fixed with this commit.
-    
-    Ref #5190
-
-commit d5e3f738847a32f0bbbb9e21fb878d900be2a5c7
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Mon Apr 22 11:45:05 2024 +0200
-
-    file_vault: do not consider ui_config version
-    
-    The version in ui_report and ui_config were merely used for making test output
-    more readable. However, there are other ways to achieve this goal.
-    
-    Ref #5190
-
-commit 50fc5c6d42f341b58703b2107cb6376dccb00e95
-Author: Martin Stein <martin.stein@genode-labs.com>
-Date:   Tue Apr 23 09:37:45 2024 +0200
-
-    file_vault: further reduce typical quota needs
-    
-    Ref #5190
-
+Despite the extensive overhaul, File Vault version 24.05 remains compatible
+with old containers created via the 23.05 version and we also tried to keep the
+structure and appearance of the new graphical front end close to that of the
+old one in order to make the transition as smooth as possible.
 
 VirtualBox network-throughput improvements
 ==========================================
