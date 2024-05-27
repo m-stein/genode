@@ -713,30 +713,31 @@ Suspend/resume infrastructure
 =============================
 
 As planned according to our [https://genode.org/about/road-map - road map],
-we integrated the current state of x86 suspend/resume feature to
+we integrated the current state of x86 suspend/resume as a feature to
 Sculpt OS. The sculpt manager got enhanced to drive the system state
-and manage the lifecycle of driver components during suspend-resume cycles.
-The UI power options can be found in the System menu. The suspend
-and power-off controls are presented only when the acpi-support
-option is activated.
+and manage the life cycle of driver components during suspend-resume cycles.
+The new
+[https://genode.org/documentation/articles/sculpt-24-04#System_power_control - power options]
+can be found in the _System_ menu once the ACPI support option is activated.
 
-Drivers which are non-stateful, will be removed from the runtime before
-suspend and restarted during resume, e.g. network drivers. Stateful drivers,
-like nvme, ahci and GPU drivers participate cooperatively in the system states
+Drivers which are non-stateful, are removed from the runtime before
+suspending and are restarted during resume, e.g., network drivers. Stateful drivers
+like NVME, AHCI, and GPU drivers participate cooperatively in the system states
 by stopping their processing and signal their fulfillment. Currently, the
 USB host driver needs to be restarted forcefully on resume. To avoid loosing
-of data, the power suspend feature will not be offered if a USB block device
+of data, the power suspend feature is not offered while a USB block device
 is in use.
 
-Additionally, during the integration into Sculpt, several drivers got
+Additionally - during the integration into Sculpt - several drivers got
 enhanced. The acpica application now reflects the completion of the
 last action, which the sculpt manager monitors and integrates into the system
-state machine. The pc platform driver saves and restores the IOMMU
+state machine. The PC platform driver saves and restores the IOMMU
 configurations before and after suspend. Additionally, the platform driver
-gained the ability to trigger the final suspend RPC to Genode's roottask core.
-Furthermore, the intel/display driver now participates in the system state
+gained the ability to trigger the final suspend RPC to Genode's core.
+Furthermore, the Intel display driver now participates in the system state
 changes by switching off all connectors before suspend in order to reduce
-the graphical jitter on displays.
+graphical jitter on displays.
+
 
 Mesa updated to version 24.0.1
 ==============================
@@ -880,42 +881,46 @@ old one in order to make the transition as smooth as possible.
 VirtualBox network-throughput improvements
 ==========================================
 
-The network interfaces uplink_session and nic_session provide means
+The network interfaces 'uplink_session' and 'nic_session' provide means
 to batch several network packets before informing the other side to process
-the packets. The feature is substantial to achieve good network throughput and
-also to keep the CPU overhead per packet at a moderate level. Up to now our
-ports of Virtualbox did not leverage this feature, which became noticeable on
-systems which are under high CPU load. By adding the batching of network
-packets to our Virtualbox ports, we were able to reduce the CPU load and
+the packets. The batching is crucial to achieve good network throughput and
+also to keep the CPU overhead per packet at a moderate level. Up to now, our
+ports of VirtualBox did not leverage this feature, which became noticeable on
+systems under high CPU load. By adding the batching of network
+packets to our VirtualBox ports, we were able to reduce the CPU load and
 achieve stable throughput measurements, which otherwise fluctuate more
 depending on other factors like scheduling.
 
 Seoul virtual machine monitor
 =============================
 
-Since the last Genode release, the VMM received several improvements.
+Since the
+[https://genode.org/documentation/release-notes/24.02#Seoul_VMM - previous]
+release, the VMM received several improvements.
 
-Notably, the former global lock in form of the synchronized Motherboard got
+Notably, the former global lock in form of the synchronized 'Motherboard' got
 replaced by fine-grained locking within each device model where appropriate.
 Thanks to the better CPU utilization, long running work, e.g. compilation, now
 finishes earlier.
 
 The network binding got reworked, which now reflects network
-link state changes from the Genode interface into the guest VMs.
+link-state changes from the Genode interface into the guest VMs.
 
-The former Genode audio_out binding got replaced with new Genode audio play
+The former 'audio_out' binding got replaced with Genode's new audio 'play'
 interface.
 
-The by now unused ACPI model of the Seoul sources, got enabled and adjusted
-to support so called fixed ACPI events, e.g. power button press event. On
+The so far unused ACPI model of the Seoul sources got enabled and adjusted
+to support so called fixed ACPI events, e.g., power-button press event. On
 GUI window close, the event is now triggered and forwarded to the guest VM.
 Depending on the configuration of the guest, the VM may power down
-automatically, similar as used with our Virtualbox ports.
+automatically, similar as done by our port of VirtualBox.
 
 Finally, a USB XHCI model powered by our qemu-usb library got added to
-Seoul, which got developed during the last Hack'n'Hike. With this new model,
+Seoul, which got developed during our recent
+[https://github.com/genodelabs/genode/issues/4989 - Hack'n'Hike] event.
+With this new model,
 USB devices can be passed through to the guest. It has been successfully
-used by now with several USB storage, keyboard and audio devices.
+tested with several USB storage, keyboard, and audio devices.
 
 SDL2 improvements
 =================
@@ -1080,15 +1085,16 @@ Date:   Wed Apr 24 17:29:09 2024 +0200
 NOVA microhypervisor
 ====================
 
-Some of the commandline options changed. The 'iommu' option is now split up
+Some of the command-line options changed. The 'iommu' option is now split up
 into 'iommu_amd' and 'iommu_intel', so that they may be enabled/disabled
-separately. The 'novga' option turned into 'vga', since it is unused nowadays.
+separately. The 'novga' option turned into 'vga' since it is unused nowadays.
 The tagged TLB feature for virtual machines is now enabled by default.
 
 The kernel now supports the 'mwait' instruction beside the 'hlt' instruction,
 which can be used to give hints to the CPU to enter deeper sleep states.
-The feature is off by default and can be utilized via the Pd::system_control
+The feature is off by default and can be utilized via the 'Pd::system_control'
 interface.
+
 
 Build system and tools
 ######################
