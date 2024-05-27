@@ -16,6 +16,24 @@
 		<config> <default-policy path_prefix="/recall" writeable="yes"/> </config>
 	</start>
 
+	<start name="backdrop" pkg="sticks_blue_backdrop">
+		<config>
+			<libc/>
+			<vfs>
+				<rom name="genode_logo.png"/>
+				<rom name="grid.png"/>
+			</vfs>
+			<fill color="#122334" />
+			<image png="grid.png"        tiled="yes" alpha="200" />
+			<image png="genode_logo.png" anchor="bottom_right" alpha="150"
+			                             xpos="-20" ypos="-20" />
+		</config>
+		<route>
+			<service name="Gui"> <parent label="backdrop" /> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
 	<start name="wm" pkg="wm">
 		<route>
 			<service name="ROM"    label_last="clipboard"> <parent/>               </service>

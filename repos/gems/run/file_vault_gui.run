@@ -27,7 +27,14 @@ append archives "
 	[depot_user]/src/fs_tool
 	[depot_user]/src/fs_utils
 	[depot_user]/src/posix
+	[depot_user]/src/fs_rom
 	[depot_user]/src/rump
+	[depot_user]/pkg/terminal
+	[depot_user]/src/log_terminal
+	[depot_user]/src/coreutils
+	[depot_user]/src/bash
+	[depot_user]/src/vfs_pipe
+	[depot_user]/src/dynamic_rom
 	[depot_user]/src/sandbox"
 
 append_if [jent_avail] archives " [depot_user]/src/vfs_jitterentropy "
@@ -101,8 +108,10 @@ append config {
 			<domain name="pointer" layer="1" content="client" label="no" origin="pointer" />
 			<domain name="default" layer="3" content="client" label="no" hover="always" />
 			<domain name="second" layer="2" xpos="200" ypos="300" content="client" label="no" hover="always" />
+			<domain name="third" layer="2" xpos="300" ypos="400" content="client" label="no" hover="always" />
 			<policy label_prefix="pointer" domain="pointer"/>
 			<policy label_prefix="file_vault_gui" domain="second"/>
+			<policy label_prefix="dynamic_init" domain="third"/>
 			<default-policy domain="default"/>
 		</config>
 		<route>
@@ -253,6 +262,7 @@ append config {
 
 	<start name="file_vault" caps="1200">
 		<resource name="RAM" quantum="100M"/>
+		<provides> <service name="File_system"/> </provides>
 		<config jitterentropy_available="} [jent_avail_attr] {">
 			<vfs> <dir name="tresor"> <fs label="tresor"/> </dir> </vfs>
 		</config>
@@ -287,6 +297,149 @@ append config {
 			<service name="CPU"> <parent/> </service>
 			<service name="LOG"> <parent/> </service>
 			<service name="RM"> <parent/> </service>
+		</route>
+	</start>
+
+	<start name="dynamic_rom" caps="100">
+		<resource name="RAM" quantum="4M"/>
+		<provides><service name="ROM"/> </provides>
+		<config verbose="yes">
+
+			<rom name="dynamic_init_config">
+				<inline>
+
+					<config/>
+
+				</inline>
+				<sleep milliseconds="5000"/>
+				<inline>
+
+					<config>
+
+						<parent-provides>
+							<service name="ROM"/>
+							<service name="PD"/>
+							<service name="CPU"/>
+							<service name="LOG"/>
+							<service name="Timer"/>
+							<service name="Gui"/>
+							<service name="File_system"/>
+						</parent-provides>
+
+						<start name="terminal" caps="110">
+							<resource name="RAM" quantum="12M"/>
+							<provides><service name="Terminal"/></provides>
+							<route>
+								<service name="ROM" label="config"> <parent label="terminal.config"/> </service>
+								<service name="Gui"> <parent/> </service>
+								<any-service> <parent/> <any-child/> </any-service>
+							</route>
+						</start>
+
+						<start name="vfs" caps="120">
+							<resource name="RAM" quantum="30M"/>
+							<provides><service name="File_system"/></provides>
+							<config>
+								<vfs>
+									<tar name="coreutils.tar"/>
+									<tar name="bash.tar"/>
+
+									<dir name="home"> <ram/> </dir>
+									<dir name="share"> </dir>
+									<dir name="tmp"> <ram/> </dir>
+									<dir name="dev">
+										<zero/> <null/> <terminal/>
+										<dir name="pipe"> <pipe/> </dir>
+										<inline name="rtc">2018-01-01 00:01</inline>
+									</dir>
+								</vfs>
+								<policy label_prefix="fs_rom" root="/"/>
+								<default-policy root="/" writeable="yes"/>
+							</config>
+							<route>
+								<service name="Terminal"> <child name="terminal"/> </service>
+								<service name="Timer"> <parent/> </service>
+								<service name="LOG"> <parent/> </service>
+								<service name="PD">  <parent/> </service>
+								<service name="CPU"> <parent/> </service>
+								<service name="ROM"> <parent/> </service>
+							</route>
+						</start>
+
+						<start name="fs_rom" caps="100">
+							<resource name="RAM" quantum="8M"/>
+							<provides> <service name="ROM"/> </provides>
+							<config/>
+							<route>
+								<service name="File_system"> <child name="vfs"/> </service>
+								<service name="LOG"> <parent/> </service>
+								<service name="PD">  <parent/> </service>
+								<service name="CPU"> <parent/> </service>
+								<service name="ROM"> <parent/> </service>
+							</route>
+						</start>
+
+						<start name="bash" caps="500">
+							<resource name="RAM" quantum="32M"/>
+							<binary name="/bin/bash"/>
+							<config>
+								<libc stdin="/dev/terminal" stdout="/dev/terminal"
+									  stderr="/dev/terminal" rtc="/dev/rtc" pipe="/dev/pipe"/>
+								<vfs>
+									<fs label="shell" buffer_size="1M"/>
+									<dir name="file_vault">
+										<fs label="file_vault" buffer_size="1M"/>
+									</dir>
+								</vfs>
+								<arg value="bash"/>
+								<arg value="--login"/>
+								<env key="TERM" value="screen"/>
+								<env key="HOME" value="/"/>
+								<env key="PATH" value="/bin"/>
+							</config>
+							<route>
+								<service name="File_system" label="shell"> <child name="vfs"/> </service>
+								<service name="File_system" label="file_vault">  <parent/> </service>
+								<service name="ROM" label_suffix=".lib.so"> <parent/> </service>
+								<service name="ROM" label_last="/bin/bash"> <child name="fs_rom"/> </service>
+								<service name="ROM" label_prefix="/bin"> <child name="fs_rom"/> </service>
+								<service name="Timer"> <parent/> </service>
+								<service name="LOG"> <parent/> </service>
+								<service name="PD">  <parent/> </service>
+								<service name="CPU"> <parent/> </service>
+								<service name="ROM"> <parent/> </service>
+							</route>
+						</start>
+
+					</config>
+
+				</inline>
+				<sleep milliseconds="3600000"/>
+
+			</rom>
+		</config>
+		<route>
+			<service name="Timer"> <child name="timer"/> </service>
+			<service name="PD">  <parent/> </service>
+			<service name="ROM"> <parent/> </service>
+			<service name="LOG"> <parent/> </service>
+			<service name="CPU"> <parent/> </service>
+		</route>
+	</start>
+
+	<start name="dynamic_init" caps="1000">
+		<resource name="RAM" quantum="100M"/>
+		<binary name="init"/>
+		<route>
+			<service name="Gui"> <child name="nitpicker" /> </service>
+			<service name="ROM" label="terminal.config"> <parent label="terminal.config"/> </service>
+			<service name="ROM" label="config"> <child label="dynamic_init_config" name="dynamic_rom"/> </service>
+			<service name="File_system" label="bash -> file_vault">  <child name="file_vault"/> </service>
+			<service name="Timer"> <child name="timer"/> </service>
+			<service name="PD"> <parent/> </service>
+			<service name="ROM"> <parent/> </service>
+			<service name="CPU"> <parent/> </service>
+			<service name="LOG"> <parent/> </service>
 		</route>
 	</start>
 
