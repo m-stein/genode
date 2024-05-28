@@ -79,7 +79,9 @@ the time-tested NOVA hypervisor as the default kernel for Sculpt OS, this
 release is a milestone in that direction.
 
 The Sculpt OS variant using our custom kernel is now available as a
-ready-to-use system image. It includes a launcher for running a
+ready-to-use system image at [https://depot.genode.org/jschlatow/image].
+Note, when using Sculpt's integrated update mechanisms, you must already run
+at least Sculpt 24.04. The system image includes a launcher for running a
 Tiny-Core-Linux VM with a Firefox browser in VirtualBox. The launcher requires
 a window manager that is best deployed by switching to the corresponding
 preset. You also need to enable the _system clock_ and _mixer_ options.
