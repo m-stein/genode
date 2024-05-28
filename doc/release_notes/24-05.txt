@@ -507,44 +507,17 @@ graphical jitter on displays.
 Mesa updated to version 24.0.1
 ==============================
 
-; @ssumpf
-
-commit 59ddb533291636888e36aa5d498a2912594e03e8
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Wed Feb 28 10:24:41 2024 +0100
-
-    mesa: update to version 24.0.1
-    
-    Supported Gallium drivers are iris (Intel), lima (PinePhone), etnaviv
-    (i.MX8).
-    
-    issue #5224
-
-commit 9fe2e8a9a748a58b1ec6be149951a93b27beb30f
-Author: Sebastian Sumpf <sebastian.sumpf@genode-labs.com>
-Date:   Sat Apr 13 21:10:14 2024 +0200
-
-    libdrm: update to version 2.4.120
-    
-    Prerequisites for Mesa 24.0.1
-    
-    * generic:
-      * add patch to retrieve PCI/Platform information from Genode side of the DRM
-        interface (in drmGetDevice2)
-      * add generated 'fourcc' file
-    
-    * iris:
-      * report back-end (currently 'i915', 'xe' is unsupported)
-      * add various I915_CONTEXT_PARAM* and I915_PARAM*
-      * allocate 'Buffer's starting with ID 1 (0 is invalid)
-      * enforce 48-bit-address limit on unmap also
-      * disable I915_EXEC_FENCE_ARRAY array check, because we do not support
-        sync objects right now and rendering in synchronous
-    
-    * etnaviv:
-      * create 'Fenceobj' only *once* for each GPU context
-    
-    issue #5224
+With the goal to add support for more recent Intel GPUs (Alder Lake+) we took
+the first step by updating our three year old Mesa 21 to version 24.  Because
+Mesa is under heavy development the effort to do so was more significant than
+anticipated. For the current release we enabled all the previously supported
+GPUs which are Intel GEN8 (Broadwell), GEN9 (Skylake up to Whiskey Lake), GEN12
+(Tiger Lake) using the Iris Gallium driver, Vivante as found in i.MX8 SoCs, and
+Mali on the PinePhone. There are still many improvements to be explored, like
+buffer life-time management, using Mesa's native build system (Meson) - which
+would greatly simplify the update process, test Alder Lake, replace softipe with
+llvm for software rendering, and add Vulkan support - to name a few. We will
+address these enhancements in future Genode releases.
 
 
 Removed obsolete loader component and session interface
