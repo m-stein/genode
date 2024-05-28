@@ -25,6 +25,7 @@ First version of Sculpt OS based on Genode's custom kernel
 ; steps for trying it out -> @jschlatow
 ; planned areas of improvement -> @jschlatow
 
+; change/replace paragraph with long-time vision? -> @nfeske
 As envisioned in our road map, the current release offers a first PC variant
 of Sculpt OS based on our custom microkernel, which we specifically designed
 for Genode. In contrast to 3rd-party kernels like NOVA or seL4, which are
@@ -33,9 +34,15 @@ component. This alleviates redundant data structures between kernel and user
 space and makes Genode's resource management directly applicable to kernel
 objects. The outcome is a much simpler trusted computing base of Sculpt OS.
 
-Virtualization of commodity operating systems is a common use case for Sculpt
+In order to realize this vision, we had to tackle a couple of long-time
+showstoppers. First of all, we needed to move IOMMU support into the platform
+driver to render it kernel-agnostic. We completed a major part of this
+transition in
+[https://genode.org/documentation/release-notes/23.11#Kernel-agnostic_DMA_protection - release 23.11].
+
+Second, virtualization of commodity operating systems is a common use case for Sculpt
 installations, ours at Genode Labs included. Therefore, adding support for
-Intel's Virtual Machine Extensions (VMX) was an important missing piece of the
+Intel's Virtual Machine Extensions (VMX) was another important missing piece of the
 puzzle. Under the hood, we refactored and generalized the kernel's x86
 hypervisor support to allow for runtime selection of the available
 virtualization technology and consolidated code for page-table handling.
@@ -44,65 +51,15 @@ the time-tested NOVA hypervisor as the default kernel for Sculpt OS, this
 release is a milestone in that direction.
 
 The Sculpt OS variant using our custom kernel is now available as a
-ready-to-use system image and includes a demo launcher that will download and
-start a Linux VM with a Firefox browser in a VirtualBox window.
+ready-to-use system image. It includes a launcher for running a
+Tiny-Core-Linux VM with a Firefox browser in VirtualBox. The launcher requires
+a window manager that is best deployed by switching to the corresponding
+preset. You also need to enable the _system clock_ and _mixer_ options.
 
-
-commit 75c12b48c33a14c3aa0fa8878e8593fbd8d7c5e3
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Wed Feb 7 11:26:14 2024 +0100
-
-    hw: prepare SVM implementation for generic virtualization support
-    
-    The SVM implementation did not lend itself to a runtime selection of the
-    x86 virtualization technology.
-    
-    Encapsulate functionality in the VMCB class to facilitate adding support
-    for Intel's VMX.
-    
-    Issue #5113
-
-commit 28a7a96bdc3e823f6357437a63ced6b4f3c1eabc
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Thu Feb 15 13:27:48 2024 +0100
-
-    hw: generic interface for x86 virtualization
-    
-    Create a generic interface for x86 virtualization.
-    Split the VMCB data structure in `Vmcb_buf` to represent the physical
-    VMCB page and `VMCB` as a control interface.
-    
-    Issue #5113
-
-commit 915cef2fa9cef5a7a9eb6a5c56ae31de2a4c0165
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Wed May 8 10:29:55 2024 +0200
-
-    hw: add support for VMX
-    
-    Add support for Intel's Virtual Machine Extensions with nested paging.
-    
-    Fixes #5128
-
-commit 28f9eb14392f7c823d9d3e7087c80211b7fe45e5
-Author: Benjamin Lamowski <benjamin.lamowski@genode-labs.com>
-Date:   Thu May 16 17:50:47 2024 +0200
-
-    hw: abstract nested paging on x86
-    
-    The initial SVM implementation (correctly) just used another standard
-    x86_64 page table for nested paging. The EPT implementation is for Intel
-    VMX only. Since we don't know the underlying virtualization technology
-    at compile time, we need to pick the correct page table implementation
-    at runtime.
-    
-    Add add a AMD-compatible HPT page table implementation using the same
-    base implementation and (more importantly) allocator as the EPT
-    implementation. Add a Vm_page_table implementation that determines the
-    used virtualization technology at runtime and internally defers insert
-    and remove operations to the correct page table implementation.
-    
-    Issue #5218
+Note that there are still a few areas of improvement for this Sculpt variant:
+The IOMMU support currently omits IRQ remapping, which is important to shield
+the system from rogue devices sending arbitrary interrupts. Moreover, we plan
+to improve the kernel scheduling for interactive and time-critical workloads.
 
 
 Fine-grained and dynamic assignment of USB devices/interfaces
@@ -371,107 +328,37 @@ of low-overhead trace entries that can be used to debug timing-sensitive or
 high-traffic scenarios.
 
 
-IOMMU interrupt remapping in user space
-=======================================
+Intel framebuffer and GPU driver
+================================
 
-; @jschlatow
+An essential prerequisite for providing a GUI as Sculpt OS does, is having a
+driver for the graphics controller. In Genode, this task is split between the
+framebuffer driver and the GPU driver. Exposing these to a growing range
+of devices led to a few robustness and compatibility improvements for
+the Intel framebuffer/GPU drivers.
 
-commit 9971f41f8c4c05e3ba2dec08d9f3b171b5ef6e8d
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Tue Mar 26 10:14:48 2024 +0100
+In the context of the latest Sculpt release, we made the accounting of maximum
+framebuffer memory configurable. Previously, this was derived from
+the component's RAM quota, which implicitly limited the maximum display
+resolution. The separate configuration explicitly sets the maximum framebuffer
+memory by default to 64MB, which suffices for resolutions of at least 3840x2160.
+The actual memory used by the component depends on the configured display
+resolution. If the RAM quota is depleted, the component will issue a
+resource request. The configuration follows the scheme established for the GPU
+driver with
+[https://genode.org/documentation/release-notes/24.02#Dynamic_aperture_handling_for_high_resolution_framebuffers - release 24.02].
 
-    platform/pc: fix IOMMU fault reporting
-    
-    When the kernel does interrupt remapping, we cannot get a non-remapped MSI
-    for fault event interrupts. We therefore let the kernel do the fault
-    reporting in this case.
-    
-    genodelabs/genode#5066
+In this release, we also incorporated a vendor check in the Intel framebuffer
+driver in order to ensure that it only operates Intel devices. Since our
+central platform driver typically hands out all VGA-class devices to the driver,
+GPU of other vendors might also be visible to it. This caused issues on
+platforms with additional Nvidia GPU for multiple users. Thanks to Alice Domage
+for this contribution.
 
-
-Intel framebuffer driver
-========================
-
-; @jschlatow
-
-commit b67df08c9d0d28567f872219719b40c8ffc1ffbb
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Fri Mar 15 17:22:29 2024 +0100
-
-    intel_fb: add dummy for ZimaBlade support
-    
-    When booting Sculpt OS on the ZimaBlade, `i915_vm_free_pt_stash` is
-    called. Providing an empty dummy implementation fixes the issue.
-    
-    Fixes #5145
-
-commit 8b43554a27a4d8c0d770432af3d08cfa77446f19
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Thu Apr 11 13:01:52 2024 +0200
-
-    gpu/intel: do not clflush on MMIO but on ppgtt
-    
-    Executing a clflush operation on MMIO memory freezes embedded
-    platforms such as the Celeron N3450 used on the ZimaBlade. Looking into
-    the current linux code confirms that clflush is only used for ppgtt
-    entries and not on MMIO memory.
-    
-    Fixes #5176
-
-commit 76176a196d52676c120db6cfe2a2d62498889564
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Fri Mar 15 17:24:12 2024 +0100
-
-    Enable Intel HD Graphics 500 (found in ZimaBlade)
-    
-    The IHD500 is almost a gen9 (skylake) GPU with subtle differences. Linux
-    maintains a separate feature set `GEN9_LP_FEATURES` for this GPU.
-    However, foisting the GPU as skylake on the GPU drivers seems to work
-    quite fine.
-    
-    genodelabs/genode#5177
-
-commit 5dce61563eaeb26a28c478cf0eb49f724a0a7c07
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Apr 12 14:21:56 2024 +0200
-
-    pc_intel_fb: configure max framebuffer memory
-    
-    This commit introduces the means to configure the framebuffer memory
-    used by the driver for sizing its buffers.
-    
-    Originally the avail memory was derived from the avail ram in the PD
-    session, which roughly corresponds to configured RAM quota.
-    However, since it is only used in a virtual capacity, we can decouple
-    it from the actual memory and set to a value that accommodates larger
-    framebuffer resolutions like 3840x2160. If the configured RAM quota
-    is not enough to satisfy an allocation request the client will issue
-    a resource request.
-    
-    Issue #5174.
-
-commit d858a600f7fd8396dd0df41fc6b88857ad8e20ca
-Author: Josef Söntgen <josef.soentgen@genode-labs.com>
-Date:   Fri Apr 12 14:33:48 2024 +0200
-
-    sculpt: raise max supported display resolution
-    
-    This commit raise various quota to accommodate using a display
-    resolution of up to '3840x2160' in the static parts, e.g. the
-    leitzentrale, of Sculpt.
-    
-    Issue #5174.
-
-commit 4bda9d9136d69fd24aca594ee6d579d093485ec5
-Author: Alice Domage <alice.domage@gapfruit.com>
-Date:   Sat May 4 23:27:29 2024 +0200
-
-    pc_intel_fb_drv: enforce operation on Intel's devices
-    
-    This commit enforces the driver to only wait for devices with Intel's
-    vendors ID to be ready.
-    
-    genodelabs/genode#5207
+Furthermore, we fixed a few issues that popped up when test-driving Sculpt OS
+on the ZimaBlade. By doing this, we added support for Intel HD Graphics 500 to
+the Intel framebuffer/GPU drivers. This GPU can be found in various Intel
+Processors in the Pentium/Celeron N-series.
 
 
 Suspend/resume infrastructure
@@ -756,16 +643,11 @@ Build system and tools
 Goa SDK
 =======
 
-; @jschlatow
-; update for targeting Sculpt 24.04 by default now
-; re-advertise Goa testbed with out-of-the-box support with Sculpt 24.04
+Aligned with the Sculpt release, the Goa tool has been updated with the
+corresponding depot archive versions for Sculpt 24.04. This also involved
+adding support for the new Play and Record sessions.
 
-
-commit 6bde465994b7ea4748af411c7577aa889092bf20
-Author: Johannes Schlatow <johannes.schlatow@genode-labs.com>
-Date:   Tue Apr 23 09:06:36 2024 +0200
-
-    run: support for Play and Record sessions
-    
-    Fixes #84
-
+The _Goa testbed_ package and preset have been updated accordingly so that
+an out-of-the-box Sculpt 24.04 lends itself as a
+[https://genode.org/documentation/release-notes/24.02#Sculpt_OS_as_remote_test_target_for_the_Goa_SDK
+- remote test target for Goa].
