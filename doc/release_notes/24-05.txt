@@ -594,35 +594,6 @@ operations as a convenience feature to ease debugging.
 Platforms
 #########
 
-Base-HW microkernel
-===================
-
-; @skalk
-
-commit aefbc47c56424c5aad4d982aba2c0b09e134ad18
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Tue Apr 16 11:40:54 2024 +0200
-
-    hw: preserve slack time, favor activated jobs
-    
-    In the scheduler's implementation preserve the consumed slack-time
-    over periods of activation/deactivation, but instead of appending
-    activated jobs to the end of the slack queue, insert it as new head.
-    Thereby, the extreme discrimination of threads with short execution
-    times and frequent blocking behaviour against long running computations
-    gets avoided.
-    
-    Fix genodelabs/genode#4796
-
-commit d9420c618c0dee9aca9e965e7c10e4380c92f6f8
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed Apr 24 17:29:09 2024 +0200
-
-    hw: take over ACPI hardware from SMI
-    
-    Fix #5196
-
-
 NOVA microhypervisor
 ====================
 
