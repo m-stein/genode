@@ -162,14 +162,15 @@ Date:   Thu Apr 18 10:33:05 2024 +0200
 On-target debugging using the GNU debugger (GDB)
 ################################################
 
-; @cproc @chelmuth
-
-
-TODO: motivation
-
-
-The solution implemented with this release consists of the combination of
-two main components _debug monitor_ and _GDB_, and two support components.
+The renovation of our debugging monitor in
+[https://genode.org/documentation/release-notes/23.08#Multi-component_debug_monitor Genode 23.08]
+was driven by the vision of easy on-target debugging on Sculpt OS. Just
+imagine, any runtime component from applications over device drivers till
+VMMs like VirtualBox could be started with debugging optionally
+enabled. The key to make this vision come true is the debug monitor at the
+heart of the Sculpt runtime. All other missing ingredients for viable
+on-target debugging, above all a GDB frontend, are introduced with this
+release.
 
 The _debug monitor_ component got introduced in version
 [https://genode.org/documentation/release-notes/23.08#Multi-component_debug_monitor 23.08].
@@ -212,11 +213,15 @@ binaries and debug info files of monitored components in a RAM file
 system shared with GDB and allows GDB to access these files in a
 convenient way.
 
+[image on_target_gdb.png]
+
 With this setup in place, the user can debug multiple components at once
 and control the execution of threads on an individual basis thanks to GDB's
 _non-stop_ mode.
+Learn howto integrate and use GDB on Sculpt with our article and screencast
+video on [https://genodians.org/chelmuth/2024-05-17-on-target-debugging Genodians.org].
 
-One noteworthy challenge discovered while testing this solution on Sculpt
+One noteworthy challenge discovered while testing on Sculpt
 was that GDB apparently was not prepared for the case that there are no
 initial inferiors and that the first inferior could appear spontaneously
 on the remote side instead of being actively started by GDB. We had to
@@ -225,8 +230,6 @@ some more adaptations might be necessary in the future, for example to
 update the output of the _info inferiors_ command when the first inferior
 appears.
 
-
-TODO: howto
 
 
 Base framework and OS-level infrastructure
