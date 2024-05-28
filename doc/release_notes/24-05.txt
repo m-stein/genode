@@ -457,6 +457,8 @@ Second, the file vault used to operate directly on the low-level interface of th
 view component in order to drive its GUI instead of using the newer and
 far easier dialog API for this purpose.
 
+[image file_vault_gui]
+
 For the app that deals with the logic, we stayed with the name "file vault"
 whereas the new front-end for this app is named "file vault gui".
 
