@@ -247,20 +247,22 @@ audio, debugging, and prominent APIs like the list model.
 Transition to the new audio interfaces introduced in 24.02
 ==========================================================
 
-In Genode's February release we introduced new audio sessions intended to
-supersede the old ones, namely Audio_in and Audio_out. In the time
-following up to the current release we worked on integrating the new sessions
-into the existing components. In fact they are already exercised in the most
-recent Sculpt release.
+In Genode's
+[https://genode.org/documentation/release-notes/24.02#Revised_audio_infrastructure - February release],
+we introduced new audio 'Record' and 'Play' sessions intended to
+supersede the old ones, namely 'Audio_in' and 'Audio_out'. In the time
+following up to the current release, we worked on integrating the new sessions
+into the existing components. In fact, they are already exercised in the most
+recent [https://genode.org/news/sculpt-os-release-24.04 - Sculpt release].
 
-As most prominently used by ported software the VFS OSS plugin plays a vital
+As most prominently used by ported software, the VFS OSS plugin plays a vital
 role in interfacing with Genode's native audio stack. The already existing
 VFS plugin got renamed to 'legacy_oss' while the new one takes its place and
 is usable as a drop-in replacement. Existing users have to adapt the session
 routes accordingly or change their VFS configuration to make use of the
-'legacy_oss' plugin if using the new sessions is not yet desirable.
+'legacy_oss' plugin should the use of the new sessions not yet desirable.
 
-In contrast to the old plugin it is possible to configure the fragment size a
+In contrast to the old plugin, it is possible to configure the fragment size a
 client is allowed to use via its configuration. It ranges from 2048 to 8192
 bytes, which equals a period length of around 11.6 to 46.4 ms when using a
 sample rate of 44.1 kHz, to enforce latency requirements for specific clients.
@@ -278,8 +280,8 @@ We also removed the custom audio subsystem from our SDL1.2 port in favor of
 using its own OSS back end, which brings it in line with our SDL2 port.
 
 As there are no critical components left that exclusively use the old
-sessions directly the way is paved to remove them. For this release, however,
-we still keep the Audio_in and Audio_out sessions around to give users time
+sessions directly, the way is paved to remove them. For this release, however,
+we still keep the 'Audio_in' and 'Audio_out' sessions around to give users time
 to migrate their components but are going to remove them in a future release.
 
 
@@ -769,6 +771,7 @@ With this new model,
 USB devices can be passed through to the guest. It has been successfully
 tested with several USB storage, keyboard, and audio devices.
 
+
 SDL2 improvements
 =================
 
@@ -776,11 +779,11 @@ We enhanced our SDL2 port by enabling more subsystems, improving its window
 handling and adding support for its text-input API.
 
 This release adds preliminary support for resizing a window that works well
-for some of the currently available ports but still has issue with others
+for some of the currently available ports but still has issues with others
 (especially those using an OpenGL context) as it depends to some degree
 on the component itself using the SDL2 library.
 
-As an additional feature the commit adds support for setting the
+As an additional feature, the commit adds support for setting the
 initial window geometry via the '<initial>' node, e.g.:
 
 ! <initial width="800" height="600"/>
@@ -789,7 +792,7 @@ This allows for restricting the initial window size because otherwise the
 actual screen size will be used and that might be too large depending on the
 attached display.
 
-Support for using the SDL2's text-input API was enabled and to make it robust
+Support for using SDL2's text-input API was enabled and - to make it robust -
 we only send key presses as text if the codepoint is valid and if it's not a
 known non-printable. Keyboard events are omitted if key presses are sent as
 text but in return we always send keyboard events if text-input has not been
@@ -801,12 +804,14 @@ Curl updated to version 8.7.1
 
 We updated our cURL port to version 8.7.1.
 
-In setups where no service is employed to provide entropy it might be necessary
+In setups where no service is employed to provide entropy, it might be necessary
 to increase the amount of statically configured entropy. Doubling the content of
 the '<inline>' VFS plugin as used in static configurations seems satisfactory.
 Furthermore DNS resolving needs a configured '<pipe>' plugin to work properly.
 
-The follow snippet shows a properly configured component using cURL:
+; XXX shouldn't we better not advertise the use of a static number as random?
+
+The following snippet shows a properly configured component using cURL:
 
 !<start name="fetchurl" caps="500">
 !  <resource name="RAM" quantum="32M"/>
