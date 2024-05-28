@@ -400,18 +400,6 @@ kernel, and the PIT-based timer as used on seL4, OKL4, and Pistachio.
 Linux, Fiasco.OC, and L4/Fiasco are not covered.
 
 
-VFS API enhancements
-====================
-
-commit 2eae70d3cd9a37f0b4949b2b891d53f3f4dc85f4
-Author: Christian Prochaska <christian.prochaska@genode-labs.com>
-Date:   Fri Mar 22 08:32:34 2024 +0100
-
-    os/vfs.h: add support for symlink creation
-    
-    Fixes #5162
-
-
 Device drivers
 ##############
 
