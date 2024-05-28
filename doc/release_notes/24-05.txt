@@ -507,17 +507,17 @@ graphical jitter on displays.
 Mesa updated to version 24.0.1
 ==============================
 
-With the goal to add support for more recent Intel GPUs (Alder Lake+) we took
-the first step by updating our three year old Mesa 21 to version 24.  Because
-Mesa is under heavy development the effort to do so was more significant than
-anticipated. For the current release we enabled all the previously supported
-GPUs which are Intel GEN8 (Broadwell), GEN9 (Skylake up to Whiskey Lake), GEN12
+With the goal to add support for more recent Intel GPUs (Alder Lake+), we took
+the first step by updating our three-year old Mesa 21 to version 24. Because
+Mesa is under heavy development, the effort to do so was more elaborate than
+anticipated. For the current release, we enabled all the previously supported
+GPUs, which are Intel GEN8 (Broadwell), GEN9 (Skylake up to Whiskey Lake), GEN12
 (Tiger Lake) using the Iris Gallium driver, Vivante as found in i.MX8 SoCs, and
 Mali on the PinePhone. There are still many improvements to be explored, like
 buffer life-time management, using Mesa's native build system (Meson) - which
-would greatly simplify the update process, test Alder Lake, replace softipe with
-llvm for software rendering, and add Vulkan support - to name a few. We will
-address these enhancements in future Genode releases.
+would greatly simplify the update process, testing Alder Lake, replacing softipe with
+llvm for software rendering, and adding Vulkan support - to name a few. We
+hope to address these topics in future Genode releases.
 
 
 Removed obsolete loader component and session interface
