@@ -697,28 +697,8 @@ In setups where no service is employed to provide entropy, it might be necessary
 to increase the amount of statically configured entropy. Doubling the content of
 the '<inline>' VFS plugin as used in static configurations seems satisfactory.
 Furthermore DNS resolving needs a configured '<pipe>' plugin to work properly.
-
-; XXX shouldn't we better not advertise the use of a static number as random?
-
-The following snippet shows a properly configured component using cURL:
-
-!<start name="fetchurl" caps="500">
-!  <resource name="RAM" quantum="32M"/>
-!  <config>
-!    <report progress="yes"/>
-!    <vfs>
-!      <dir name="dev">
-!        <log/> <null/> <inline name="rtc">2024-05-01 00:00</inline>
-!        <inline name="random">x4D81S47JqeXOOoEv7QB0ARBfn2e2IrznKM1GXZu</inline>
-!      </dir>
-!      <dir name="pipe"> <pipe/> </dir>
-!      <dir name="socket"> <lxip dhcp="yes"/> </dir>
-!    </vfs>
-!    <libc stdout="/dev/log" stderr="/dev/log" rtc="/dev/rtc"
-!          rng="/dev/random" socket="/socket" pipe="/pipe"/>
-!    <fetch url="https://genode.org/about/LICENSE" path="/dev/log" retry="3"/>
-!  </config>
-!</start>
+For an exemplary configuration, please look at the
+_repos/libports/run/fetchurl.inc_ run-script snippet.
 
 The 'fetchurl' component also gained a 'verbose' config option to enable verbose
 operations as a convenience feature to ease debugging.
