@@ -93,55 +93,131 @@ to improve the kernel scheduling for interactive and time-critical workloads.
 Fine-grained and dynamic assignment of USB devices/interfaces
 #############################################################
 
-; @skalk @chelmuth
+USB support has a long history in the Genode framework, but since almost one
+decade its client's session API was kept stable. Back in 2015, we split
+the USB host controller driver parts from other USB client device drivers.
+Since then, an USB client component could request exactly one USB device per
+session from the USB server resp. USB host controller driver. Moreover,
+a client had to drive the device as a whole.
 
-commit 7ec08af6d912759548d6285ab5254eeb0cddf87f
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Thu Sep 14 10:55:11 2023 +0200
+This former approach led to some limitations and intricateness. First USB
+drivers, which were capable of driving more that one device of the same
+class, needed the information which devices to request in advance.
+This information was not integral part of the USB session. The additional
+information path induced some indirections in the management of USB devices in a
+more complex system like Sculpt OS, e.g., when passing arbitrary USB devices to
+a guest OS inside a virtual-machine.
 
-    usb: session renewal & new client API
-    
-    Replace the USB session API by one that provides a devices ROM only,
-    which contains information about all USB devices available for this client,
-    as well as methods to acquire and release a single device.
-    
-    The acquisition of an USB device returns the capability to a device session
-    that includes a packet stream buffer to communicate control transfers
-    in between the client and the USB host controller driver. Moreover,
-    additional methods to acquire and release an USB interface can be used.
-    
-    The acquisition of an USB interface returns the capability to an interface
-    session that includes a packet stream buffer to communicate either
-    bulk, interrupt, or isochronous transfers in between the client and the
-    USB host controller driver.
-    
-    This commit implements the API changes in behalf of the Genode C API's
-    USB server and client side. Addtionally, it provides Usb::Device,
-    Usb::Interface, and Usb::Endpoint utilities that can be used by native
-    C++ clients to use the new API and hide the sophisticated packet stream API.
-    
-    The adaptations necessary target the following areas:
-    
-    * lx_emul layer for USB host and client side
-    * Linux USB host controller driver port for PC
-    * Linux USB client ports: usb_hid_drv and usb_net_drv, additionally
-      reduce the Linux tasks used inside these drivers
-    * Native usb_block_drv
-    * black_hole component
-    * Port of libusb, including smartcard and usb_webcam driver depending on it
-    * Port of Qemu XHCI model library, including vbox5 & vbox6 depending on it
-    * Adapt all run-scripts and drivers_interactive recipes to work
-      with the new policy rules of the USB host controller driver
-    
-    Fix genodelabs/genode#5021
+The second drawback was related to more complex USB devices with several
+interfaces of different device classes. For instance, imagine an USB headset
+with extra buttons to control volume. Such devices typically have several USB
+interfaces for audio play and record, and at least one interface for input
+events. If you already have device drivers for all kinds of device classes, you
+typically do not want to create driver mixtures for each potential combinations
+of them. Instead, you want one component drive one interface, and another to
+drive the other.
 
-commit 0a5e174d7816adf56dad33ec5ce996475a5627a7
-Author: Norman Feske <norman.feske@genode-labs.com>
-Date:   Thu Apr 18 10:33:05 2024 +0200
+These limitations accompanied us since quite some time, and a design to overcome
+them matured in backyard of our heads. Therefore, with this release the USB
+session got overworked entirely.
 
-    sculpt/usb/default: add device-assignment example
-    
-    Issue #5174
+The new USB session API provides a devices ROM to a client. Within this
+dataspace a client finds all relevant information about existent devices allowed
+to access. You can think of it, as a virtual, private bus of this client. When a
+new device gets connected, which matches the client's policy of the USB host
+controler driver, the devices ROM gets updated appropriatedly. If a device gets
+removed physically, it'll vanish from the devices ROM.
+
+An examplary devices ROM looks like the following:
+
+! <devices>
+! 	<device name="usb-1-10" class="0x0" product="USB Optical Mouse"
+! 	        vendor_id="0x1bcf" product_id="0x5" speed="low" acquired="true">
+! 		<config active="true" value="0x1">
+! 			<interface active="true" number="0x0" alt_setting="0x0"
+! 			           class="0x3" subclass="0x1" protocol="0x2">
+! 				<endpoint address="0x81" attributes="0x3"
+! 				          max_packet_size="0x7"/>
+! 			</interface>
+! 		</config>
+! 	</device>
+! </devices>
+
+As can be seen in the example, the human-readable XML representation of the USB
+devices already contains most information that normally resides in the
+full-length device descriptor of the USB standard. That means a driver can parse
+relevant information about available configurations, interfaces, and endpoints
+including their types and identifiers without the need to communicate with the
+device first.
+
+Beside the devices ROM, the new USB session API consists of two functions to
+acquire or release a formerly required device. The acquisition of a device
+returns a capability to a new device API. This distinct session includes a
+function to obtain a packet stream buffer to exchange USB control requests with
+the USB host controller driver. The host controller driver sanity-checks the
+control requests, and potentially forwards it to the device. Thereby, a client
+can change the configuration of the device, enable an alternate interface, or
+request the additional descriptors including some device-class specific
+aspects.
+
+Moreover, the device session API provides functions to acquire or release an
+interface of the device. When acquiring an interface a capability to the
+interface session gets returned. This third new API finally provides a
+packet-stream buffer to the client, which allows exchange interrupt, bulk, or
+isochronous tranfers with the host controller driver. The host controller driver
+checks these transfer requests for plausibility, and forwards them directly to
+the device and vice versa.
+
+The whole internals of the different session API layers, however are hidden from
+you as developer. Instead some convenient helper utilities are provided within
+`repos/os/include/usb_session/device.h`. Those helper classes simplify the
+aquisition of USB devices and interfaces. Moreover, it supports the notion of
+USB Request Blocks (Urbs) on the level of device (control) and interface (irq,
+bulk, isochronous). To have a look at an example component, which makes use of
+this utilities, please refer to the USB block driver.
+
+All other components that made direct use of the USB session, have been adapted
+to use the new API. This includes Linux USB driver ports for host controllers,
+HID, and USB ethernet cards, the libusb library port, our XHCI model within
+Virtualbox, and the black_hole component.
+
+Practical relevance
+===================
+
+For users of the framework or Sculpt OS, the most noteable change is that all USB
+clients use their own devices ROM to react on device appearance and
+disappearance. No global information resource is used anymore. That means the
+addition of of a new policy rule in USB host controller's configuration is
+sufficient to, e.g., let a device appear in a Linux guest. If the rule already
+exists, even the pure physical connect will result in the appearance of the
+device.
+
+Because one USB session can now control an arbitrary number of devices, the
+syntax of the policy rules for an USB host controller driver changed a bit:
+
+! <config>
+! 	<policy label="usb_net">
+! 		<device vendor_id="0x0424" product_id="0xec00"/>
+! 	</policy>
+! 	<policy label="usb_hid">
+! 		<device class="0x3"/>
+! 	</policy>
+! 	<policy label="vm">
+! 		<device name="usb-2-2"/>
+! 		<device name="usb-2-4"/>
+! 	</policy>
+! </config>
+
+As you might have noticed, there is no differentiation in the policy rules on
+the interface-level yet. Although, everything within the USB session API is now
+available to split interfaces of one USB device in between different drivers, we
+decided against activating this feature on the policy level. In short, devices
+are still distributed to the clients as a whole. We first need aware drivers
+that cooperatively only aquire parts, or otherwise won't crash if the
+acquisition is not allowed. This is not the case for the almost all our ported
+drivers, or virtualized guest OSes. Nonetheless, as soon as we have a
+cooperatively working driver group, we can now enable the interface split
+without touching the USB session API again.
 
 
 On-target debugging using the GNU debugger (GDB)
