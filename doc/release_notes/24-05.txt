@@ -15,29 +15,57 @@
 First version of Sculpt OS based on Genode's custom kernel
 ##########################################################
 
-; present long-time vision that reaches years back -> @nfeske
-; - motivation behind the kernel
-; - initial focus on ARM
-; long-time showstoppers -> @atopia @jschlatow
-; - IOMMU
-; - Virtualization
-; kernel scheduling
-; steps for trying it out -> @jschlatow
-; planned areas of improvement -> @jschlatow
+The ability to use a wide variety of kernels is certainly a distinctive
+feature of Genode. Since the very first version, the framework accommodated
+both a microkernel and the Linux kernel.
+Over the years, we embraced most members of the L4 family of kernels
+([https://genode.org/documentation/release-notes/9.05#Supporting_the_OKL4_kernel_as_new_base_platform - OKL4],
+[https://genode.org/documentation/release-notes/9.02#Genode_on_L4ka__Pistachio - Pistachio],
+[https://genode.org/news/genode-os-framework-release-8.08 - Fiasco],
+[https://genode.org/documentation/release-notes/10.02#Codezero_kernel_as_new_base_platform - Codezero]),
+all object-capability microkernels we could get our hands on
+([https://genode.org/documentation/release-notes/10.02#NOVA_hypervisor_as_new_base_platform - NOVA],
+[https://genode.org/documentation/release-notes/11.02#Support_for_Fiasco.OC - Fiasco.OC],
+[https://genode.org/documentation/release-notes/15.05#Proof-of-concept_support_for_the_seL4_kernel - seL4]),
+and even combined the framework with a static isolation kernel
+([https://genode.org/documentation/release-notes/15.08#Genode_on_top_of_the_Muen_Separation_Kernel - Muen]).
 
-; change/replace paragraph with long-time vision? -> @nfeske
-As envisioned in our road map, the current release offers a first PC variant
-of Sculpt OS based on our custom microkernel, which we specifically designed
-for Genode. In contrast to 3rd-party kernels like NOVA or seL4, which are
-self-sufficient programs, our custom kernel is melted with Genode's core
-component. This alleviates redundant data structures between kernel and user
-space and makes Genode's resource management directly applicable to kernel
-objects. The outcome is a much simpler trusted computing base of Sculpt OS.
+Confronting the framework with largely different kernel mechanisms has
+certainly strengthened Genode's software design, but also gave us a great
+depth of insights into the landscape of kernel designs and the implications of
+the respective design choices.
+It did not take us long to question some of these choices, and we started
+experimenting with custom kernel designs on our own. Our custom kernel made
+its first appearance in version
+[https://genode.org/documentation/release-notes/11.02#Approaching_platform_support_for_Xilinx_MicroBlaze - 11.02]
+targeting Xilinx Microblaze softcore CPUs.
+Without haste, we steadily evolved this kernel as a research endeavour, first targeting ARM CPUs
+([https://genode.org/documentation/release-notes/14.05#Multi-processor_support - SMP],
+[https://genode.org/documentation/articles/trustzone - TrustZone],
+[https://genode.org/documentation/release-notes/15.02#Virtualization_on_ARM - virtualization],
+[https://genode.org/documentation/release-notes/19.08#64-bit_ARM_and_NXP_i.MX8 - 64 bit]),
+and later also moving to the
+[https://genode.org/documentation/release-notes/15.05#Feature_completion_of_our_custom_kernel__base-hw_ - x86]
+architecture.
+
+When we
+[https://genode.org/documentation/release-notes/18.02#Sculpt_for_Early_Adopters - started]
+creating Sculpt OS as a Genode-based operating system for commodity PCs, we
+picked NOVA as kernel of choice. NOVA's unique combination of microkernel and
+virtualization mechanisms served us extremely well. It is truly a technical
+marvel! But like any other 3rd-party kernel, it imposes certain complexities
+and points of friction on the user land. In contrast to 3rd-party kernels like
+NOVA or seL4, which are self-sufficient programs, our custom kernel is melted
+with Genode's core component. This alleviates redundant data structures
+between kernel and user space and makes Genode's resource management directly
+applicable to kernel objects. In other words, it fits like a glove. Hence,
+looking ahead, we foresee a much simpler and highly coherent trusted computing
+base of Sculpt OS.
 
 In order to realize this vision, we had to tackle a couple of long-time
-showstoppers. First of all, we needed to move IOMMU support into the platform
-driver to render it kernel-agnostic. We completed a major part of this
-transition in
+showstoppers. First of all, we needed to move IOMMU support out of the kernel
+into the user-level platform driver to render it kernel-agnostic.
+We completed a major part of this transition in
 [https://genode.org/documentation/release-notes/23.11#Kernel-agnostic_DMA_protection - release 23.11].
 
 Second, virtualization of commodity operating systems is a common use case for Sculpt
