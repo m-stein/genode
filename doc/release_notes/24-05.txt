@@ -351,7 +351,7 @@ driver with
 In this release, we also incorporated a vendor check in the Intel framebuffer
 driver in order to ensure that it only operates Intel devices. Since our
 central platform driver typically hands out all VGA-class devices to the driver,
-GPU of other vendors might also be visible to it. This caused issues on
+GPUs of other vendors might also be visible to it. This caused issues on
 platforms with additional Nvidia GPU for multiple users. Thanks to Alice Domage
 for this contribution.
 
@@ -645,9 +645,8 @@ Goa SDK
 
 Aligned with the Sculpt release, the Goa tool has been updated with the
 corresponding depot archive versions for Sculpt 24.04. This also involved
-adding support for the new Play and Record sessions.
+adding support for the new audio play and record sessions.
 
 The _Goa testbed_ package and preset have been updated accordingly so that
 an out-of-the-box Sculpt 24.04 lends itself as a
-[https://genode.org/documentation/release-notes/24.02#Sculpt_OS_as_remote_test_target_for_the_Goa_SDK
-- remote test target for Goa].
+[https://genode.org/documentation/release-notes/24.02#Sculpt_OS_as_remote_test_target_for_the_Goa_SDK - remote test target for Goa].
