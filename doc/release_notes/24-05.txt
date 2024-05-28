@@ -94,15 +94,16 @@ Fine-grained and dynamic assignment of USB devices/interfaces
 #############################################################
 
 USB support has a long history in the Genode framework, but since almost one
-decade its client's session API was kept stable. Back in 2015, we split
-the USB host controller driver parts from other USB client device drivers.
-Since then, an USB client component could request exactly one USB device per
-session from the USB server resp. USB host controller driver. Moreover,
+decade its client session API was kept stable. Back in
+[https://genode.org/documentation/release-notes/15.02#USB_session_interface - 2015],
+we split the USB host-controller driver parts from other USB client device drivers.
+Since then, a USB client component could request exactly one USB device per
+session from the USB server resp. USB host-controller driver. Moreover,
 a client had to drive the device as a whole.
 
 This former approach led to some limitations and intricateness. First USB
-drivers, which were capable of driving more that one device of the same
-class, needed the information which devices to request in advance.
+drivers, which were capable of driving more than one device of the same
+class, needed to know the devices to request in advance.
 This information was not integral part of the USB session. The additional
 information path induced some indirections in the management of USB devices in a
 more complex system like Sculpt OS, e.g., when passing arbitrary USB devices to
@@ -112,35 +113,35 @@ The second drawback was related to more complex USB devices with several
 interfaces of different device classes. For instance, imagine an USB headset
 with extra buttons to control volume. Such devices typically have several USB
 interfaces for audio play and record, and at least one interface for input
-events. If you already have device drivers for all kinds of device classes, you
-typically do not want to create driver mixtures for each potential combinations
-of them. Instead, you want one component drive one interface, and another to
-drive the other.
+events. Whereas the development of one driver for each device class is certainly
+an attainable goal, creating driver mixtures for each potential combination of
+interfaces is unrealistic.
+One ultimately wants to dedicate one driver to one interface while another
+interface of the same device may safely be operated by another driver.
 
 These limitations accompanied us since quite some time, and a design to overcome
-them matured in backyard of our heads. Therefore, with this release the USB
-session got overworked entirely.
+them matured in backyard of our heads. With the current release, the USB
+session eventually received its long-anticipated redesign.
 
-The new USB session API provides a devices ROM to a client. Within this
-dataspace a client finds all relevant information about existent devices allowed
-to access. You can think of it, as a virtual, private bus of this client. When a
+The new USB session API provides a "devices" ROM to a client. Within this
+dataspace, a client finds all relevant information about existing devices it
+is allowed to access. You can think of it as a virtual private bus of this client. When a
 new device gets connected, which matches the client's policy of the USB host
-controler driver, the devices ROM gets updated appropriatedly. If a device gets
+controller driver, the "devices" ROM gets updated appropriately. If a device gets
 removed physically, it'll vanish from the devices ROM.
-
-An examplary devices ROM looks like the following:
+An exemplary "devices" ROM looks as follows.
 
 ! <devices>
-! 	<device name="usb-1-10" class="0x0" product="USB Optical Mouse"
-! 	        vendor_id="0x1bcf" product_id="0x5" speed="low" acquired="true">
-! 		<config active="true" value="0x1">
-! 			<interface active="true" number="0x0" alt_setting="0x0"
-! 			           class="0x3" subclass="0x1" protocol="0x2">
-! 				<endpoint address="0x81" attributes="0x3"
-! 				          max_packet_size="0x7"/>
-! 			</interface>
-! 		</config>
-! 	</device>
+!   <device name="usb-1-10" class="0x0" product="USB Optical Mouse"
+!           vendor_id="0x1bcf" product_id="0x5" speed="low" acquired="true">
+!     <config active="true" value="0x1">
+!       <interface active="true" number="0x0" alt_setting="0x0"
+!                  class="0x3" subclass="0x1" protocol="0x2">
+!         <endpoint address="0x81" attributes="0x3"
+!                   max_packet_size="0x7"/>
+!       </interface>
+!     </config>
+!   </device>
 ! </devices>
 
 As can be seen in the example, the human-readable XML representation of the USB
@@ -150,36 +151,42 @@ relevant information about available configurations, interfaces, and endpoints
 including their types and identifiers without the need to communicate with the
 device first.
 
-Beside the devices ROM, the new USB session API consists of two functions to
-acquire or release a formerly required device. The acquisition of a device
-returns a capability to a new device API. This distinct session includes a
-function to obtain a packet stream buffer to exchange USB control requests with
-the USB host controller driver. The host controller driver sanity-checks the
-control requests, and potentially forwards it to the device. Thereby, a client
+Beside the "devices" ROM, the new USB-session API consists of two functions to
+acquire, or to release a formerly required device. The acquisition of a device
+returns a capability to a new device RPC API. This distinct API includes a
+function to obtain a packet-stream buffer to exchange USB control requests with
+the USB host-controller driver. The host-controller driver sanity-checks the
+control requests, and potentially forwards them to the device. Thereby, a client
 can change the configuration of the device, enable an alternate interface, or
-request the additional descriptors including some device-class specific
+request the additional descriptors including device-class specific
 aspects.
 
-Moreover, the device session API provides functions to acquire or release an
-interface of the device. When acquiring an interface a capability to the
-interface session gets returned. This third new API finally provides a
-packet-stream buffer to the client, which allows exchange interrupt, bulk, or
-isochronous tranfers with the host controller driver. The host controller driver
+Moreover, the device RPC API provides functions to acquire or release an
+interface of the device. When acquiring an interface, a capability to the
+interface RPC API gets returned. This third new RPC API provides a
+packet-stream buffer to the client, which allows for the exchange of interrupt, bulk, or
+isochronous transfers with the host-controller driver. The host-controller driver
 checks these transfer requests for plausibility, and forwards them directly to
 the device and vice versa.
 
-The whole internals of the different session API layers, however are hidden from
-you as developer. Instead some convenient helper utilities are provided within
-`repos/os/include/usb_session/device.h`. Those helper classes simplify the
-aquisition of USB devices and interfaces. Moreover, it supports the notion of
+The whole internals of the different RPC API layers, however, are not imposed on
+the developer. Instead, convenient helper utilities are provided within
+_repos/os/include/usb_session/device.h_. Those helper classes simplify the
+acquisition of USB devices and interfaces. Moreover, they support the notion of
 USB Request Blocks (Urbs) on the level of device (control) and interface (irq,
 bulk, isochronous). To have a look at an example component, which makes use of
 this utilities, please refer to the USB block driver.
 
 All other components that made direct use of the USB session, have been adapted
 to use the new API. This includes Linux USB driver ports for host controllers,
-HID, and USB ethernet cards, the libusb library port, our XHCI model within
-Virtualbox, and the black_hole component.
+HID, USB Ethernet cards, the libusb library port, our XHCI model within
+VirtualBox, and the black-hole component.
+
+The outcome of this line of work is already present in
+[https://genodians.org/nfeske/2024-04-26-sculpt-os - Sculpt OS 24.04], which makes the
+[https://genode.org/documentation/articles/sculpt-24-04#Assignment_of_USB_devices_to_components - assignment of USB devices]
+to components intuitive and secure.
+
 
 Practical relevance
 ===================
