@@ -182,19 +182,13 @@ to use the new API. This includes Linux USB driver ports for host controllers,
 HID, USB Ethernet cards, the libusb library port, our XHCI model within
 VirtualBox, and the black-hole component.
 
-The outcome of this line of work is already present in
-[https://genodians.org/nfeske/2024-04-26-sculpt-os - Sculpt OS 24.04], which makes the
-[https://genode.org/documentation/articles/sculpt-24-04#Assignment_of_USB_devices_to_components - assignment of USB devices]
-to components intuitive and secure.
+Practical considerations
+------------------------
 
-
-Practical relevance
-===================
-
-For users of the framework or Sculpt OS, the most noteable change is that all USB
-clients use their own devices ROM to react on device appearance and
+For users of the framework or Sculpt OS, the most notable change is that all USB
+clients use their own "devices" ROM to react on device appearance and
 disappearance. No global information resource is used anymore. That means the
-addition of of a new policy rule in USB host controller's configuration is
+addition of a new policy rule in the USB host-controller's configuration is
 sufficient to, e.g., let a device appear in a Linux guest. If the rule already
 exists, even the pure physical connect will result in the appearance of the
 device.
@@ -203,28 +197,37 @@ Because one USB session can now control an arbitrary number of devices, the
 syntax of the policy rules for an USB host controller driver changed a bit:
 
 ! <config>
-! 	<policy label="usb_net">
-! 		<device vendor_id="0x0424" product_id="0xec00"/>
-! 	</policy>
-! 	<policy label="usb_hid">
-! 		<device class="0x3"/>
-! 	</policy>
-! 	<policy label="vm">
-! 		<device name="usb-2-2"/>
-! 		<device name="usb-2-4"/>
-! 	</policy>
+!   <policy label="usb_net">
+!     <device vendor_id="0x0424" product_id="0xec00"/>
+!   </policy>
+!   <policy label="usb_hid">
+!     <device class="0x3"/>
+!   </policy>
+!   <policy label="vm">
+!     <device name="usb-2-2"/>
+!     <device name="usb-2-4"/>
+!   </policy>
 ! </config>
 
-As you might have noticed, there is no differentiation in the policy rules on
-the interface-level yet. Although, everything within the USB session API is now
-available to split interfaces of one USB device in between different drivers, we
-decided against activating this feature on the policy level. In short, devices
-are still distributed to the clients as a whole. We first need aware drivers
-that cooperatively only aquire parts, or otherwise won't crash if the
-acquisition is not allowed. This is not the case for the almost all our ported
-drivers, or virtualized guest OSes. Nonetheless, as soon as we have a
-cooperatively working driver group, we can now enable the interface split
-without touching the USB session API again.
+As you might notice, there is no differentiation in the policy rules on
+the interface-level yet. In short, each device is still handled by only one driver.
+As a prerequisite to assign drivers
+to individual interfaces, drivers first have to become resilient against
+denied device-acquisition attempts.
+This is not the case for most ported drivers or virtualized guest OSes.
+Hence, even though the USB session API is now prepared
+for driving interfaces of one USB device by different drivers, we
+decided against activating this feature on the policy level at this time.
+Nonetheless, once a set of interface drivers gets in place, we can enable
+the added flexibility without touching the USB session API again.
+
+Sculpt OS
+---------
+
+The outcome of this line of work is already present in
+[https://genodians.org/nfeske/2024-04-26-sculpt-os - Sculpt OS 24.04], which makes the
+[https://genode.org/documentation/articles/sculpt-24-04#Assignment_of_USB_devices_to_components - assignment of USB devices]
+to components intuitive and secure.
 
 
 On-target debugging using the GNU debugger (GDB)
