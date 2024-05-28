@@ -351,120 +351,25 @@ Device drivers
 Linux-device-driver environment (DDE)
 =====================================
 
-; @chelmuth
+Porting Linux drivers to Genode is a multi-staged process with the
+configuration of a minimal but functional platform-specific Linux kernel as
+an essential step. The device support in this kernel is the baseline and
+reference for the final Genode driver. To simplify testing minimal kernel
+images we introduced run scripts for i.MX boards and PCs. Now, a plain
+execution of 'make run/pc_linux' or 'make run/imx_linux' runs Linux on the
+test target as known from Genode scenarios. In case of i.MX, a FIT image is
+generated, while we provide an i.PXE-bootable image for PC. The run scripts
+use the new busybox port to generate an initial ramdisk and, for i.MX, amend
+this image with memtool, a tool by Pengutronix to inspect all kind of memory
+under Linux (via /dev/mem).
 
-commit 68925a6d337fec63e34e5b8ea7b6953f3857a501
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Mar 25 09:41:09 2024 +0100
-
-    pc/lx_emul: enable HIGH_RES_TIMERS
-    
-    Only with high-resolution timers enabled timouts can fire between two
-    jiffies. The option is enabled on all relevant platforms but
-    unfortunately disabled by tinyconfig.
-    
-    This option also permits the use of CONFIG_SND_HRTIMER.
-
-commit 5ff1ef82d1b7928fd011922e6d1add2a8b92122c
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Mar 25 11:58:20 2024 +0100
-
-    lx_kit: preserve priority order in scheduler
-
-commit 66286d6f1782cf0bcdbbd57d694b9f32d8a2642d
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Mar 25 14:11:35 2024 +0100
-
-    dde_linux: remove custom *printf implementation
-    
-    The DDE uses Linux-internal formatted printk for a while now, thus
-    remove the unused code.
-
-commit 38d2b8d46aeca73d5232488539b8aee4d04528ee
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Mon Mar 25 09:50:59 2024 +0100
-
-    lx_emul: function to generate trace messages
-    
-    lx_emul_trace_msg() uses Genode::trace() as message function for
-    lightweight trace points, but also supports Linux format-string
-    attributes by using vsnprintf().
-
-commit e691af4e9774d5422338b14424c083df1dc58369
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Mar 26 16:17:11 2024 +0100
-
-    pc_nic_drv: basic rtnetlink for lock/unlock and netdev_run_todo()
-
-commit c54e8ec3e2ba19cb3d3e694064839a4c22a26b65
-Author: Christian Helmuth <christian.helmuth@genode-labs.com>
-Date:   Tue Mar 26 16:18:55 2024 +0100
-
-    lx_emul: init pci_dev::error_state
-    
-    pci_channel_offline() checks if this member is set to
-    pci_channel_io_normal (which is 1). The former value of 0 is invalid.
-    
-    This change fixes pc_nic_drv link down-up in cases that require an e1000
-    reset.
-
-commit 60807fa67a417e68ba5c81bf8938cac1f8fcd166
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Mon May 13 15:53:29 2024 +0200
-
-    dde_linux: add busybox port
-    
-    Fix genodelabs/genode#5214
-
-commit daeef233636fae99cbefc47b4183c69bbfb73c9b (genodelabs/staging)
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed May 15 16:31:54 2024 +0200
-
-    Add memtool target, integrate into imx_linux.run
-    
-    - Add memtool port from Pengutronix to inspect all kind of memory
-      under Linux (via /dev/mem)
-    - Integrate the memtool under /bin of the initramfs in the
-      imx_linux run-script
-
-commit b761f2d48dd3b791d6f592ff0da16b67a77eae9c
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed May 15 15:16:22 2024 +0200
-
-    fixup "Add imx8mp_iot_gate as imx_linux.run target" (enable second nic)
-
-commit 6cb6490766662bac2ebfe22db68098e22b7df39d
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Wed May 15 11:20:47 2024 +0200
-
-    Add imx8mp_iot_gate as imx_linux.run target
-    
-    Add Compulab IOTG-IMX8PLUS board support to the Linux kernel
-    build target and run infrastructure.
-
-commit 6e16351ace49a975f0eea676a18e74ffd8b8d37e
-Author: Stefan Kalkowski <stefan.kalkowski@genode-labs.com>
-Date:   Mon May 13 16:19:30 2024 +0200
-
-    Extend imx_linux.run script to include busybox
-    
-    - Rename linux-imx.run to imx_linux.run to stay consistently
-    - Remove Linux-specifics from the board subdirectory,
-      and move that informations to the run-script itself
-    - Add all relevant information including the kernel commandline
-      into this run-script
-
-commit 2e5a5e5cb767cca1434523ed8f5d425f0218bcc2
-Author: Alice Domage <alice.domage@gapfruit.com>
-Date:   Thu Apr 11 15:56:13 2024 +0200
-
-    add linux-imx.run
-    
-    This runscript introduces the possibility to run the minimal Linux
-    directly from Genode. The integration with the run tool allow rapid
-    experimentation with Linux in the context of porting drivers.
-    
-    At the moment only FIT images are supported.
+Further, we address some deficiencies in DDE Linux with this release. We
+improved support for fine-grained, sub-milliseconds timing by enabling
+high-resolution timers and attended to a long-standing pc_nic_drv link reset
+bug that manifested in some situations on some platforms only. For driver
+developers, we added the 'lx_emul_trace_msg()' function for the generation
+of low-overhead trace entries that can be used to debug timing-sensitive or
+high-traffic scenarios.
 
 
 IOMMU interrupt remapping in user space
