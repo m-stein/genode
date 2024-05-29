@@ -474,6 +474,8 @@ The new
 [https://genode.org/documentation/articles/sculpt-24-04#System_power_control - power options]
 can be found in the _System_ menu once the ACPI support option is activated.
 
+[image sculpt_24_04_acpi_support]
+
 Drivers which are non-stateful, are removed from the runtime before
 suspending and are restarted during resume, e.g., network drivers. Stateful drivers
 like NVME, AHCI, and GPU drivers participate cooperatively in the system states
@@ -481,6 +483,8 @@ by stopping their processing and signal their fulfillment. Currently, the
 USB host driver needs to be restarted forcefully on resume. To avoid loosing
 of data, the power suspend feature is not offered while a USB block device
 is in use.
+
+[image sculpt_24_04_system_power]
 
 Additionally - during the integration into Sculpt - several drivers got
 enhanced. The acpica application now reflects the completion of the
