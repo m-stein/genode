@@ -77,13 +77,8 @@ class Net::Domain_dict : public Dictionary<Domain, Domain_name>
 
 		void find_by_domain_attr(Genode::Xml_node const &node, auto const &ok_fn, auto const &failed_fn)
 		{
-			node.with_attribute("domain",
-				[&] (Genode::Xml_attribute &domain_attr) {
-					Domain_name name { };
-					domain_attr.value(name);
-					with_element(name, [&] (Domain &domain) { ok_fn(domain); }, [&] { failed_fn(); });
-				},
-				[&] { failed_fn(); });
+			with_element(node.attribute_value("domain", Domain_name()),
+				[&] (Domain &domain) { ok_fn(domain); }, [&] { failed_fn(); });
 		}
 
 };

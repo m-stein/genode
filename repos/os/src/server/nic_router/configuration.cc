@@ -63,24 +63,19 @@ void Configuration::_invalid_domain(Domain     &domain,
 Icmp_packet::Code
 Configuration::_init_icmp_type_3_code_on_fragm_ipv4(Xml_node const &node) const
 {
+	using Attribute_string = String<16>;
 	Icmp_packet::Code result = Icmp_packet::Code::INVALID;
-	node.with_optional_attribute("icmp_type_3_code_on_fragm_ipv4", [&] (Xml_attribute const &attr) {
-		if (attr.has_value("no")) {
-			return;
-		}
-		uint8_t attr_val { };
-		bool const attr_transl_succeeded { attr.value<uint8_t>(attr_val) };
-		result = Icmp_packet::code_from_uint8(Icmp_packet::Type::DST_UNREACHABLE, attr_val);
-		if (!attr_transl_succeeded ||
-		    result == Icmp_packet::Code::INVALID) {
+	Attribute_string attr_str = node.attribute_value("icmp_type_3_code_on_fragm_ipv4", Attribute_string());
+	if (attr_str == "no" || attr_str == Attribute_string())
+		return result;
 
-			warning("attribute 'icmp_type_3_code_on_fragm_ipv4' has invalid "
-			        "value, assuming value \"no\"");
-
-			result = Icmp_packet::Code::INVALID;
-		}
-		return;
-	});
+	uint8_t attr_u8 { };
+	if (Genode::ascii_to(attr_str.string(), attr_u8) == attr_str.length()) {
+		result = Icmp_packet::code_from_uint8(Icmp_packet::Type::DST_UNREACHABLE, attr_u8);
+		if (result != Icmp_packet::Code::INVALID)
+			return result;
+	}
+	warning("attribute 'icmp_type_3_code_on_fragm_ipv4' has invalid value");
 	return result;
 }
 
