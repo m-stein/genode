@@ -19,7 +19,7 @@ Another user-facing feature with a surprisingly deep technical reach is
 suspend/resume. Section [Suspend/resume infrastructure] details the
 changes of the framework on that account.
 The new ability of seamlessly using the GNU debugger on top of Sculpt OS
-is game changer for developers (Section [On-target debugging using the GNU debugger (GDB)]).
+is a game changer for developers (Section [On-target debugging using the GNU debugger (GDB)]).
 Further user-visible and user-audible topics are the support for high-resolution
 displays and the wrapped-up transition to our new audio stack
 (Section [Transition to the new audio interfaces introduced in 24.02]).
@@ -156,7 +156,7 @@ a guest OS running inside a virtual-machine.
 
 The second drawback was related to USB devices with several
 interfaces of different device classes. For instance, imagine a USB headset
-with extra buttons to volume control. Such devices typically have several USB
+with extra buttons for volume control. Such devices typically have several USB
 interfaces for audio playback and recording, and at least one interface for input
 events. Whereas the development of one driver for each device class is certainly
 an attainable goal, creating driver mixtures for each potential combination of
@@ -506,7 +506,7 @@ Non-stateful drivers are removed from the runtime before
 suspending and are restarted during resume, e.g., network drivers. Stateful drivers
 like NVME, AHCI, and GPU drivers participate cooperatively in the system states
 by stopping their processing and reporting their fulfillment. Currently, the
-USB host driver needs to be restarted forcefully on resume. To avoid loosing
+USB host driver needs to be restarted forcefully on resume. To avoid losing
 of data, the power suspend feature is not offered while a USB block device
 is in use.
 
