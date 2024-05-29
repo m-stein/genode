@@ -53,7 +53,7 @@ Link_side::Link_side(Domain             &domain,
                      Link_side_id const &id,
                      Link               &link)
 :
-	_domain(domain), _id(id), _link(link)
+	_domain_ptr(&domain), _id(id), _link(link)
 {
 	if (link.config().verbose()) {
 		log("[", domain, "] new ", l3_protocol_name(link.protocol()),
@@ -97,7 +97,7 @@ Link::Link(Interface                     &cln_interface,
            Microseconds            const  dissolve_timeout,
            Interface_link_stats          &stats)
 :
-	_config(config),
+	_config_ptr(&config),
 	_client_interface(cln_interface),
 	_server_port_alloc_ptr(srv_port_alloc_ptr),
 	_dissolve_timeout(timer, *this, &Link::_handle_dissolve_timeout,
@@ -144,11 +144,11 @@ void Link::dissolve(bool timeout)
 
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
-	if (_config().verbose()) {
+	if (_config_ptr->verbose()) {
 		log("Dissolve ", l3_protocol_name(_protocol), " link: ", *this); }
 
 	if (_server_port_alloc_ptr) {
-		if (_config().verbose()) {
+		if (_config_ptr->verbose()) {
 			log("Free ", l3_protocol_name(_protocol),
 			    " port ", _server.dst_port(),
 			    " at ", _server.domain(),
@@ -177,9 +177,9 @@ void Link::handle_config(Domain               &cln_domain,
 	_client.domain().links(_protocol).remove(&_client);
 	_server.domain().links(_protocol).remove(&_server);
 
-	_config = config;
-	_client._domain = cln_domain;
-	_server._domain = srv_domain;
+	_config_ptr = &config;
+	_client._domain_ptr = &cln_domain;
+	_server._domain_ptr = &srv_domain;
 	_server_port_alloc_ptr = srv_port_alloc_ptr;
 
 	cln_domain.links(_protocol).insert(&_client);
@@ -257,7 +257,7 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
 		_packet();
 	} else {
 		_dissolve_timeout.schedule(
-			Microseconds(_config().tcp_max_segm_lifetime().value << 1));
+			Microseconds(_config_ptr->tcp_max_segm_lifetime().value << 1));
 	}
 }
 

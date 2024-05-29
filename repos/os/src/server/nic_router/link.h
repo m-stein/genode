@@ -91,9 +91,15 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 
 	private:
 
-		Reference<Domain>   _domain;
+		Domain             *_domain_ptr;
 		Link_side_id const  _id;
 		Link               &_link;
+
+		/*
+		 * Noncopyable
+		 */
+		Link_side(Link_side const &);
+		Link_side &operator = (Link_side const &);
 
 	public:
 
@@ -150,7 +156,7 @@ class Net::Link_side : public Genode::Avl_node<Link_side>
 		 ** Accessors **
 		 ***************/
 
-		Domain             &domain()    const { return _domain(); }
+		Domain             &domain()    const { return *_domain_ptr; }
 		Link               &link()      const { return _link; }
 		Ipv4_address const &src_ip()    const { return _id.src_ip; }
 		Ipv4_address const &dst_ip()    const { return _id.dst_ip; }
@@ -184,7 +190,7 @@ class Net::Link : public Link_list::Element
 {
 	protected:
 
-		Reference<Configuration>       _config;
+		Configuration                 *_config_ptr;
 		Interface                     &_client_interface;
 		Port_allocator_guard          *_server_port_alloc_ptr;
 		Lazy_one_shot_timeout<Link>    _dissolve_timeout;
@@ -247,7 +253,7 @@ class Net::Link : public Link_list::Element
 		Link_side const &client()   const   { return _client; }
 		Link_side       &server()           { return _server; }
 		Link_side const &server()   const   { return _server; }
-		Configuration   &config()           { return _config(); }
+		Configuration   &config()           { return *_config_ptr; }
 		L3_protocol      protocol() const   { return _protocol; }
 		Interface       &client_interface() { return _client_interface; };
 };
