@@ -23,7 +23,6 @@
 /* local includes */
 #include <mac_allocator.h>
 #include <interface.h>
-#include <reference.h>
 #include <report.h>
 #include <session_env.h>
 #include <communication_buffer.h>

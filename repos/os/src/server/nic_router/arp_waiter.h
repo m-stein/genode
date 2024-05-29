@@ -16,7 +16,6 @@
 
 /* local includes */
 #include <list.h>
-#include <reference.h>
 
 /* Genode includes */
 #include <net/ipv4.h>
