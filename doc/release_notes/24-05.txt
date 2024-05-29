@@ -164,14 +164,14 @@ interfaces is unrealistic.
 One ultimately wants to dedicate one driver to one interface while another
 interface of the same device may safely be operated by another driver.
 
-These limitations accompanied us since quite some time, and a design to overcome
-them matured in backyard of our heads. With the current release, the USB
+These limitations accompanied us for quite some time, and a design to overcome
+them matured at the back of our minds. With the current release, the USB
 session eventually received its long-anticipated redesign.
 
 The new USB session API provides a "devices" ROM to its client. Within this
 dataspace, a client finds all relevant information about existing devices it
 is allowed to access. You can think of it as a virtual private bus of this client. When a
-new device gets connected, which matches the client's policy of the USB host
+new device gets connected that matches the client's policy of the USB host
 controller driver, the "devices" ROM gets updated appropriately. If a device gets
 removed physically, it'll vanish from the devices ROM.
 An exemplary "devices" ROM looks as follows.
@@ -219,7 +219,7 @@ _repos/os/include/usb_session/device.h_. Those helper classes simplify the
 acquisition of USB devices and interfaces. Moreover, they support the notion of
 USB Request Blocks (Urbs) on the level of device (control) and interface (irq,
 bulk, isochronous). To have a look at an example component, which makes use of
-this utilities, please refer to the USB block driver.
+these utilities, please refer to the USB block driver.
 
 All other components that made direct use of the USB session, have been adapted
 to use the new API. This includes Linux USB driver ports for host controllers,
@@ -238,7 +238,7 @@ exists, even the pure physical connect will result in the appearance of the
 device.
 
 Because one USB session can now control an arbitrary number of devices, the
-syntax of the policy rules for an USB host controller driver changed a bit:
+syntax of the policy rules for a USB host controller driver changed a bit:
 
 ! <config>
 !   <policy label="usb_net">
@@ -292,8 +292,8 @@ The _debug monitor_ component got introduced in version
 It is a drop-in replacement for the init component with the added ability to
 control the execution and memory content of selected child components
 with commands following the GDB remote serial protocol. On Sculpt, the
-debug monitor now acts as the runtime init component. The decision which
-components are made available to debugger control is made by the user
+debug monitor now acts as the runtime init component. The user decides
+which components are made available to debugger control
 with a check mark in the launcher menu before the component is started,
 which adds a monitor configuration part for this component to the Sculpt
 runtime configuration.
@@ -364,13 +364,14 @@ role in interfacing with Genode's native audio stack. The already existing
 VFS plugin got renamed to 'legacy_oss' while the new one takes its place and
 is usable as a drop-in replacement. Existing users have to adapt the session
 routes accordingly or change their VFS configuration to make use of the
-'legacy_oss' plugin should the use of the new sessions not yet desirable.
+'legacy_oss' plugin should the use of the new sessions not yet be desirable.
 
 In contrast to the old plugin, it is possible to configure the fragment size a
-client is allowed to use via its configuration. It ranges from 2048 to 8192
+client is allowed to use via its configuration and thereby enforce its latency
+requirements. The fragment size ranges from 2048 to 8192
 bytes, which equals a period length of around 11.6 to 46.4 ms when using a
-sample rate of 44.1 kHz, to enforce latency requirements for specific clients.
-The plugin leverages the ability of the 'report_play_mixer' to covert
+sample rate of 44.1 kHz.
+The plugin leverages the ability of the 'report_play_mixer' to convert
 sample rates. However, to constrain the resource requirements of the
 plugin, it is limited to 8 kHz to 48 kHz, which covers a reasonable range.
 Please consult the _repos/gems/src/lib/vfs/oss/README_ file for more
@@ -501,7 +502,7 @@ can be found in the _System_ menu once the ACPI support option is activated.
 
 [image sculpt_24_04_acpi_support]
 
-Drivers which are non-stateful, are removed from the runtime before
+Non-stateful drivers are removed from the runtime before
 suspending and are restarted during resume, e.g., network drivers. Stateful drivers
 like NVME, AHCI, and GPU drivers participate cooperatively in the system states
 by stopping their processing and reporting their fulfillment. Currently, the
@@ -524,14 +525,14 @@ Mesa updated to version 24.0.1
 ==============================
 
 With the goal to add support for more recent Intel GPUs (Alder Lake+), we took
-the first step by updating our three-year old Mesa 21 to version 24. Because
+the first step by updating our three-year-old Mesa 21 to version 24. Because
 Mesa is under heavy development, the effort to do so was more elaborate than
 anticipated. For the current release, we enabled all the previously supported
 GPUs, which are Intel GEN8 (Broadwell), GEN9 (Skylake up to Whiskey Lake), GEN12
 (Tiger Lake) using the Iris Gallium driver, Vivante as found in i.MX8 SoCs, and
 Mali on the PinePhone. There are still many improvements to be explored, like
 buffer life-time management, using Mesa's native build system (Meson) for
-simplifying future updates, testing Alder Lake, replacing softipe with
+simplifying future updates, testing Alder Lake, replacing softpipe with
 llvm for software rendering, and adding Vulkan support, to name a few. We
 hope to tackle these topics in future Genode releases.
 
@@ -540,7 +541,7 @@ Removed obsolete loader component and session interface
 =======================================================
 
 The loader was originally introduced in version
-[https://genode.org/documentation/release-notes/10.11#Qt4 10.11] as part of an
+[https://genode.org/documentation/release-notes/10.11#Qt4 - 10.11] as part of an
 early [https://genode.org/news/genode-live-demonstration-2010-11 - live CD].
 It later served the purpose of dynamically starting and
 stopping preconfigured subsystems. As of today, the latter use case has long
@@ -577,7 +578,7 @@ understand.
 Once warmed up with the topic, we stepped one level up in the block-encryption
 stack and continued reworking the Tresor VFS plugin because it also suffered
 from over-complexity and redundancy. After finishing that, we noticed that the
-next higher layer - the file vault app - could also be improved and in two ways:
+next higher layer - the file vault app - could also be improved in two ways:
 First, the file vault used to combine two unrelated tasks in one app: The logic
 for modeling typical user work-flows on the Tresor VFS and the operation of
 a graphical user interface. We found that these are better assigned to
@@ -665,7 +666,7 @@ release, the VMM received several improvements.
 
 Notably, the former global lock in form of the synchronized 'Motherboard' got
 replaced by fine-grained locking within each device model where appropriate.
-Thanks to the better CPU utilization, long running work, e.g. compilation, now
+Thanks to the better CPU utilization, long-running work, e.g. compilation, now
 finishes earlier.
 
 The network binding got reworked, which now reflects network
@@ -707,11 +708,9 @@ This allows for restricting the initial window size because otherwise the
 actual screen size will be used and that might be too large depending on the
 attached display.
 
-Support for using SDL2's text-input API was enabled and - to make it robust -
-we only send key presses as text if the codepoint is valid and if it's not a
-known non-printable. Keyboard events are omitted if key presses are sent as
-text but in return we always send keyboard events if text-input has not been
-enabled by the application.
+Support for using SDL2's text-input API was enabled. Once the application
+enables text input, any key press that has a valid codepoint and is not a known
+non-printable is sent as text rather than as a key-press event.
 
 
 Curl updated to version 8.7.1
@@ -722,7 +721,7 @@ We updated our cURL port to version 8.7.1.
 In setups where no service is employed to provide entropy, it might be necessary
 to increase the amount of statically configured entropy. Doubling the content of
 the '<inline>' VFS plugin as used in static configurations seems satisfactory.
-Furthermore DNS resolving needs a configured '<pipe>' plugin to work properly.
+Furthermore, DNS resolving needs a configured '<pipe>' plugin to work properly.
 For an exemplary configuration, please look at the
 _repos/libports/run/fetchurl.inc_ run-script snippet.
 
