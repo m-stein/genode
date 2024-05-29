@@ -121,7 +121,8 @@ the time-tested NOVA hypervisor as the default kernel for Sculpt OS, this
 release is a milestone in that direction.
 
 The Sculpt OS variant using our custom kernel is now available as a
-ready-to-use system image at [https://depot.genode.org/jschlatow/image].
+ready-to-use system image at [https://depot.genode.org/jschlatow/image]
+for Intel systems up to 8th generation core processors (Whiskey Lake).
 Note, when using Sculpt's integrated update mechanisms, you must already run
 at least Sculpt 24.04. The system image includes a launcher for running a
 Tiny-Core-Linux VM with a Firefox browser in VirtualBox. The launcher requires
@@ -143,7 +144,7 @@ decade its client session API was kept stable. Back in
 we split the USB host-controller driver parts from other USB client device drivers.
 Since then, a USB client component could request exactly one USB device per
 session from the USB server resp. USB host-controller driver. Moreover,
-a client had to drive the device as a whole.
+a client had to drive the device in its entirety.
 
 This former approach led to some limitations and intricateness. First, USB
 drivers capable of driving more than one device of the same
@@ -152,29 +153,29 @@ This information was not delivered by the USB session but by means of configurat
 The out-of-band
 information path complicated the management of USB devices in
 complex systems like Sculpt OS, e.g., when passing arbitrary USB devices to
-a guest OS running inside a virtual-machine.
+a guest OS running inside a virtual machine.
 
-The second drawback was related to USB devices with several
-interfaces of different device classes. For instance, imagine a USB headset
+The second drawback was related to USB devices with multiple
+interfaces of different interface classes, most prominently, USB headsets
 with extra buttons for volume control. Such devices typically have several USB
-interfaces for audio playback and recording, and at least one interface for input
-events. Whereas the development of one driver for each device class is certainly
+interfaces for audio playback and recording, and at least one interface for HID input
+events. Whereas the development of one driver for each interface class is certainly
 an attainable goal, creating driver mixtures for each potential combination of
 interfaces is unrealistic.
-One ultimately wants to dedicate one driver to one interface while another
-interface of the same device may safely be operated by another driver.
+Ultimately, we strive to freely operate different interfaces of a single
+device by dedicated drivers.
 
 These limitations accompanied us for quite some time, and a design to overcome
 them matured at the back of our minds. With the current release, the USB
 session eventually received its long-anticipated redesign.
 
-The new USB session API provides a "devices" ROM to its client. Within this
+The new USB session API provides a _devices_ ROM to its client. Within this
 dataspace, a client finds all relevant information about existing devices it
-is allowed to access. You can think of it as a virtual private bus of this client. When a
+is allowed to access. You can think of it as a virtual private USB bus for this client. When a
 new device gets connected that matches the client's policy of the USB host
-controller driver, the "devices" ROM gets updated appropriately. If a device gets
-removed physically, it'll vanish from the devices ROM.
-An exemplary "devices" ROM looks as follows.
+controller driver, the ROM gets updated appropriately. If a device gets
+removed physically, it'll vanish from the _devices_ ROM, which may,
+for example, look as follows.
 
 ! <devices>
 !   <device name="usb-1-10" class="0x0" product="USB Optical Mouse"
@@ -194,9 +195,9 @@ devices already contains most information that normally resides in the
 full-length device descriptor of the USB standard. That means a driver can parse
 relevant information about available configurations, interfaces, and endpoints
 including their types and identifiers without the need to communicate with the
-device first.
+device in the first place.
 
-Besides the "devices" ROM, the new USB-session API consists of two functions to
+Besides the _devices_ ROM, the new USB-session API consists of two functions to
 acquire, or to release a formerly required device. The acquisition of a device
 returns a capability to a new device RPC API. This distinct API includes a
 function to obtain a packet-stream buffer to exchange USB control requests with
@@ -218,7 +219,7 @@ the developer. Instead, convenient helper utilities are provided within
 _repos/os/include/usb_session/device.h_. Those helper classes simplify the
 acquisition of USB devices and interfaces. Moreover, they support the notion of
 USB Request Blocks (Urbs) on the level of device (control) and interface (irq,
-bulk, isochronous). To have a look at an example component, which makes use of
+bulk, isochronous). For an example component, which makes use of
 these utilities, please refer to the USB block driver.
 
 All other components that made direct use of the USB session, have been adapted
@@ -230,7 +231,7 @@ Practical considerations
 ------------------------
 
 For users of the framework or Sculpt OS, the most notable change is that all USB
-clients use their own "devices" ROM to react on device appearance and
+clients use their own _devices_ ROM to react on device appearance and
 disappearance. No global information is required anymore. That means the
 addition of a new policy rule in the USB host-controller's configuration is
 sufficient to, e.g., let a device appear in a Linux guest. If the rule already
@@ -260,7 +261,7 @@ to individual interfaces, drivers first have to become resilient against
 denied device-acquisition attempts.
 This is not the case for most ported drivers or virtualized guest OSes.
 Hence, even though the USB session API is now prepared
-for driving interfaces of one USB device by different drivers, we
+for driving interfaces of one USB device by dedicated drivers, we
 decided against activating this feature on the policy level at this time.
 Nonetheless, once a set of interface drivers gets in place, we can enable
 the added flexibility without touching the USB session API again.
@@ -361,32 +362,31 @@ recent [https://genode.org/news/sculpt-os-release-24.04 - Sculpt release].
 
 As most prominently used by ported software, the VFS OSS plugin plays a vital
 role in interfacing with Genode's native audio stack. The already existing
-VFS plugin got renamed to 'legacy_oss' while the new one takes its place and
+VFS plugin got renamed to _legacy_oss_ while the new one takes its place and
 is usable as a drop-in replacement. Existing users have to adapt the session
 routes accordingly or change their VFS configuration to make use of the
-'legacy_oss' plugin should the use of the new sessions not yet be desirable.
+legacy plugin, if the use of the new sessions is not yet desirable.
 
 In contrast to the old plugin, it is possible to configure the fragment size a
 client is allowed to use via its configuration and thereby enforce its latency
 requirements. The fragment size ranges from 2048 to 8192
 bytes, which equals a period length of around 11.6 to 46.4 ms when using a
 sample rate of 44.1 kHz.
-The plugin leverages the ability of the 'report_play_mixer' to convert
+The plugin leverages the ability of the _report_play_mixer_ to convert
 sample rates. However, to constrain the resource requirements of the
 plugin, it is limited to 8 kHz to 48 kHz, which covers a reasonable range.
 Please consult the _repos/gems/src/lib/vfs/oss/README_ file for more
 information.
 
-The 'black_hole' component gained additional support for providing the play
+The _black_hole_ component gained additional support for providing the play
 and record sessions so that it is able to perform its role when using
 the new sessions.
-
 We also removed the custom audio subsystem from our SDL1.2 port in favor of
 using its own OSS back end, which brings it in line with our SDL2 port.
 
 As there are no critical components left that exclusively use the old
-sessions directly, the way is paved to remove them. For this release, however,
-we still keep the 'Audio_in' and 'Audio_out' sessions intact to give users time
+sessions directly, the way is paved to remove them. However,
+we keep the legacy audio sessions intact to give users time
 to migrate their components and become comfortable with the new interfaces.
 
 
@@ -441,7 +441,7 @@ execution of 'make run/pc_linux' or 'make run/imx_linux' runs Linux on the
 test target as known from Genode scenarios. In case of i.MX, a FIT image is
 generated, whereas we provide an i.PXE-bootable image for PCs. The run scripts
 integrate busybox into an initial RAM disk and, for i.MX, amend
-this image with 'memtool', a tool by Pengutronix to inspect all kind of memory
+this image with _memtool_, a tool by Pengutronix to inspect all kind of memory
 under Linux (via _/dev/mem_).
 
 Further, we address some deficiencies in DDE Linux with this release. We
@@ -528,13 +528,13 @@ With the goal to add support for more recent Intel GPUs (Alder Lake+), we took
 the first step by updating our three-year-old Mesa 21 to version 24. Because
 Mesa is under heavy development, the effort to do so was more elaborate than
 anticipated. For the current release, we enabled all the previously supported
-GPUs, which are Intel GEN8 (Broadwell), GEN9 (Skylake up to Whiskey Lake), GEN12
+GPUs, which are Intel Gen8 (Broadwell), Gen9 (Skylake up to Whiskey Lake), Gen12
 (Tiger Lake) using the Iris Gallium driver, Vivante as found in i.MX8 SoCs, and
 Mali on the PinePhone. There are still many improvements to be explored, like
 buffer life-time management, using Mesa's native build system (Meson) for
 simplifying future updates, testing Alder Lake, replacing softpipe with
 llvm for software rendering, and adding Vulkan support, to name a few. We
-hope to tackle these topics in future Genode releases.
+are looking forward to tackle these topics in future Genode releases.
 
 
 Removed obsolete loader component and session interface
@@ -556,43 +556,43 @@ infrastructure.
 Libraries and applications
 ##########################
 
-Consolidation of the Tresor block encryptor and file vault
-==========================================================
+Consolidation of Tresor block encryptor and File Vault
+======================================================
 
 Genode [https://genode.org/documentation/release-notes/23.05#Revision_of_Genode_s_custom_block-encryption_infrastructure - 23.05]
 marked a big update of the core logic for block-data security and
 management behind the file vault. It replaced the former Ada/SPARK-based
 implementation called CBE with a C++-based, modernized library that
-we named Tresor. As a side effect of this endeavor, we improved testing and
-fixed many issues of the former approach. However, the Tresor library also
+we named _Tresor_. As a side effect of this endeavor, we improved testing and
+fixed many issues of the former approach. However, the tresor library also
 inherited some unwelcome traits from its predecessor. The CBE approach was shaped in
-many ways by the semantic restrictions imposed by SPARK and the Tresor library
+many ways by the semantic restrictions imposed by SPARK and the tresor library
 had retained some of these at the expense of code redundancy. In addition, we had
 adopted a rather peculiar approach to execution flow that led to unforeseen
 implementation complexity down the road.
 In order to improve this situation, the current release comes with a
-comprehensive re-design of the Tresor library, relieving it from
+comprehensive re-design of the tresor library, relieving it from
 legacy burdens, significantly shrinking the code base, and making it much easier to
 understand.
 
 Once warmed up with the topic, we stepped one level up in the block-encryption
-stack and continued reworking the Tresor VFS plugin because it also suffered
+stack and continued reworking the tresor VFS plugin because it also suffered
 from over-complexity and redundancy. After finishing that, we noticed that the
-next higher layer - the file vault app - could also be improved in two ways:
-First, the file vault used to combine two unrelated tasks in one app: The logic
-for modeling typical user work-flows on the Tresor VFS and the operation of
+next higher layer - the File Vault - could also be improved in two ways:
+First, the file vault used to combine two unrelated tasks in one component: The logic
+for modeling typical user work-flows on the tresor VFS and the operation of
 a graphical user interface. We found that these are better assigned to
-separate apps that work together via a narrow and well-defined interface.
+separate components that work together via a narrow and well-defined interface.
 Second, the file vault used to operate directly on the low-level interface of the menu
 view component in order to drive its GUI instead of using the newer and
 far easier dialog API for this purpose.
 
 [image file_vault_gui]
 
-For the app that deals with the logic, we stayed with the name "file vault"
-whereas the new front-end for this app is named "file vault gui".
+For the component that deals with the logic, we stayed with the name _file vault_
+whereas the new front-end is the _file vault gui_.
 
-Putting all these changes together, the whole ecosystem around the Tresor block
+Putting all these changes together, the whole ecosystem around the tresor block
 encryption and the file vault becomes far more manageable and its code base
 has been cut in half while providing the same feature set as before:
 
@@ -621,8 +621,7 @@ has been cut in half while providing the same feature set as before:
 But the update is not only about cleaning up. We also consolidated the stack
 by, for instance, fixing and re-enabling asynchronous rekeying, implementing
 robust handling of corner-case configurations, patching several performance
-limitations, and further improving the test suite, like with the new tests
-file_vault_client and tresor_utils or the now fully automated vfs_tresor test.
+limitations, and further improving the test suite.
 
 Last but not least, the file vault received two handy usability enhancements.
 First, the new file-vault GUI is fully controllable via keyboard.
@@ -638,15 +637,15 @@ version attribute disappeared) and documented in
 _repos/gems/src/app/file_vault/README_.
 
 Despite the extensive overhaul, file vault version 24.05 remains compatible
-with old containers created via the 23.05 version and we also tried to keep the
+with old containers created via the 23.05 version and we also kept the
 structure and appearance of the new graphical front end close to that of the
-old one in order to make the transition as smooth as possible.
+old version in order to make the transition as smooth as possible.
 
 
 VirtualBox network-throughput improvements
 ==========================================
 
-The network interfaces 'uplink_session' and 'nic_session' provide means
+The Uplink and NIC network session interfaces provide means
 to batch several network packets before informing the other side to process
 the packets. The batching is crucial to achieve good network throughput and
 also to keep the CPU overhead per packet at a moderate level. Up to now, our
@@ -664,15 +663,13 @@ Since the
 [https://genode.org/documentation/release-notes/24.02#Seoul_VMM - previous]
 release, the VMM received several improvements.
 
-Notably, the former global lock in form of the synchronized 'Motherboard' got
+Notably, the former global motherboard lock got
 replaced by fine-grained locking within each device model where appropriate.
 Thanks to the better CPU utilization, long-running work, e.g. compilation, now
 finishes earlier.
-
 The network binding got reworked, which now reflects network
 link-state changes from the Genode interface into the guest VMs.
-
-The former 'audio_out' binding got replaced with Genode's new audio 'play'
+The legacy audio-session binding got replaced by Genode's new Play
 interface.
 
 The so far unused ACPI model of the Seoul sources got enabled and adjusted
@@ -709,14 +706,15 @@ actual screen size will be used and that might be too large depending on the
 attached display.
 
 Support for using SDL2's text-input API was enabled. Once the application
-enables text input, any key press that has a valid codepoint and is not a known
-non-printable is sent as text rather than as a key-press event.
+enables text input, any key press that has a valid Unicode codepoint
+is sent as text input.
 
 
 Curl updated to version 8.7.1
 =============================
 
-We updated our cURL port to version 8.7.1.
+We updated our cURL port to version 8.7.1 to support the use of
+elliptic-curve algorithms for TLS (CURLOPT_SSL_EC_CURVES).
 
 In setups where no service is employed to provide entropy, it might be necessary
 to increase the amount of statically configured entropy. Doubling the content of
