@@ -8,9 +8,29 @@
 
 
 
-; intro -> @nfeske
-; draw connection to Sculpt OS 24.04
-; usability theme
+The main driver behind Genode 24.05 was the
+[https://genode.org/news/sculpt-os-release-24.04 - recent release] of Sculpt
+OS 24.04 ([https://genodians.org/nfeske/2024-04-26-sculpt-os - What's new?]).
+Among the many usability advances of Sculpt OS is the flexible assignment
+of USB devices to components and virtual machines.
+Section [Fine-grained and dynamic assignment of USB devices/interfaces]
+introduces the underpinnings that made our new quality of life possible.
+Another user-facing feature with a surprisingly deep technical reach is
+suspend/resume. Section [Suspend/resume infrastructure] details the
+changes of the framework on that account.
+The new ability of seamlessly using the GNU debugger on top of Sculpt OS
+is game changer for developers (Section [On-target debugging using the GNU debugger (GDB)]).
+Further user-visible and user-audible topics are the support for high-resolution
+displays and the wrapped-up transition to our new audio stack
+(Section [Transition to the new audio interfaces introduced in 24.02]).
+
+Besides the many usability-motivated topics of our
+[https://genode.org/about/road-map - road map], however, we celebrate
+the break-through of running Sculpt OS directly on our custom microkernel
+alternatively to using a 3rd-party kernel.
+Section [First version of Sculpt OS based on Genode's custom kernel]
+details the background story, the showstoppers we had to overcome, and the
+prospects of this achievement.
 
 : <div class="visualClear"><!-- --></div>
 : <p>
@@ -27,7 +47,11 @@ document received its annual update, which includes not only adjustments
 to the most recent version but also new material about accessing GPIO pins,
 audio, debugging, and prominent APIs like the list model.
 
-: <div class="visualClear"><!-- --></div>
+Further topics of the current release reach from timing and network-throughput
+optimizations, over the profound rework of storage encryption, to updated
+3rd-party software such as Mesa, libSDL2, and Curl.
+
+: <div class="visualClear"><!-- --></div> <p></p>
 
 
 First version of Sculpt OS based on Genode's custom kernel
