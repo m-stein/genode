@@ -318,7 +318,7 @@ GDB at runtime:
 The _dbg_download_ component can be started by the user by checking
 the _download debug info_ option in the Sculpt launcher menu. It
 evaluates the Sculpt runtime configuration in the background and
-downloads any missing _dbg_ depot archive content of monitored
+downloads any missing _dbg_ archive content of monitored
 components into the depot.
 
 The _gdb_support_ component is started automatically together with
@@ -444,9 +444,9 @@ integrate busybox into an initial RAM disk and, for i.MX, amend
 this image with _memtool_, a tool by Pengutronix to inspect all kind of memory
 under Linux (via _/dev/mem_).
 
-Further, we address some deficiencies in DDE Linux with this release. We
+Furthermore, we address some deficiencies in DDE Linux with this release. We
 improved support for fine-grained, sub-millisecond timing by enabling
-high-resolution timers and attended to a long-standing pc_nic_drv link reset
+high-resolution timers and attending to a long-standing pc_nic_drv link reset
 bug that manifested in some situations on some platforms only. For driver
 developers, we added the 'lx_emul_trace_msg()' function for the generation
 of low-overhead trace entries that can be used to debug timing-sensitive or
@@ -645,7 +645,7 @@ old version in order to make the transition as smooth as possible.
 VirtualBox network-throughput improvements
 ==========================================
 
-The Uplink and NIC network session interfaces provide means
+The Uplink and NIC session interfaces provide means
 to batch several network packets before informing the other side to process
 the packets. The batching is crucial to achieve good network throughput and
 also to keep the CPU overhead per packet at a moderate level. Up to now, our
@@ -667,13 +667,13 @@ Notably, the former global motherboard lock got
 replaced by fine-grained locking within each device model where appropriate.
 Thanks to the better CPU utilization, long-running work, e.g. compilation, now
 finishes earlier.
-The network binding got reworked, which now reflects network
+The network binding got reworked and now reflects network
 link-state changes from the Genode interface into the guest VMs.
 The legacy audio-session binding got replaced by Genode's new Play
 interface.
 
 The so far unused ACPI model of the Seoul sources got enabled and adjusted
-to support so called fixed ACPI events, e.g., power-button press event. On
+to support so-called fixed ACPI events, e.g., the power-button press event. On
 GUI window close, the event is now triggered and forwarded to the guest VM.
 Depending on the configuration of the guest, the VM may power down
 automatically, similar as done by our port of VirtualBox.
@@ -723,7 +723,7 @@ Furthermore, DNS resolving needs a configured '<pipe>' plugin to work properly.
 For an exemplary configuration, please look at the
 _repos/libports/run/fetchurl.inc_ run-script snippet.
 
-The 'fetchurl' component also gained a 'verbose' config option to enable verbose
+The 'fetchurl' component also gained a 'verbose' configuration option to enable verbose
 operations as a convenience feature to ease debugging.
 
 
