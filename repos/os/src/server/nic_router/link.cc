@@ -234,6 +234,9 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
                            Peer       &sender,
                            Peer       &receiver)
 {
+	if (_opening)
+		_opening_tcp_packet(tcp, sender, receiver);
+
 	if (_state == State::CLOSED) {
 		return; }
 
@@ -262,15 +265,18 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
 }
 
 
-void Tcp_link::server_packet(Tcp_packet &tcp)
+void Tcp_link::_opening_tcp_packet(Tcp_packet const &tcp, Peer &sender, Peer &receiver)
 {
-	if (_opening) {
+	if (tcp.syn())
+		sender.syn = true;
+	if (tcp.ack() && receiver.syn && !receiver.syn_acked)
+		receiver.syn_acked = true;
+	if (sender.syn_acked && receiver.syn_acked) {
 		_opening = false;
 		(*_stats_ptr)--;
 		if (_stats_ptr == &_stats.opening) { _stats_ptr = &_stats.open; }
 		(*_stats_ptr)++;
 	}
-	_tcp_packet(tcp, _server, _client);
 }
 
 

@@ -266,6 +266,8 @@ class Net::Tcp_link : public Link
 
 		struct Peer
 		{
+			bool syn       { false };
+			bool syn_acked { false };
 			bool fin       { false };
 			bool fin_acked { false };
 		};
@@ -277,6 +279,10 @@ class Net::Tcp_link : public Link
 		void _tcp_packet(Tcp_packet &tcp,
 		                 Peer       &sender,
 		                 Peer       &receiver);
+
+		void _opening_tcp_packet(Tcp_packet const &tcp,
+		                         Peer             &sender,
+		                         Peer             &receiver);
 
 		void _closing();
 
@@ -297,7 +303,7 @@ class Net::Tcp_link : public Link
 
 		void client_packet(Tcp_packet &tcp) { _tcp_packet(tcp, _client, _server); }
 
-		void server_packet(Tcp_packet &tcp);
+		void server_packet(Tcp_packet &tcp) { _tcp_packet(tcp, _server, _client); }
 };
 
 
