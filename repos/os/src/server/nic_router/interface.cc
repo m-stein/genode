@@ -99,10 +99,10 @@ static void _destroy_links(Link_list   &links,
 
 
 template <typename LINK_TYPE>
-static void _destroy_some_links(Link_list   &links,
-                                Link_list   &dissolved_links,
-                                Deallocator &dealloc,
-                                size_t      &max_num_bytes)
+static void _early_drop_links(Link_list   &links,
+                              Link_list   &dissolved_links,
+                              Deallocator &dealloc,
+                              size_t      &max_num_bytes)
 {
 	if (!max_num_bytes) {
 		return; }
@@ -114,11 +114,16 @@ static void _destroy_some_links(Link_list   &links,
 		if (!max_num_bytes)
 			return;
 	}
-	while (Link *link = links.first()) {
-		_destroy_link<LINK_TYPE>(*link, links, dealloc);
-		max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
-		if (!max_num_bytes)
-			return;
+	Link *link_ptr = links.first();
+	while (link_ptr) {
+		Link *next_ptr = link_ptr->next();
+		if (static_cast<LINK_TYPE *>(link_ptr)->can_early_drop()) {
+			_destroy_link<LINK_TYPE>(*link_ptr, links, dealloc);
+			max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+			if (!max_num_bytes)
+				return;
+		}
+		link_ptr = next_ptr;
 	}
 }
 
@@ -498,9 +503,9 @@ void Interface::_detach_from_domain()
 
 void Interface::_try_free_quota(size_t alloc_size)
 {
-	_destroy_some_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, alloc_size);
-	_destroy_some_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, alloc_size);
-	_destroy_some_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, alloc_size);
+	_early_drop_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, alloc_size);
+	_early_drop_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, alloc_size);
+	_early_drop_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, alloc_size);
 }
 
 

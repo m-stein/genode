@@ -304,6 +304,8 @@ class Net::Tcp_link : public Link
 		void client_packet(Tcp_packet &tcp) { _tcp_packet(tcp, _client, _server); }
 
 		void server_packet(Tcp_packet &tcp) { _tcp_packet(tcp, _server, _client); }
+
+		bool can_early_drop() { return _state != State::OPEN; }
 };
 
 
@@ -323,6 +325,8 @@ struct Net::Udp_link : Link
 	void client_packet() { _packet(); }
 
 	void server_packet();
+
+	bool can_early_drop() { return true; }
 };
 
 
@@ -342,6 +346,8 @@ struct Net::Icmp_link : Link
 	void client_packet() { _packet(); }
 
 	void server_packet();
+
+	bool can_early_drop() { return true; }
 };
 
 #endif /* _LINK_H_ */
