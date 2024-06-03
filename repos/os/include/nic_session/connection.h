@@ -39,7 +39,7 @@ struct Nic::Connection : Genode::Connection<Session>, Session_client
 	:
 		Genode::Connection<Session>(
 			env, label,
-			Ram_quota { 32*1024*sizeof(long) + tx_buf_size + rx_buf_size },
+			Ram_quota { 512 * 1024 + tx_buf_size + rx_buf_size },
 			Args("tx_buf_size=", tx_buf_size, ", "
 			     "rx_buf_size=", rx_buf_size)),
 		Session_client(cap(), *tx_block_alloc, env.rm())

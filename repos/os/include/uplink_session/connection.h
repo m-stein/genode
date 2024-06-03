@@ -42,7 +42,7 @@ struct Uplink::Connection : Genode::Connection<Session>, Session_client
 	:
 		Genode::Connection<Session>(
 			env, label,
-			Ram_quota { 32*1024*sizeof(long) + tx_buf_size + rx_buf_size },
+			Ram_quota { 512 * 1024 + tx_buf_size + rx_buf_size },
 			Args("mac_address=\"", mac_address, "\", "
 			     "tx_buf_size=",   tx_buf_size, ", "
 			     "rx_buf_size=",   rx_buf_size)),
