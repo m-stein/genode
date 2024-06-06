@@ -37,18 +37,12 @@ class Genode::Session_env : public Ram_allocator,
 		              size_t  max_shared_cap,
 		              FUNC && functor)
 		{
-warning(__func__,__LINE__, " own_ram ", own_ram, " max_shared_ram ", max_shared_ram);
 			size_t const max_ram_consumpt { own_ram + max_shared_ram };
-warning(__func__,__LINE__);
 			size_t const max_cap_consumpt { own_cap + max_shared_cap };
-warning(__func__,__LINE__);
 			size_t ram_consumpt { _env.pd().used_ram().value };
-warning(__func__,__LINE__);
 			size_t cap_consumpt { _env.pd().used_caps().value };
 			{
-warning(__func__,__LINE__, " avail ", _ram_guard.avail().value, " reserve ", max_ram_consumpt );
 				Ram_quota_guard::Reservation ram_reserv { _ram_guard, Ram_quota { max_ram_consumpt } };
-warning(__func__,__LINE__);
 				Cap_quota_guard::Reservation cap_reserv { _cap_guard, Cap_quota { max_cap_consumpt } };
 
 				functor();
@@ -121,7 +115,6 @@ warning(__func__,__LINE__);
 
 		Alloc_result try_alloc(size_t size, Cache cache) override
 		{
-warning(__func__,__LINE__);
 			enum { MAX_SHARED_CAP           = 1 };
 			enum { MAX_SHARED_RAM           = 4096 };
 			enum { DS_SIZE_GRANULARITY_LOG2 = 12 };
@@ -139,18 +132,15 @@ warning(__func__,__LINE__);
 			catch (Out_of_ram)  { result = Alloc_error::OUT_OF_RAM; }
 			catch (Out_of_caps) { result = Alloc_error::OUT_OF_CAPS; }
 
-warning(__func__,__LINE__);
 			return result;
 		}
 
 
 		void free(Ram_dataspace_capability ds) override
 		{
-warning(__func__,__LINE__);
 			_replenish(_env.pd().dataspace_size(ds), 1, [&] () {
 				_env.pd().free(ds);
 			});
-warning(__func__,__LINE__);
 		}
 
 		size_t dataspace_size(Ram_dataspace_capability ds) const override { return _env.pd().dataspace_size(ds); }
@@ -168,18 +158,14 @@ warning(__func__,__LINE__);
 		                  bool                 executable = false,
 		                  bool                 writeable = true) override
 		{
-warning(__func__,__LINE__);
 			enum { MAX_SHARED_CAP = 2 };
 			enum { MAX_SHARED_RAM = 4 * 4096 };
 
 			void *ptr;
 			_consume(0, MAX_SHARED_RAM, 0, MAX_SHARED_CAP, [&] () {
-warning(__func__,__LINE__);
 				ptr = _env.rm().attach(ds, size, offset, use_local_addr,
 				                       local_addr, executable, writeable);
-warning(__func__,__LINE__);
 			});
-warning(__func__,__LINE__);
 			return ptr;
 		};
 
@@ -201,9 +187,7 @@ warning(__func__,__LINE__);
 
 		void detach(Local_addr local_addr) override
 		{
-warning(__func__,__LINE__);
 			_replenish(0, 0, [&] () { _env.rm().detach(local_addr); });
-warning(__func__,__LINE__);
 		}
 
 		void fault_handler(Signal_context_capability handler) override { _env.rm().fault_handler(handler); }

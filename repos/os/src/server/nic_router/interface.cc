@@ -65,6 +65,69 @@ enum {
 };
 
 
+template <typename LINK_TYPE>
+static void _destroy_dissolved_links(Link_list   &dissolved_links,
+                                     Deallocator &dealloc)
+{
+	while (Link *link = dissolved_links.first()) {
+		dissolved_links.remove(link);
+		destroy(dealloc, static_cast<LINK_TYPE *>(link));
+	}
+}
+
+
+template <typename LINK_TYPE>
+static void _destroy_link(Link        &link,
+                          Link_list   &links,
+                          Deallocator &dealloc)
+{
+	link.dissolve(false);
+	links.remove(&link);
+	destroy(dealloc, static_cast<LINK_TYPE *>(&link));
+}
+
+
+template <typename LINK_TYPE>
+static void _destroy_links(Link_list   &links,
+                           Link_list   &dissolved_links,
+                           Deallocator &dealloc)
+{
+	_destroy_dissolved_links<LINK_TYPE>(dissolved_links, dealloc);
+	while (Link *link = links.first()) {
+		_destroy_link<LINK_TYPE>(*link, links, dealloc); }
+}
+
+
+template <typename LINK_TYPE>
+static void _early_drop_links(Link_list   &links,
+                              Link_list   &dissolved_links,
+                              Deallocator &dealloc,
+                              size_t      &max_num_bytes)
+{
+	if (!max_num_bytes) {
+		return; }
+
+	while (Link *link = dissolved_links.first()) {
+		dissolved_links.remove(link);
+		destroy(dealloc, static_cast<LINK_TYPE *>(link));
+		max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+		if (!max_num_bytes)
+			return;
+	}
+	Link *link_ptr = links.first();
+	while (link_ptr) {
+		Link *next_ptr = link_ptr->next();
+		if (static_cast<LINK_TYPE *>(link_ptr)->can_early_drop()) {
+			_destroy_link<LINK_TYPE>(*link_ptr, links, dealloc);
+			max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+			if (!max_num_bytes)
+				return;
+		}
+		link_ptr = next_ptr;
+	}
+}
+
+
 static void _link_packet(L3_protocol  const  prot,
                          void        *const  prot_base,
                          Link               &link,
@@ -259,9 +322,9 @@ void Interface::destroy_link(Link &link)
 {
 	L3_protocol const prot = link.protocol();
 	switch (prot) {
-	case L3_protocol::TCP:  _destroy_link<Tcp_link>(link, links(prot), _alloc);  break;
-	case L3_protocol::UDP:  _destroy_link<Udp_link>(link, links(prot), _alloc);  break;
-	case L3_protocol::ICMP: _destroy_link<Icmp_link>(link, links(prot), _alloc); break;
+	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _alloc);  break;
+	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _alloc);  break;
+	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _alloc); break;
 	default: ASSERT_NEVER_REACHED; }
 }
 
@@ -447,7 +510,6 @@ void Interface::_try_free_quota(size_t alloc_size)
 
 
 Packet_result Interface::_new_link(L3_protocol          const  protocol,
-                                   void                *const  prot_base,
                                    Domain                     &local_domain,
                                    Link_side_id         const &local,
                                    Port_allocator_guard       *remote_port_alloc_ptr,
@@ -459,12 +521,9 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 	case L3_protocol::TCP:
 		retry<Out_of_ram, Out_of_caps>(2,
 			[&] {
-				Tcp_link &link = *new (_alloc)
-					Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
-					           remote, _timer, *_config_ptr, protocol, _tcp_stats };
-_allocate(&link, __LINE__);
-				_link_packet(protocol, prot_base, link, true);
-			},
+				new (_alloc)
+				Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
+				           remote, _timer, *_config_ptr, protocol, _tcp_stats }; },
 			[&] { _try_free_quota(sizeof(Tcp_link)); },
 			[&] {
 				_tcp_stats.refused_for_ram++;
@@ -473,12 +532,9 @@ _allocate(&link, __LINE__);
 	case L3_protocol::UDP:
 		retry<Out_of_ram, Out_of_caps>(2,
 			[&] {
-				Udp_link &link = *new (_alloc)
+				new (_alloc)
 					Udp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
-					           remote, _timer, *_config_ptr, protocol, _udp_stats };
-
-				_link_packet(protocol, prot_base, link, true);
-_allocate(&link, __LINE__); },
+					           remote, _timer, *_config_ptr, protocol, _udp_stats }; },
 			[&] { _try_free_quota(sizeof(Udp_link)); },
 			[&] {
 				_udp_stats.refused_for_ram++;
@@ -487,12 +543,9 @@ _allocate(&link, __LINE__); },
 	case L3_protocol::ICMP:
 		retry<Out_of_ram, Out_of_caps>(2,
 			[&] {
-				Icmp_link &link = *new (_alloc)
+				new (_alloc)
 					Icmp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
-					            remote, _timer, *_config_ptr, protocol, _icmp_stats };
-
-				_link_packet(protocol, prot_base, link, true);
-_allocate(&link, __LINE__); },
+					            remote, _timer, *_config_ptr, protocol, _icmp_stats }; },
 			[&] { _try_free_quota(sizeof(Icmp_link)); },
 			[&] {
 				_icmp_stats.refused_for_ram++;
@@ -559,9 +612,7 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
 				});
 				retry<Out_of_ram, Out_of_caps>(2,
 					[&] {
-						Arp_waiter *link=new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt, _config_ptr->arp_request_timeout(), _timer };
-_allocate(link, __LINE__);
-
+						new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt, _config_ptr->arp_request_timeout(), _timer };
 						result = packet_postponed();
 					},
 					[&] { _try_free_quota(sizeof(Arp_waiter)); },
@@ -616,7 +667,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
-	result = _new_link(prot, prot_base, local_domain, local_id, remote_port_alloc_ptr, remote_domain, remote_id);
+	result = _new_link(prot, local_domain, local_id, remote_port_alloc_ptr, remote_domain, remote_id);
 	if (result.valid())
 		return result;
 
@@ -735,8 +786,6 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 					Dhcp_allocation &allocation = *new (_alloc)
 						Dhcp_allocation { *this, ip, dhcp.client_mac(),
 						                  _timer, _config_ptr->dhcp_offer_timeout() };
-
-_allocate(&allocation, __LINE__);
 
 					_dhcp_allocations.insert(allocation);
 					if (_config_ptr->verbose()) {
@@ -1443,7 +1492,6 @@ void Interface::_handle_arp_reply(Ethernet_frame &eth,
 				waiter_le = waiter_le->next();
 				if (ip != waiter.ip()) { continue; }
 				waiter.src()._continue_handle_eth(waiter.packet());
-waiter.src()._free(&waiter, __LINE__);
 				destroy(waiter.src()._alloc, &waiter);
 			}
 		}
@@ -1672,7 +1720,6 @@ void Interface::_destroy_dhcp_allocation(Dhcp_allocation &allocation,
 {
 	local_domain.with_dhcp_server([&] (Dhcp_server &srv) {
 		srv.free_ip(allocation.ip()); });
-_free(&allocation, __LINE__);
 	destroy(_alloc, &allocation);
 }
 
@@ -1692,7 +1739,6 @@ void Interface::_destroy_timed_out_arp_waiters()
 		Arp_waiter &waiter = *le->object();
 		_drop_packet(waiter.packet(), "ARP request timed out");
 		_timed_out_arp_waiters.remove(le);
-_free(&waiter, __LINE__);
 		destroy(_alloc, &waiter);
 	}
 }
@@ -1855,11 +1901,6 @@ Interface::Interface(Genode::Entrypoint     &ep,
 {
 	_interfaces.insert(this);
 	_config_ptr->with_report([&] (Report &r) { r.handle_interface_link_state(); });
-}
-
-void Interface::xxx() {
-
-	_config_ptr->with_report([&] (Report &r) { r.generate(); });
 }
 
 
@@ -2224,7 +2265,6 @@ void Interface::_ack_packet(Packet_descriptor const &pkt)
 void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 {
 	_drop_packet(waiter.packet(), "ARP got cancelled");
-_free(&waiter, __LINE__);
 	destroy(_alloc, &waiter);
 }
 
@@ -2240,28 +2280,23 @@ Interface::~Interface()
 
 bool Interface::report_empty(Report const &report_cfg) const
 {
-	bool quota = report_cfg.quota() && !_policy.report_empty();
 	bool stats = report_cfg.stats() && (
-		!_tcp_stats.report_empty() || !_udp_stats.report_empty() || !_icmp_stats.report_empty() ||
-		!_arp_stats.report_empty() || _dhcp_stats.report_empty());
+		!_policy.report_empty() || !_tcp_stats.report_empty() || !_udp_stats.report_empty() ||
+		!_icmp_stats.report_empty() || !_arp_stats.report_empty() || _dhcp_stats.report_empty());
 	bool lnk_state = report_cfg.link_state();
 	bool fragm_ip = report_cfg.dropped_fragm_ipv4() && _dropped_fragm_ipv4;
-	return !quota && !lnk_state && !stats && !fragm_ip;
+	return !lnk_state && !stats && !fragm_ip;
 }
 
 
 void Interface::report(Genode::Xml_generator &xml, Report const &report_cfg) const
 {
 	xml.attribute("label", _policy.label());
-	Genode::String<32> str(Genode::Hex((Genode::addr_t)this));
-	xml.attribute("this", str);
 	if (report_cfg.link_state())
 		xml.attribute("link_state", link_state());
 
-	if (report_cfg.quota())
-		_policy.report(xml);
-
 	if (report_cfg.stats()) {
+		_policy.report(xml);
 		if (!_tcp_stats.report_empty())  xml.node("tcp-links",        [&] { _tcp_stats.report(xml);  });
 		if (!_udp_stats.report_empty())  xml.node("udp-links",        [&] { _udp_stats.report(xml);  });
 		if (!_icmp_stats.report_empty()) xml.node("icmp-links",       [&] { _icmp_stats.report(xml); });

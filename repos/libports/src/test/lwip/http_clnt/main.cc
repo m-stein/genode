@@ -65,16 +65,25 @@ static void test(Libc::Env &env)
 	srv_addr.sin_port        = htons(srv_port);
 	srv_addr.sin_family      = AF_INET;
 	srv_addr.sin_addr.s_addr = inet_addr(srv_ip.string());
-for(int i =0; i< 50; i++) {
+
+	/* try several times to request a reply */
+	for (unsigned trial_cnt = 0, reply_cnt = 0; trial_cnt < NR_OF_TRIALS;
+	     trial_cnt++)
+	{
+		/* pause a while between each trial */
+		usleep(1000000);
+
 		/* create socket */
 		int sd = ::socket(AF_INET, SOCK_STREAM, 0);
 		if (sd < 0) {
 			error("failed to create socket");
+			continue;
 		}
 		/* connect to server */
 		if (::connect(sd, (struct sockaddr *)&srv_addr, sizeof(srv_addr))) {
 			error("Failed to connect to server");
 			close_socket(env, sd);
+			continue;
 		}
 		/* send request */
 		char   const *req    = "GET / HTTP/1.0\r\nHost: localhost:80\r\n\r\n";
@@ -82,6 +91,7 @@ for(int i =0; i< 50; i++) {
 		if (::send(sd, req, req_sz, 0) != (int)req_sz) {
 			error("failed to send request");
 			close_socket(env, sd);
+			continue;
 		}
 		/* receive reply */
 		enum { REPLY_BUF_SZ = 1024 };
@@ -108,13 +118,20 @@ for(int i =0; i< 50; i++) {
 		if (reply_failed) {
 			error("failed to receive reply");
 			close_socket(env, sd);
+			continue;
 		}
 		/* handle reply */
 		reply_buf[reply_sz] = 0;
-		log("Received reply!");
-
-}
-		usleep(100000000);
+		log("Received \"", Cstring(reply_buf), "\"");
+		if (++reply_cnt == NR_OF_REPLIES) {
+			log("Test done");
+			env.parent().exit(0);
+		}
+		/* close socket and retry */
+		close_socket(env, sd);
+	}
+	log("Test failed");
+	env.parent().exit(-1);
 }
 
 void Libc::Component::construct(Libc::Env &env) { with_libc([&] () { test(env); }); }

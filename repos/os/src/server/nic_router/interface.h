@@ -172,94 +172,6 @@ class Net::Interface : private Interface_list::Element
 		Interface_object_stats                _arp_stats                 { };
 		Interface_object_stats                _dhcp_stats                { };
 		unsigned long                         _dropped_fragm_ipv4        { 0 };
-		Genode::size_t _alloc_size { 0 };
-
-void xxx();
-
-template <typename T>
-void _free(T const *ptr, int line)
-{
-	_alloc_size-=sizeof(*ptr); Genode::error("free  this=", this, " obj=", ptr ," size=", sizeof(*ptr)," line=", line, " alloc_size=", _alloc_size);
-	xxx();
-}
-
-template <typename T>
-void _allocate(T const *ptr, int line)
-{
-	_alloc_size+=sizeof(*ptr); Genode::error("alloc this=", this, " obj=", ptr ," size=", sizeof(*ptr)," line=", line, " alloc_size=", _alloc_size);
-	xxx();
-}
-
-template <typename LINK_TYPE>
-void _destroy_dissolved_links(Link_list   &dissolved_links,
-                                     Genode::Deallocator &dealloc)
-{
-	while (Link *link = dissolved_links.first()) {
-		dissolved_links.remove(link);
-_free(static_cast<LINK_TYPE *>(link), __LINE__);
-		destroy(dealloc, static_cast<LINK_TYPE *>(link));
-
-	}
-}
-
-
-
-
-template <typename LINK_TYPE>
-void _destroy_link(Link        &link,
-                          Link_list   &links,
-                          Genode::Deallocator &dealloc)
-{
-	link.dissolve(false);
-	links.remove(&link);
-_free(static_cast<LINK_TYPE *>(&link), __LINE__);
-	destroy(dealloc, static_cast<LINK_TYPE *>(&link));
-}
-
-
-template <typename LINK_TYPE>
-void _destroy_links(Link_list   &links,
-                           Link_list   &dissolved_links,
-                           Genode::Deallocator &dealloc)
-{
-	_destroy_dissolved_links<LINK_TYPE>(dissolved_links, dealloc);
-	while (Link *link = links.first()) {
-		_destroy_link<LINK_TYPE>(*link, links, dealloc); }
-}
-
-
-template <typename LINK_TYPE>
-void _early_drop_links(Link_list   &links,
-                              Link_list   &dissolved_links,
-                              Genode::Deallocator &dealloc,
-                              Genode::size_t      &max_num_bytes)
-{
-	if (!max_num_bytes) {
-		return; }
-
-	while (Link *link = dissolved_links.first()) {
-		dissolved_links.remove(link);
-_free(static_cast<LINK_TYPE *>(link), __LINE__);
-		destroy(dealloc, static_cast<LINK_TYPE *>(link));
-		max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
-		if (!max_num_bytes)
-			return;
-	}
-	Link *link_ptr = links.first();
-	while (link_ptr) {
-		Link *next_ptr = link_ptr->next();
-		if (static_cast<LINK_TYPE *>(link_ptr)->can_early_drop()) {
-			_destroy_link<LINK_TYPE>(*link_ptr, links, dealloc);
-			max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
-			if (!max_num_bytes)
-				return;
-		}
-		link_ptr = next_ptr;
-	}
-}
-
-
-
 
 		/*
 		 * Noncopyable
@@ -268,7 +180,6 @@ _free(static_cast<LINK_TYPE *>(link), __LINE__);
 		Interface &operator = (Interface const &);
 
 		[[nodiscard]] Packet_result _new_link(L3_protocol         const  protocol,
-		                                     void                *const  prot_base,
 		                                     Domain                     &local_domain,
 		                                     Link_side_id         const &local_id,
 		                                     Port_allocator_guard       *remote_port_alloc_ptr,
