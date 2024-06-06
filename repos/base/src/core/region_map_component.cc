@@ -165,12 +165,16 @@ void Rm_faulter::continue_after_resolved_fault()
 Region_map::Local_addr
 Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const attr)
 {
+warning(__func__,__LINE__);
 	/* serialize access */
 	Mutex::Guard lock_guard(_mutex);
 
 	/* offset must be positive and page-aligned */
 	if (attr.offset < 0 || align_addr(attr.offset, get_page_size_log2()) != attr.offset)
+{
+warning(__func__,__LINE__);
 		throw Region_conflict();
+}
 
 	auto lambda = [&] (Dataspace_component *dsc) {
 
@@ -178,13 +182,19 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 
 		/* check dataspace validity */
 		if (!dsc)
+{
+warning(__func__,__LINE__);
 			throw Invalid_dataspace();
+}
 
 		unsigned const min_align_log2 = get_page_size_log2();
 
 		size_t const off = attr.offset;
 		if (off >= dsc->size())
+{
+warning(__func__,__LINE__);
 			throw Region_conflict();
+}
 
 		size_t size = attr.size;
 
@@ -196,7 +206,10 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 
 		/* deny creation of regions larger then the actual dataspace */
 		if (dsc->size() < size + attr.offset)
+{
+warning(__func__,__LINE__);
 			throw Region_conflict();
+}
 
 		/* allocate region for attachment */
 		void *attach_at = nullptr;
@@ -205,10 +218,15 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 				[&] (void *ptr) { attach_at = ptr; },
 				[&] (Range_allocator::Alloc_error error) {
 					switch (error) {
-					case Alloc_error::OUT_OF_RAM:  throw Out_of_ram();
-					case Alloc_error::OUT_OF_CAPS: throw Out_of_caps();
+					case Alloc_error::OUT_OF_RAM:  
+warning(__func__,__LINE__);
+throw Out_of_ram();
+					case Alloc_error::OUT_OF_CAPS: 
+warning(__func__,__LINE__);
+throw Out_of_caps();
 					case Alloc_error::DENIED:      break;
 					}
+warning(__func__,__LINE__);
 					throw Region_conflict();
 				});
 		} else {
@@ -242,8 +260,12 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 
 					[&] (Range_allocator::Alloc_error error) {
 						switch (error) {
-						case Alloc_error::OUT_OF_RAM:  throw Out_of_ram();
-						case Alloc_error::OUT_OF_CAPS: throw Out_of_caps();
+						case Alloc_error::OUT_OF_RAM:  
+warning(__func__,__LINE__);
+throw Out_of_ram();
+						case Alloc_error::OUT_OF_CAPS: 
+warning(__func__,__LINE__);
+throw Out_of_caps();
 						case Alloc_error::DENIED:      break; /* no fit */
 						}
 						/* try smaller alignment in next iteration... */
@@ -251,7 +273,10 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 			}
 
 			if (!done)
+{
+warning(__func__,__LINE__);
 				throw Region_conflict();
+}
 		}
 
 		Rm_region::Attr const region_attr
@@ -270,6 +295,7 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 		}
 		catch (Allocator_avl_tpl<Rm_region>::Assign_metadata_failed) {
 			error("failed to store attachment info");
+warning(__func__,__LINE__);
 			throw Invalid_dataspace();
 		}
 
@@ -286,9 +312,11 @@ Region_map_component::_attach(Dataspace_capability ds_cap, Attach_attr const att
 			}
 		});
 
+warning(__func__,__LINE__);
 		return attach_at;
 	};
 
+warning(__func__,__LINE__);
 	return _ds_ep.apply(ds_cap, lambda);
 }
 

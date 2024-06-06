@@ -259,6 +259,8 @@ _free(static_cast<LINK_TYPE *>(link), __LINE__);
 }
 
 
+
+
 		/*
 		 * Noncopyable
 		 */
