@@ -1,0 +1,144 @@
+#
+# Build components
+#
+
+source ${genode_dir}/repos/libports/run/nic_router.inc
+
+build $targets
+
+create_boot_directory
+
+#
+# Init config
+#
+
+append config {
+<config prio_levels="2">
+	<parent-provides>
+		<service name="ROM"/>
+		<service name="IRQ"/>
+		<service name="IO_MEM"/>
+		<service name="IO_PORT"/>
+		<service name="PD"/>
+		<service name="RM"/>
+		<service name="CPU"/>
+		<service name="LOG"/>
+	</parent-provides>
+
+	<default-route>
+		<any-service> <parent/> <any-child/> </any-service>
+	</default-route>
+
+	<default caps="200"/>
+
+	<start name="timer">
+		<resource name="RAM" quantum="1M"/>
+		<resource name="CPU" quantum="5"/>
+		<provides><service name="Timer"/></provides>
+	</start>
+
+	<start name="nic_router" caps="400">
+		<resource name="RAM" quantum="10M"/>
+		<provides>
+			<service name="Nic"/>
+			<service name="Uplink"/>
+		</provides>
+		<config verbose_packet_drop="yes" verbose_packets="no">
+
+			<report bytes="no"
+			        config="no"
+			        quota="yes"
+			        stats="yes"
+			        link_state="no"
+			        link_state_triggers="no"
+			        interval_sec="1" />
+
+			<policy label_prefix="servers_bridge" domain="servers" />
+
+			<domain name="servers" interface="10.0.1.1/24">
+				<nat domain="clients" tcp-ports="1000" />
+			</domain>
+
+			<policy label_prefix="clients_bridge" domain="clients"/>
+
+			<domain name="clients" interface="10.0.2.1/24">
+				<dhcp-server ip_first="10.0.2.100" ip_last="10.0.2.200"/>
+				<tcp dst="10.0.1.0/24"> <permit-any domain="servers" /> </tcp>
+			</domain>
+
+		</config>
+		<route>
+			<service name="Report"> <child name="report_rom"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="clients_bridge" caps="200">
+		<binary name="nic_bridge"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<config>
+			<policy label_prefix="client_1" mac="02:02:02:02:ff:01"/>
+			<policy label_prefix="client_2" mac="02:02:02:02:ff:02"/>
+			<policy label_prefix="client_3" mac="02:02:02:02:ff:03"/>
+			<policy label_prefix="client_4" mac="02:02:02:02:ff:04"/>
+			<policy label_prefix="client_5" mac="02:02:02:02:ff:05"/>
+			<policy label_prefix="client_6" mac="02:02:02:02:ff:06"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="servers_bridge" caps="200">
+		<binary name="nic_bridge"/>
+		<resource name="RAM" quantum="10M"/>
+		<provides><service name="Nic"/></provides>
+		<config>
+			<policy label_prefix="server_1" mac="02:02:02:02:ee:01" ip_addr="10.0.1.101"/>
+			<policy label_prefix="server_2" mac="02:02:02:02:ee:02" ip_addr="10.0.1.102"/>
+			<policy label_prefix="server_3" mac="02:02:02:02:ee:03" ip_addr="10.0.1.103"/>
+			<policy label_prefix="server_4" mac="02:02:02:02:ee:04" ip_addr="10.0.1.104"/>
+			<policy label_prefix="server_5" mac="02:02:02:02:ee:05" ip_addr="10.0.1.105"/>
+			<policy label_prefix="server_6" mac="02:02:02:02:ee:06" ip_addr="10.0.1.106"/>
+		</config>
+		<route>
+			<service name="Nic"> <child name="nic_router"/> </service>
+			<any-service> <parent/> <any-child/> </any-service>
+		</route>
+	</start>
+
+	<start name="report_rom">
+		<resource name="RAM" quantum="1M"/>
+		<provides> <service name="Report"/> <service name="ROM"/> </provides>
+		<config verbose="yes"/>
+	</start>
+
+	} "
+	[server_config server_1 http 10.0.1.101 10.0.1.1 255.255.255.0 servers_bridge 2345]
+	[server_config server_2 http 10.0.1.102 10.0.1.1 255.255.255.0 servers_bridge 2345]
+	[server_config server_3 http 10.0.1.103 10.0.1.1 255.255.255.0 servers_bridge 2345]
+	[server_config server_4 http 10.0.1.104 10.0.1.1 255.255.255.0 servers_bridge 2345]
+	[server_config server_5 http 10.0.1.105 10.0.1.1 255.255.255.0 servers_bridge 2345]
+	[server_config server_6 http 10.0.1.106 10.0.1.1 255.255.255.0 servers_bridge 2345]
+
+	[client_config client_1 http dhcp dhcp dhcp clients_bridge 2345 10.0.1.101]
+	[client_config client_2 http dhcp dhcp dhcp clients_bridge 2345 10.0.1.102]
+	[client_config client_3 http dhcp dhcp dhcp clients_bridge 2345 10.0.1.103]
+	[client_config client_4 http dhcp dhcp dhcp clients_bridge 2345 10.0.1.104]
+	[client_config client_5 http dhcp dhcp dhcp clients_bridge 2345 10.0.1.105]
+	[client_config client_6 http dhcp dhcp dhcp clients_bridge 2345 10.0.1.106]
+	" {
+
+</config> }
+
+install_config $config
+
+build_boot_image [build_artifacts]
+
+for {set i 0} {$i < $nr_of_clients} {incr i 1} {
+	append done_string {.*Test done.*\n}
+}
+
+run_genode_until $done_string 9000
