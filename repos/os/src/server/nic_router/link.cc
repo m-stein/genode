@@ -237,8 +237,6 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
 	if (_opening)
 		_opening_tcp_packet(tcp, sender, receiver);
 
-//log(this, " opening flags ", sender.syn, sender.syn_acked, receiver.syn, receiver.syn_acked);
-
 	if (_state == State::CLOSED) {
 		return; }
 

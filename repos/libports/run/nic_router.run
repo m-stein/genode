@@ -10,14 +10,14 @@ proc test_timeout { } {
 	}
 }
 
-proc enable_test_1 { } { return 0 }
+proc enable_test_1 { } { return 1 }
 # disabled until #3992 is fixed
 proc enable_test_2 { } { return 0 }
-proc enable_test_3 { } { return 0 }
-proc enable_test_4 { } { return 0 }
-proc enable_test_5 { } { return 0 }
+proc enable_test_3 { } { return 1 }
+proc enable_test_4 { } { return 1 }
+proc enable_test_5 { } { return 1 }
 proc enable_test_6 { } { return 1 }
-proc enable_test_7 { } { return 0 }
+proc enable_test_7 { } { return 1 }
 
 source ${genode_dir}/repos/libports/run/nic_router.inc
 
@@ -156,7 +156,7 @@ proc test_6_router_config { } {
 	if {[enable_test_6]} { return {
 		<policy label_prefix="t6_d1" domain="t6_d1" />
 
-		<domain name="t6_d1" interface="100.200.0.1/24" verbose_packets="yes">
+		<domain name="t6_d1" interface="100.200.0.1/24">
 			<tcp dst="10.0.0.0/16">
 				<permit port="2345" domain="uplink" />
 			</tcp>
@@ -165,7 +165,7 @@ proc test_6_router_config { } {
 
 proc test_6_router_uplink_config { } {
 	if {[enable_test_6]} { return {
-		<nat domain="t6_d1" tcp-ports="1000" />} }
+		<nat domain="t6_d1" tcp-ports="6" />} }
 }
 
 
@@ -292,15 +292,21 @@ append config {
 		</provides>
 		<config verbose="no"
 		        verbose_packets="no"
-		        verbose_domain_state="yes">
+		        verbose_domain_state="yes"
+		        dhcp_discover_timeout_sec="3"
+		        dhcp_request_timeout_sec="3"
+		        dhcp_offer_timeout_sec="3"
+		        udp_idle_timeout_sec="30"
+		        tcp_idle_timeout_sec="30"
+		        tcp_max_segm_lifetime_sec="15">
 
-			<report bytes="no"
-			        config="no"
-			        quota="yes"
-			        stats="yes"
-			        link_state="no"
-			        link_state_triggers="no"
-			        interval_sec="1000" />
+			<report bytes="yes"
+			        config="yes"
+			        quota="no"
+			        stats="no"
+			        link_state="yes"
+			        link_state_triggers="yes"
+			        interval_sec="60" />
 
 			<nic-client domain="uplink"/>
 
@@ -358,8 +364,13 @@ append config {
 		<config verbose="yes"/>
 	</start>
 
-	} " [client_config t6_d1_c1_tcp http 100.200.0.128 100.200.0.1 255.255.0.0   nic_router 2345 10.0.2.203]
-	    [server_config t6_d0_s1_tcp http 10.0.2.203    10.0.2.1    255.255.255.0 nic_bridge 2345 ]" {
+	} [test_1_config] {
+	} [test_2_config] {
+	} [test_3_config] {
+	} [test_4_config] {
+	} [test_5_config] {
+	} [test_6_config] {
+	} [test_7_config] {
 
 </config> }
 
@@ -371,4 +382,4 @@ for {set i 0} {$i < $nr_of_clients} {incr i 1} {
 	append done_string {.*Test done.*\n}
 }
 
-run_genode_until $done_string 9000
+run_genode_until $done_string [test_timeout]
