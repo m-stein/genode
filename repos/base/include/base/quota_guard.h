@@ -106,7 +106,10 @@ class Genode::Quota_guard_untyped
 		bool try_withdraw(size_t const amount)
 		{
 			if (amount > avail())
+{
+warning(__func__, " avail ", avail(), " amount ", amount);
 				return false;
+}
 
 			/*
 			 * We don't need to check for a possible overflow of (used +
