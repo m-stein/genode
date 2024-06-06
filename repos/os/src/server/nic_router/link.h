@@ -289,16 +289,17 @@ class Net::Tcp_link : public Link
 
 	public:
 
-		Tcp_link(Interface                     &cln_interface,
-		         Domain                        &cln_domain,
-		         Link_side_id            const &cln_id,
-		         Port_allocator_guard          *srv_port_alloc_ptr,
-		         Domain                        &srv_domain,
-		         Link_side_id            const &srv_id,
-		         Cached_timer                  &timer,
-		         Configuration                 &config,
-		         L3_protocol             const  protocol,
-		         Interface_link_stats          &stats);
+		Tcp_link(Interface                 &cln_interface,
+		         Domain                    &cln_domain,
+		         Link_side_id        const &cln_id,
+		         Port_allocator_guard      *srv_port_alloc_ptr,
+		         Domain                    &srv_domain,
+		         Link_side_id        const &srv_id,
+		         Cached_timer              &timer,
+		         Configuration             &config,
+		         L3_protocol         const  protocol,
+		         Interface_link_stats      &stats,
+		         Tcp_packet                &tcp);
 
 		void client_packet(Tcp_packet &tcp) { _tcp_packet(tcp, _client, _server); }
 

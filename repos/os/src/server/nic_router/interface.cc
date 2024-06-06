@@ -510,6 +510,7 @@ void Interface::_try_free_quota(size_t alloc_size)
 
 
 Packet_result Interface::_new_link(L3_protocol          const  protocol,
+                                   void                *const  prot_base,
                                    Domain                     &local_domain,
                                    Link_side_id         const &local,
                                    Port_allocator_guard       *remote_port_alloc_ptr,
@@ -522,8 +523,8 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 		retry<Out_of_ram, Out_of_caps>(2,
 			[&] {
 				new (_alloc)
-				Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
-				           remote, _timer, *_config_ptr, protocol, _tcp_stats }; },
+					Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
+					           remote, _timer, *_config_ptr, protocol, _tcp_stats, *(Tcp_packet *)prot_base }; },
 			[&] { _try_free_quota(sizeof(Tcp_link)); },
 			[&] {
 				_tcp_stats.refused_for_ram++;
@@ -667,7 +668,7 @@ Packet_result Interface::_nat_link_and_pass(Ethernet_frame         &eth,
 
 	Link_side_id const remote_id = { ip.dst(), _dst_port(prot, prot_base),
 	                                 ip.src(), _src_port(prot, prot_base) };
-	result = _new_link(prot, local_domain, local_id, remote_port_alloc_ptr, remote_domain, remote_id);
+	result = _new_link(prot, prot_base, local_domain, local_id, remote_port_alloc_ptr, remote_domain, remote_id);
 	if (result.valid())
 		return result;
 

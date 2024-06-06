@@ -205,11 +205,14 @@ Tcp_link::Tcp_link(Interface                  &cln_interface,
                    Cached_timer               &timer,
                    Configuration              &config,
                    L3_protocol          const  protocol,
-                   Interface_link_stats       &stats)
+                   Interface_link_stats       &stats,
+                   Tcp_packet                 &tcp)
 :
 	Link(cln_interface, cln_domain, cln_id, srv_port_alloc_ptr, srv_domain, srv_id, timer,
 	     config, protocol, config.tcp_idle_timeout(), stats)
-{ }
+{
+	client_packet(tcp);
+}
 
 
 void Tcp_link::_closing()
