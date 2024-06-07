@@ -40,7 +40,7 @@ class Net::Nic_session_component_base
 	protected:
 
 		Genode::Session_env  &_session_env;
-		Genode::Heap          _alloc;
+		Genode::Sliced_heap          _alloc;
 		Nic::Packet_allocator _packet_alloc;
 		Communication_buffer  _tx_buf;
 		Communication_buffer  _rx_buf;
@@ -126,6 +126,8 @@ class Net::Nic_session_component : private Nic_session_component_base,
 				void report(Genode::Xml_generator &xml) const override { _session_env.report(xml); };
 				void handle_domain_ready_state(bool state) override;
 				bool interface_link_state() const override;
+				Genode::size_t avail_ram() const override { ASSERT_NEVER_REACHED; }
+				Genode::size_t avail_cap() const override { ASSERT_NEVER_REACHED; }
 		};
 
 		Interface_policy                       _interface_policy;

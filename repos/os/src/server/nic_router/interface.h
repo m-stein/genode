@@ -26,6 +26,7 @@
 /* Genode includes */
 #include <net/dhcp.h>
 #include <net/icmp.h>
+#include <base/tslab.h>
 
 namespace Genode { class Xml_generator; }
 
@@ -113,6 +114,10 @@ struct Net::Interface_policy : Genode::Interface
 
 	virtual void report(Genode::Xml_generator &) const = 0;
 
+	virtual Genode::size_t avail_ram() const = 0;
+
+	virtual Genode::size_t avail_cap() const = 0;
+
 	virtual ~Interface_policy() { }
 };
 
@@ -129,6 +134,7 @@ class Net::Interface : private Interface_list::Element
 
 		enum { IPV4_TIME_TO_LIVE          = 64 };
 		enum { MAX_FREE_OPS_PER_EMERGENCY = 1024 };
+		enum { TSLAB_BLOCK_SIZE           = 19*1024 };
 
 		struct Update_domain
 		{
@@ -151,7 +157,11 @@ class Net::Interface : private Interface_list::Element
 		Configuration                        *_config_ptr;
 		Interface_policy                     &_policy;
 		Cached_timer                         &_timer;
-		Genode::Allocator                    &_alloc;
+		Genode::Tslab<Tcp_link, TSLAB_BLOCK_SIZE>           _tcp_link_alloc;
+		Genode::Tslab<Udp_link, TSLAB_BLOCK_SIZE>           _udp_link_alloc;
+		Genode::Tslab<Icmp_link, TSLAB_BLOCK_SIZE>          _icmp_link_alloc;
+		Genode::Tslab<Arp_waiter, TSLAB_BLOCK_SIZE>         _arp_waiter_alloc;
+		Genode::Tslab<Dhcp_allocation, TSLAB_BLOCK_SIZE>    _dhcp_allocation_alloc;
 		Domain                               *_domain_ptr                { };
 		Arp_waiter_list                       _own_arp_waiters           { };
 		Arp_waiter_list                       _timed_out_arp_waiters     { };
@@ -195,7 +205,7 @@ class Net::Interface : private Interface_list::Element
 		void _release_dhcp_allocation(Dhcp_allocation &allocation,
 		                              Domain          &local_domain);
 
-		void _try_free_quota(Genode::size_t alloc_size);
+		bool _try_free_any_quota();
 
 		void _destroy_timed_out_arp_waiters();
 

@@ -345,6 +345,7 @@ Nic_session_component *Net::Nic_session_root::_create_session(char const *args)
 		throw Insufficient_ram_quota();
 	}
 	catch (Out_of_caps) {
+log("--- ", args);
 		_invalid_downlink("NIC session CAP quota");
 		throw Insufficient_cap_quota();
 	}

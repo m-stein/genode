@@ -91,6 +91,7 @@ class Genode::Packet_allocator : public Genode::Range_allocator
 			size_t const bits_bytes = bits_cnt / 8;
 
 			try {
+Genode::error(bits_bytes);
 				_bits = (addr_t *)_md_alloc->alloc(bits_bytes);
 				memset(_bits, 0, bits_cnt / 8);
 

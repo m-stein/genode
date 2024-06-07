@@ -17,8 +17,10 @@
 
 namespace Net {
 
+	enum class Retry_command { RETRY, ABORT };
+
 	template <typename EXCEPTION_1, typename EXCEPTION_2>
-	void retry(unsigned num_attempts, auto const &attempt_fn, auto const &exception_fn, auto const &failed_fn)
+	void retry(auto const &attempt_fn, auto const &exception_fn)
 	{
 		while (1) {
 			try {
@@ -27,12 +29,9 @@ namespace Net {
 			}
 			catch (EXCEPTION_1) { }
 			catch (EXCEPTION_2) { }
-			num_attempts--;
-			if (num_attempts)
-				exception_fn();
-			else {
-				failed_fn();
-				return;
+			switch (exception_fn()) {
+			case Retry_command::RETRY: break;
+			case Retry_command::ABORT: return;
 			}
 		}
 	}

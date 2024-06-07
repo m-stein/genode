@@ -120,7 +120,7 @@ append config {
 			<service name="Nic"/>
 			<service name="Uplink"/>
 		</provides>
-		<config dhcp_discover_timeout_sec="1">
+		<config verbose_packets="yes" verbose="yes" verbose_packet_drop="yes" dhcp_discover_timeout_sec="1">
 
 			<policy label_prefix="drivers" domain="uplink"/>
 			<policy label_prefix="ping"    domain="downlink"/>
