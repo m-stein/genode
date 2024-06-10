@@ -290,10 +290,9 @@ append config {
 			<service name="Nic"/>
 			<service name="Uplink"/>
 		</provides>
-		<config verbose="yes"
-		        verbose_packets="yes"
+		<config verbose="no"
+		        verbose_packets="no"
 		        verbose_domain_state="yes"
-		        verbose_packet_drop="yes"
 		        dhcp_discover_timeout_sec="3"
 		        dhcp_request_timeout_sec="3"
 		        dhcp_offer_timeout_sec="3"
@@ -313,7 +312,8 @@ append config {
 
 			<domain name="uplink"
 			        interface="10.0.2.55/24"
-			        gateway="10.0.2.1">
+			        gateway="10.0.2.1"
+			        verbose_packets="no">
 
 				} [test_1_router_uplink_config] {
 				} [test_2_router_uplink_config] {

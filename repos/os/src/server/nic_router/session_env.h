@@ -16,7 +16,6 @@
 
 /* Genode includes */
 #include <base/ram_allocator.h>
-#include <os/backtrace.h>
 
 namespace Genode { class Session_env; }
 
@@ -30,7 +29,6 @@ class Genode::Session_env : public Ram_allocator,
 		Net::Quota             &_shared_quota;
 		Ram_quota_guard         _ram_guard;
 		Cap_quota_guard         _cap_guard;
-		unsigned cnt=0;
 
 		template <typename FUNC>
 		void _consume(size_t  own_ram,
@@ -44,11 +42,7 @@ class Genode::Session_env : public Ram_allocator,
 			size_t ram_consumpt { _env.pd().used_ram().value };
 			size_t cap_consumpt { _env.pd().used_caps().value };
 			{
-if (_ram_guard.avail().value < max_ram_consumpt )
-	warning(this, " ", __func__,__LINE__, " avail ram ", _ram_guard.avail(), " ram reserve ", max_ram_consumpt);
 				Ram_quota_guard::Reservation ram_reserv { _ram_guard, Ram_quota { max_ram_consumpt } };
-if (_cap_guard.avail().value < max_cap_consumpt )
-	warning(this, " ", __func__,__LINE__, " avail cap ", _cap_guard.avail(), " cap reserve ", max_cap_consumpt);
 				Cap_quota_guard::Reservation cap_reserv { _cap_guard, Cap_quota { max_cap_consumpt } };
 
 				functor();
@@ -121,8 +115,6 @@ if (_cap_guard.avail().value < max_cap_consumpt )
 
 		Alloc_result try_alloc(size_t size, Cache cache) override
 		{
-size_t orig_size = size;
-size_t cap_avail = _cap_guard.avail().value;
 			enum { MAX_SHARED_CAP           = 1 };
 			enum { MAX_SHARED_RAM           = 4096 };
 			enum { DS_SIZE_GRANULARITY_LOG2 = 12 };
@@ -137,15 +129,8 @@ size_t cap_avail = _cap_guard.avail().value;
 					result = _env.pd().try_alloc(ds_size, cache);
 				});
 			}
-			catch (Out_of_ram)  {
-warning(this, " ", __func__,__LINE__);
-result = Alloc_error::OUT_OF_RAM; }
-			catch (Out_of_caps) {
-warning(this, " ", __func__,__LINE__);
-result = Alloc_error::OUT_OF_CAPS; }
-if (result.ok())
-	log(this, " ",__func__,__LINE__, " cnt ", ++cnt, " size ", orig_size, " ds_size ", ds_size, " caps ", cap_avail, " - ", cap_avail - _cap_guard.avail().value);
-Genode::backtrace();
+			catch (Out_of_ram)  { result = Alloc_error::OUT_OF_RAM; }
+			catch (Out_of_caps) { result = Alloc_error::OUT_OF_CAPS; }
 
 			return result;
 		}
@@ -153,15 +138,9 @@ Genode::backtrace();
 
 		void free(Ram_dataspace_capability ds) override
 		{
-try {
 			_replenish(_env.pd().dataspace_size(ds), 1, [&] () {
 				_env.pd().free(ds);
 			});
-} catch(...) {
-warning(this, " ", __func__,__LINE__);
-throw;
-}
-
 		}
 
 		size_t dataspace_size(Ram_dataspace_capability ds) const override { return _env.pd().dataspace_size(ds); }
@@ -183,15 +162,10 @@ throw;
 			enum { MAX_SHARED_RAM = 4 * 4096 };
 
 			void *ptr;
-try {
 			_consume(0, MAX_SHARED_RAM, 0, MAX_SHARED_CAP, [&] () {
 				ptr = _env.rm().attach(ds, size, offset, use_local_addr,
 				                       local_addr, executable, writeable);
 			});
-} catch(...) {
-warning(this, " ", __func__,__LINE__);
-throw;
-}
 			return ptr;
 		};
 
@@ -213,12 +187,7 @@ throw;
 
 		void detach(Local_addr local_addr) override
 		{
-try {
 			_replenish(0, 0, [&] () { _env.rm().detach(local_addr); });
-} catch(...) {
-warning(this, " ", __func__,__LINE__);
-throw;
-}
 		}
 
 		void fault_handler(Signal_context_capability handler) override { _env.rm().fault_handler(handler); }

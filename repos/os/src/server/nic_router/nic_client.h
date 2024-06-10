@@ -103,8 +103,6 @@ class Net::Nic_client_interface_base : public Interface_policy
 		bool interface_link_state() const override;
 		bool report_empty() const override { return true; };
 		void report(Genode::Xml_generator &) const override { };
-		Genode::size_t avail_ram() const override { ASSERT_NEVER_REACHED; }
-		Genode::size_t avail_cap() const override { ASSERT_NEVER_REACHED; }
 
 	public:
 

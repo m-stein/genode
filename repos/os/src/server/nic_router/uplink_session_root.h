@@ -90,8 +90,6 @@ class Net::Uplink_session_component : private Uplink_session_component_base,
 				void report(Genode::Xml_generator &xml) const override { _session_env.report(xml); };
 				void handle_domain_ready_state(bool /* state */) override { }
 				bool interface_link_state() const override { return true; }
-				Genode::size_t avail_ram() const override { ASSERT_NEVER_REACHED; }
-				Genode::size_t avail_cap() const override { ASSERT_NEVER_REACHED; }
 		};
 
 		Interface_policy                       _interface_policy;

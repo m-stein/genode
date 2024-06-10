@@ -102,12 +102,16 @@ template <typename LINK_TYPE>
 static void _early_drop_links(Link_list   &links,
                               Link_list   &dissolved_links,
                               Deallocator &dealloc,
-                              auto const  &is_sufficient_fn)
+                              size_t      &max_num_bytes)
 {
+	if (!max_num_bytes) {
+		return; }
+
 	while (Link *link = dissolved_links.first()) {
 		dissolved_links.remove(link);
 		destroy(dealloc, static_cast<LINK_TYPE *>(link));
-		if (is_sufficient_fn())
+		max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+		if (!max_num_bytes)
 			return;
 	}
 	Link *link_ptr = links.first();
@@ -115,7 +119,8 @@ static void _early_drop_links(Link_list   &links,
 		Link *next_ptr = link_ptr->next();
 		if (static_cast<LINK_TYPE *>(link_ptr)->can_early_drop()) {
 			_destroy_link<LINK_TYPE>(*link_ptr, links, dealloc);
-			if (is_sufficient_fn())
+			max_num_bytes = max_num_bytes > sizeof(LINK_TYPE) ? max_num_bytes - sizeof(LINK_TYPE) : 0;
+			if (!max_num_bytes)
 				return;
 		}
 		link_ptr = next_ptr;
@@ -317,9 +322,9 @@ void Interface::destroy_link(Link &link)
 {
 	L3_protocol const prot = link.protocol();
 	switch (prot) {
-	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _tcp_link_alloc);  break;
-	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _udp_link_alloc);  break;
-	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _icmp_link_alloc); break;
+	case L3_protocol::TCP:  ::_destroy_link<Tcp_link>(link, links(prot), _alloc);  break;
+	case L3_protocol::UDP:  ::_destroy_link<Udp_link>(link, links(prot), _alloc);  break;
+	case L3_protocol::ICMP: ::_destroy_link<Icmp_link>(link, links(prot), _alloc); break;
 	default: ASSERT_NEVER_REACHED; }
 }
 
@@ -451,9 +456,9 @@ void Interface::detach_from_ip_config(Domain &domain)
 		cancel_arp_waiting(*_own_arp_waiters.first()->object());
 	}
 	/* destroy links */
-	_destroy_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _tcp_link_alloc);
-	_destroy_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _udp_link_alloc);
-	_destroy_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _icmp_link_alloc);
+	_destroy_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc);
+	_destroy_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc);
+	_destroy_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc);
 
 	/* destroy DHCP allocations */
 	_destroy_released_dhcp_allocations(domain);
@@ -496,18 +501,11 @@ void Interface::_detach_from_domain()
 }
 
 
-bool Interface::_try_free_any_quota()
+void Interface::_try_free_quota(size_t alloc_size)
 {
-	size_t avail_ram = _policy.avail_ram();
-	size_t avail_cap = _policy.avail_cap();
-	auto quota_was_freed_fn = [&] {
-		return _policy.avail_ram() != avail_ram ||
-		       _policy.avail_cap() != avail_cap; };
-
-	_early_drop_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _icmp_link_alloc, quota_was_freed_fn);
-//	_early_drop_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _udp_link_alloc, alloc_size);
-//	_early_drop_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _tcp_link_alloc, alloc_size);
-	return quota_was_freed_fn();
+	_early_drop_links<Icmp_link>(_icmp_links, _dissolved_icmp_links, _alloc, alloc_size);
+	_early_drop_links<Udp_link> (_udp_links,  _dissolved_udp_links,  _alloc, alloc_size);
+	_early_drop_links<Tcp_link> (_tcp_links,  _dissolved_tcp_links,  _alloc, alloc_size);
 }
 
 
@@ -522,46 +520,37 @@ Packet_result Interface::_new_link(L3_protocol          const  protocol,
 	Packet_result result { };
 	switch (protocol) {
 	case L3_protocol::TCP:
-		retry<Out_of_ram, Out_of_caps>(
+		retry<Out_of_ram, Out_of_caps>(2,
 			[&] {
-				new (_tcp_link_alloc)
+				new (_alloc)
 					Tcp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
 					           remote, _timer, *_config_ptr, protocol, _tcp_stats, *(Tcp_packet *)prot_base }; },
+			[&] { _try_free_quota(sizeof(Tcp_link)); },
 			[&] {
-				if (_try_free_any_quota())
-					return Retry_command::RETRY;
-				else {
-					_tcp_stats.refused_for_ram++;
-					result = packet_drop("out of quota while creating TCP link");
-					return Retry_command::ABORT;
-				}
-			});
+				_tcp_stats.refused_for_ram++;
+				result = packet_drop("out of quota while creating TCP link"); });
 		break;
 	case L3_protocol::UDP:
-/*
 		retry<Out_of_ram, Out_of_caps>(2,
-			[&] {*/
-				new (_udp_link_alloc)
+			[&] {
+				new (_alloc)
 					Udp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
-					           remote, _timer, *_config_ptr, protocol, _udp_stats }; /*},
-			[&] { _try_free_quota(); },
+					           remote, _timer, *_config_ptr, protocol, _udp_stats }; },
+			[&] { _try_free_quota(sizeof(Udp_link)); },
 			[&] {
 				_udp_stats.refused_for_ram++;
 				result = packet_drop("out of quota while creating UDP link"); });
-*/
 		break;
 	case L3_protocol::ICMP:
-/*
 		retry<Out_of_ram, Out_of_caps>(2,
-			[&] {*/
-				new (_icmp_link_alloc)
+			[&] {
+				new (_alloc)
 					Icmp_link { *this, local_domain, local, remote_port_alloc_ptr, remote_domain,
-					            remote, _timer, *_config_ptr, protocol, _icmp_stats }; /*},
-			[&] { _try_free_quota(); },
+					            remote, _timer, *_config_ptr, protocol, _icmp_stats }; },
+			[&] { _try_free_quota(sizeof(Icmp_link)); },
 			[&] {
 				_icmp_stats.refused_for_ram++;
 				result = packet_drop("out of quota while creating ICMP link"); });
-*/
 		break;
 	default: ASSERT_NEVER_REACHED; }
 	return result;
@@ -622,13 +611,13 @@ Packet_result Interface::_adapt_eth(Ethernet_frame          &eth,
 					interface._broadcast_arp_request(
 						remote_ip_cfg.interface().address, hop_ip);
 				});
-/*				retry<Out_of_ram, Out_of_caps>(2,
-					[&] {*/
-						new (_arp_waiter_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt, _config_ptr->arp_request_timeout(), _timer };
+				retry<Out_of_ram, Out_of_caps>(2,
+					[&] {
+						new (_alloc) Arp_waiter { *this, remote_domain, hop_ip, pkt, _config_ptr->arp_request_timeout(), _timer };
 						result = packet_postponed();
-					/*},
+					},
 					[&] { _try_free_quota(sizeof(Arp_waiter)); },
-					[&] { result = packet_drop("out of quota while creating ARP waiter"); }); */
+					[&] { result = packet_drop("out of quota while creating ARP waiter"); });
 			}
 		);
 	};
@@ -793,9 +782,9 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 	Packet_result result { };
 	dhcp_srv.alloc_ip().with_result(
 		[&] (Ipv4_address const &ip) {
-			/*retry<Out_of_ram, Out_of_caps>(2,
-				[&] { */
-					Dhcp_allocation &allocation = *new (_dhcp_allocation_alloc)
+			retry<Out_of_ram, Out_of_caps>(2,
+				[&] {
+					Dhcp_allocation &allocation = *new (_alloc)
 						Dhcp_allocation { *this, ip, dhcp.client_mac(),
 						                  _timer, _config_ptr->dhcp_offer_timeout() };
 
@@ -810,9 +799,9 @@ Packet_result Interface::_new_dhcp_allocation(Ethernet_frame &eth,
 					                 local_domain.ip_config().interface());
 
 					result = packet_handled();
-				/*},
+				},
 				[&] { _try_free_quota(sizeof(Dhcp_allocation)); },
-				[&] { result = packet_drop("out of quota while creating DHCP allocation"); });*/
+				[&] { result = packet_drop("out of quota while creating DHCP allocation"); });
 		},
 		[&] (auto) { result = packet_drop("failed to allocate IP for DHCP client"); });
 
@@ -1504,7 +1493,7 @@ void Interface::_handle_arp_reply(Ethernet_frame &eth,
 				waiter_le = waiter_le->next();
 				if (ip != waiter.ip()) { continue; }
 				waiter.src()._continue_handle_eth(waiter.packet());
-				destroy(waiter.src()._arp_waiter_alloc, &waiter);
+				destroy(waiter.src()._alloc, &waiter);
 			}
 		}
 	);
@@ -1732,7 +1721,7 @@ void Interface::_destroy_dhcp_allocation(Dhcp_allocation &allocation,
 {
 	local_domain.with_dhcp_server([&] (Dhcp_server &srv) {
 		srv.free_ip(allocation.ip()); });
-	destroy(_dhcp_allocation_alloc, &allocation);
+	destroy(_alloc, &allocation);
 }
 
 
@@ -1751,7 +1740,7 @@ void Interface::_destroy_timed_out_arp_waiters()
 		Arp_waiter &waiter = *le->object();
 		_drop_packet(waiter.packet(), "ARP request timed out");
 		_timed_out_arp_waiters.remove(le);
-		destroy(_arp_waiter_alloc, &waiter);
+		destroy(_alloc, &waiter);
 	}
 }
 
@@ -1826,9 +1815,9 @@ Packet_result Interface::_handle_eth(void              *const  eth_base,
 			domain.raise_rx_bytes(size_guard.total_size());
 
 			/* do garbage collection over transport-layer links and DHCP allocations */
-			_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _icmp_link_alloc);
-			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _udp_link_alloc);
-			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _tcp_link_alloc);
+			_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+			_destroy_dissolved_links<Udp_link>(_dissolved_udp_links, _alloc);
+			_destroy_dissolved_links<Tcp_link>(_dissolved_tcp_links, _alloc);
 			_destroy_timed_out_arp_waiters();
 			_destroy_released_dhcp_allocations(domain);
 
@@ -1908,11 +1897,7 @@ Interface::Interface(Genode::Entrypoint     &ep,
 	_config_ptr                { &config },
 	_policy                    { policy },
 	_timer                     { timer },
-	_tcp_link_alloc                     { alloc },
-	_udp_link_alloc                     { alloc },
-	_icmp_link_alloc                     { alloc },
-	_arp_waiter_alloc                     { alloc },
-	_dhcp_allocation_alloc                     { alloc },
+	_alloc                     { alloc },
 	_interfaces                { interfaces }
 {
 	_interfaces.insert(this);
@@ -2114,9 +2099,9 @@ void Interface::handle_config_1(Configuration &config)
 	with_domain([&] (Domain &old_domain) {
 
 		/* destroy state objects that are not needed anymore */
-		_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _icmp_link_alloc);
-		_destroy_dissolved_links<Udp_link> (_dissolved_udp_links,  _udp_link_alloc);
-		_destroy_dissolved_links<Tcp_link> (_dissolved_tcp_links,  _tcp_link_alloc);
+		_destroy_dissolved_links<Icmp_link>(_dissolved_icmp_links, _alloc);
+		_destroy_dissolved_links<Udp_link> (_dissolved_udp_links,  _alloc);
+		_destroy_dissolved_links<Tcp_link> (_dissolved_tcp_links,  _alloc);
 		_destroy_timed_out_arp_waiters();
 		_destroy_released_dhcp_allocations(old_domain);
 
@@ -2281,7 +2266,7 @@ void Interface::_ack_packet(Packet_descriptor const &pkt)
 void Interface::cancel_arp_waiting(Arp_waiter &waiter)
 {
 	_drop_packet(waiter.packet(), "ARP got cancelled");
-	destroy(_arp_waiter_alloc, &waiter);
+	destroy(_alloc, &waiter);
 }
 
 
