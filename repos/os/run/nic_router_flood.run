@@ -78,14 +78,8 @@ install_config {
 				<service name="Nic"/>
 				<service name="Uplink"/>
 			</provides>
-			<config verbose="no"
-					verbose_packets="no"
-					verbose_packet_drop="yes"
-					verbose_domain_state="yes"
-					dhcp_discover_timeout_sec="1"
-					tcp_idle_timeout_sec="3600"
-					udp_idle_timeout_sec="3600"
-					icmp_idle_timeout_sec="3600">
+			<config verbose_domain_state="yes"
+					dhcp_discover_timeout_sec="1">
 
 				<policy label_prefix="net_clients" domain="net_clients"/>
 				<policy label_prefix="drivers" domain="uplink"/>
