@@ -237,7 +237,7 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
                            Peer       &sender,
                            Peer       &receiver)
 {
-	if (_opening)
+	if (_state == State::OPENING)
 		_opening_tcp_packet(tcp, sender, receiver);
 
 	if (_state == State::CLOSED) {
@@ -260,6 +260,7 @@ void Tcp_link::_tcp_packet(Tcp_packet &tcp,
 		}
 	}
 	switch (_state) {
+	case State::OPENING:
 	case State::OPEN: _packet(); break;
 	case State::CLOSED: _dissolve_timeout.schedule(Microseconds(0UL)); break;
 	default: _dissolve_timeout.schedule(Microseconds(_config_ptr->tcp_max_segm_lifetime().value << 1)); break;
@@ -275,6 +276,7 @@ void Tcp_link::_opening_tcp_packet(Tcp_packet const &tcp, Peer &sender, Peer &re
 		receiver.syn_acked = true;
 	if (sender.syn_acked && receiver.syn_acked) {
 		_opening = false;
+		_state = State::OPEN;
 		(*_stats_ptr)--;
 		if (_stats_ptr == &_stats.opening) { _stats_ptr = &_stats.open; }
 		(*_stats_ptr)++;
