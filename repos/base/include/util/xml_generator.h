@@ -280,10 +280,9 @@ class Genode::Xml_generator
 					_commit_content(content_buffer);
 				}
 
-				template <typename FN>
-				Node(Xml_generator &xml, char const *name, FN const &fn)
+				Node(Xml_generator &xml, char const *name, auto const &fn)
 				:
-					Node(xml, name, static_cast<_Fn const &>(_Typed_fn<FN>(fn)))
+					Node(xml, name, static_cast<_Fn const &>(_Typed_fn<decltype(fn)>(fn)))
 				{ }
 
 				bool has_content() { return _has_content; }

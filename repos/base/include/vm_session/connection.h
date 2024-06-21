@@ -69,13 +69,12 @@ struct Genode::Vm_connection : Connection<Vm_session>, Rpc_client<Vm_session>
 
 		Vcpu(Vm_connection &, Allocator &, Vcpu_handler_base &, Exit_config const &);
 
-		template <typename FN>
-		void with_state(FN const &fn)
+		void with_state(auto const &fn)
 		{
 			struct Untyped_fn : Call_with_state
 			{
-				FN const &_fn;
-				Untyped_fn(FN const &fn) : _fn(fn) {}
+				decltype(fn) _fn;
+				Untyped_fn(decltype(fn) fn) : _fn(fn) {}
 
 				bool call_with_state(Vcpu_state &state) override
 				{

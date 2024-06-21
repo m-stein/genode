@@ -156,16 +156,15 @@ class Genode::Dynamic_linker
 		/**
 		 * Call 'fn' for each loaded object with 'Object_info' as argument
 		 */
-		template <typename FN>
-		static inline void for_each_loaded_object(Env &env, FN const &fn)
+		static inline void for_each_loaded_object(Env &env, auto const &fn)
 		{
 			struct For_each_fn_impl : For_each_fn
 			{
-				FN const &fn;
+				decltype(fn) _fn;
 
-				void supply_object_info(Object_info const &info) const { fn(info); }
+				void supply_object_info(Object_info const &info) const { _fn(info); }
 
-				For_each_fn_impl(FN const &fn) : fn(fn) { }
+				For_each_fn_impl(decltype(fn) _fn) : _fn(_fn) { }
 
 			} wrapped_fn { fn };
 

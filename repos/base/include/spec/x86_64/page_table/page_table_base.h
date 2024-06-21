@@ -173,8 +173,7 @@ class Genode::Final_table
 			return true;
 		}
 
-		template <typename FN>
-		void for_each_entry(FN && fn)
+		void for_each_entry(auto const &fn)
 		{
 			for (unsigned long i = 0; i < MAX_ENTRIES; i++) {
 				if (Descriptor::present(_entries[i]))
@@ -392,8 +391,7 @@ class Genode::Page_directory
 			return true;
 		}
 
-		template <typename FN>
-		void for_each_entry(FN && fn)
+		void for_each_entry(auto const &fn)
 		{
 			for (unsigned long i = 0; i < MAX_ENTRIES; i++)
 				if (Descriptor::present(_entries[i]))
@@ -596,8 +594,7 @@ class Genode::Pml4_table
 			return true;
 		}
 
-		template <typename FN>
-		void for_each_entry(FN && fn)
+		void for_each_entry(auto const &fn)
 		{
 			for (unsigned long i = 0; i < MAX_ENTRIES; i++) {
 				if (Descriptor::present(_entries[i]))
